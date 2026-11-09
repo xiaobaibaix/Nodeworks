@@ -1,0 +1,62 @@
+import { useReactFlow } from '@xyflow/react';
+import { downloadGraph, pickGraphFile } from '../persistence';
+import { useGraph } from '../store';
+
+export default function Toolbar() {
+  const addNode = useGraph((s) => s.addNode);
+  const undo = useGraph((s) => s.undo);
+  const redo = useGraph((s) => s.redo);
+  const canUndo = useGraph((s) => s.past.length > 0);
+  const canRedo = useGraph((s) => s.future.length > 0);
+  const load = useGraph((s) => s.load);
+  const toastOf = useGraph((s) => s.toastOf);
+  const count = useGraph((s) => s.graph.nodes.length);
+  const kinds = useGraph((s) => s.graph.kinds);
+  const togglePalette = useGraph((s) => s.togglePalette);
+  const { fitView } = useReactFlow();
+
+  async function open() {
+    try {
+      load(await pickGraphFile());
+      toastOf('已载入图');
+    } catch (error) {
+      toastOf((error as Error).message);
+    }
+  }
+
+  return (
+    <header className="bar">
+      <div className="brand">
+        <span className="dot" />
+        Nodeworks
+        <span className="sub">单元节点编辑器</span>
+      </div>
+      <div className="bar-actions">
+        <button onClick={() => addNode()}>+ 单元</button>
+        <select
+          className="template-pick"
+          value=""
+          title="从模板新建"
+          onChange={(e) => {
+            const key = e.target.value;
+            if (key) addNode(undefined, key);
+          }}
+        >
+          <option value="">模板…</option>
+          {Object.entries(kinds).map(([key, def]) => (
+            <option key={key} value={key}>{def.name || key}</option>
+          ))}
+        </select>
+        <button className="kbd" title="命令面板 (⌘K)" onClick={() => togglePalette(true)}>⌘K</button>
+        <button onClick={undo} disabled={!canUndo}>撤销</button>
+        <button onClick={redo} disabled={!canRedo}>重做</button>
+        <span className="sep" />
+        <button onClick={() => downloadGraph(useGraph.getState().graph)}>保存</button>
+        <button onClick={open}>打开</button>
+        <span className="sep" />
+        <button onClick={() => fitView({ padding: 0.25, duration: 300 })}>适应视图</button>
+        <span className="count">{count} 个单元</span>
+      </div>
+    </header>
+  );
+}

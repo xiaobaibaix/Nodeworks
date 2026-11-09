@@ -1,0 +1,57 @@
+import { Handle, Position, type NodeProps } from '@xyflow/react';
+import type { UnitNode as UnitNodeModel } from '../model/types';
+
+function short(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.join(', ');
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+export default function UnitNode({ data, selected }: NodeProps) {
+  const node = data.node as UnitNodeModel;
+  const dimmed = Boolean(data.dimmed);
+  const matched = Boolean(data.matched);
+  const ins = node.ports.filter((p) => p.dir === 'in');
+  const outs = node.ports.filter((p) => p.dir === 'out');
+  const props = Object.entries(node.props);
+  return (
+    <div
+      className={`unit-node${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}${matched ? ' is-match' : ''}`}
+    >
+      <div className="unit-head">
+        <span className="unit-kind">{node.kind || 'unit'}</span>
+        <span className="unit-title">{node.title}</span>
+      </div>
+      <div className="unit-props">
+        {props.length === 0 && <div className="unit-empty">无属性</div>}
+        {props.slice(0, 6).map(([key, meta]) => (
+          <div className="unit-prop" key={key}>
+            <span className="k">{key}</span>
+            <span className="v">{short(meta.value)}</span>
+          </div>
+        ))}
+        {props.length > 6 && <div className="unit-empty">+{props.length - 6} 项</div>}
+      </div>
+      <div className="unit-ports">
+        <div className="unit-port-col">
+          {ins.map((port) => (
+            <div className="unit-port" key={port.id}>
+              <Handle type="target" position={Position.Left} id={port.id} className="unit-handle" />
+              <span>{port.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="unit-port-col out">
+          {outs.map((port) => (
+            <div className="unit-port" key={port.id}>
+              <span>{port.label}</span>
+              <Handle type="source" position={Position.Right} id={port.id} className="unit-handle" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
