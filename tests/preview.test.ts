@@ -52,6 +52,10 @@ describe('miniPreview', () => {
     expect(preview.nodes[0].y).toBeLessThan(preview.nodes[1].y);
   });
 
+  it('缩略图节点带源单元 id，供点击进入', () => {
+    expect(miniPreview(graph()).nodes.map((n) => n.id)).toEqual(['a', 'b']);
+  });
+
   it('跳过孤儿边，节点填色取 kind 颜色', () => {
     const preview = miniPreview(graph(), 200, 54);
     expect(preview.edges).toHaveLength(1);

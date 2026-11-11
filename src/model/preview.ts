@@ -2,6 +2,7 @@ import { estimateSize } from './autolayout';
 import type { Graph } from './types';
 
 export interface MiniNode {
+  id: string;
   x: number;
   y: number;
   w: number;
@@ -59,6 +60,7 @@ export function miniPreview(graph: Graph, width = 200, height = 54, pad = 6): Mi
     const w = Math.min(34, Math.max(8, size.width * scale * 0.55));
     const h = Math.min(12, Math.max(5, size.height * scale * 0.4));
     return {
+      id: node.id,
       x: center.x - w / 2,
       y: center.y - h / 2,
       w,
