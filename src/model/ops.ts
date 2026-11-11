@@ -304,3 +304,22 @@ export function orientEdge(
   if (a.dir === 'in' && b.dir === 'out') return { from: edge.to, to: edge.from };
   return null;
 }
+
+/** 把子图层里外层输入/输出代理的位置写回父节点（纯数据，不参与端口映射）。 */
+export function setBoundaryPosOp(
+  g: Graph,
+  nodeId: string,
+  side: 'in' | 'out',
+  pos: { x: number; y: number },
+): Graph {
+  return {
+    ...g,
+    nodes: g.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      return {
+        ...n,
+        boundaryPos: { ...n.boundaryPos, [side]: { x: Math.round(pos.x), y: Math.round(pos.y) } },
+      };
+    }),
+  };
+}

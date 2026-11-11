@@ -30,6 +30,11 @@ export interface UnitNode {
   subgraph?: Graph;
   /** 父端口 id → 子图内部端点，用于子图边界映射 */
   subgraphMap?: Record<string, Endpoint>;
+  /** 子图层里「外层输入/输出」代理的摆放位置（子图坐标），缺省由布局计算 */
+  boundaryPos?: {
+    in?: { x: number; y: number };
+    out?: { x: number; y: number };
+  };
 }
 
 export interface Endpoint {

@@ -62,6 +62,9 @@ function Canvas() {
   const didFit = useRef(false);
 
   const [crossSource, setCrossSource] = useState<Endpoint | null>(null);
+  const [crossPos, setCrossPos] = useState<Pos | null>(null);
+  const silentMoveBoundary = useGraph((s) => s.silentMoveBoundary);
+  const commitMoveBoundary = useGraph((s) => s.commitMoveBoundary);
   const dragFrom = useRef<Record<string, Pos>>({});
   const dragAnchor = useRef<string | null>(null);
   // 受控 nodes 每次重渲染都会重新 adopt；React Flow 在 adopt 时用 userNode.measured 覆盖内部测量，
@@ -99,6 +102,10 @@ function Canvas() {
     const timer = setTimeout(() => void fitView({ padding: 0.22, duration: 250, maxZoom: 1.6 }), 50);
     return () => clearTimeout(timer);
   }, [path, nodesInitialized, fitView]);
+
+  useEffect(() => {
+    setCrossPos(null);
+  }, [path]);
 
   useEffect(() => {
     if (!focus) return;
@@ -140,8 +147,8 @@ function Canvas() {
       const outer = (id: string, side: 'in' | 'out', x: number): Node => ({
         id,
         type: 'boundary',
-        position: { x, y: midY },
-        draggable: false,
+        position: parent.boundaryPos?.[side] ?? { x, y: midY },
+        draggable: !preview,
         selectable: false,
         deletable: false,
         connectable: !preview,
@@ -158,8 +165,8 @@ function Canvas() {
         list.push({
           id: CROSS_ID,
           type: 'unit',
-          position: { x: maxX + 360, y: midY },
-          draggable: false,
+          position: crossPos ?? { x: maxX + 360, y: midY },
+          draggable: !preview,
           selectable: false,
           deletable: false,
           connectable: true,
@@ -177,7 +184,7 @@ function Canvas() {
       }
     }
     return list;
-  }, [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, impact, impactNodes, measuredVersion, parent, preview]);
+  }, [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, impact, impactNodes, measuredVersion, parent, preview, crossPos]);
 
   const edges: Edge[] = useMemo(() => {
     const list: Edge[] = [];
@@ -262,6 +269,16 @@ function Canvas() {
   );
 
   const onNodeDragStart = useCallback((_: unknown, node: Node) => {
+    // 合成节点（外层端口代理 / 跨子图落点）不属于当前层图，单独记录拖拽起点。
+    if (node.id === CROSS_ID) {
+      dragAnchor.current = null;
+      return;
+    }
+    if (node.id === OUTER_IN || node.id === OUTER_OUT) {
+      dragFrom.current = { [node.id]: { ...node.position } };
+      dragAnchor.current = node.id;
+      return;
+    }
     const state = useGraph.getState();
     const ids = state.selectedNodes.includes(node.id) ? state.selectedNodes : [node.id];
     const from: Record<string, Pos> = {};
@@ -275,6 +292,14 @@ function Canvas() {
 
   const onNodeDrag = useCallback(
     (_: unknown, node: Node) => {
+      if (node.id === CROSS_ID) {
+        setCrossPos({ x: node.position.x, y: node.position.y });
+        return;
+      }
+      if (node.id === OUTER_IN || node.id === OUTER_OUT) {
+        silentMoveBoundary(node.id === OUTER_IN ? 'in' : 'out', node.position);
+        return;
+      }
       const from = dragFrom.current;
       const anchor = dragAnchor.current;
       if (!anchor || !from[anchor]) return;
@@ -289,11 +314,19 @@ function Canvas() {
       for (const id of ids) moves[id] = { x: from[id].x + dx, y: from[id].y + dy };
       silentMoveMany(moves);
     },
-    [silentMoveMany],
+    [silentMoveMany, silentMoveBoundary],
   );
 
   const onNodeDragStop = useCallback(
     (_: unknown, node: Node) => {
+      if (node.id === CROSS_ID) return;
+      if (node.id === OUTER_IN || node.id === OUTER_OUT) {
+        const from = dragFrom.current[node.id];
+        dragFrom.current = {};
+        dragAnchor.current = null;
+        if (from) commitMoveBoundary(node.id === OUTER_IN ? 'in' : 'out', from, node.position);
+        return;
+      }
       const from = dragFrom.current;
       const anchor = dragAnchor.current;
       dragFrom.current = {};
@@ -305,7 +338,7 @@ function Canvas() {
       for (const id of Object.keys(from)) to[id] = { x: from[id].x + dx, y: from[id].y + dy };
       commitMoveMany(from, to);
     },
-    [commitMoveMany],
+    [commitMoveMany, commitMoveBoundary],
   );
 
   // React Flow 受控模式下 select 变更只会通过 onNodesChange/onEdgesChange 发出；

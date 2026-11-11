@@ -12,7 +12,7 @@ import {
   findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp,
   removePortEdgesOp, removePortOp, removePropOp, renameNodeOp, replaceNodeOp,
   replacePortInEdgesOp, setEdgeLabelOp, setKindOp, setNodePosOp, setPortOp,
-  setPropOp, setSubgraphMapOp, validateConnection, withKindDefaults,
+  setBoundaryPosOp, setPropOp, setSubgraphMapOp, validateConnection, withKindDefaults,
 } from './model/ops';
 import { sampleGraph } from './model/sample';
 import {
@@ -90,6 +90,8 @@ interface Store {
   silentMoveMany(moves: Record<string, Pos>): void;
   commitMove(id: string, from: Pos, to: Pos): void;
   commitMoveMany(from: Record<string, Pos>, to: Record<string, Pos>): void;
+  silentMoveBoundary(side: 'in' | 'out', pos: Pos): void;
+  commitMoveBoundary(side: 'in' | 'out', from: Pos, to: Pos): void;
   moveNodes(moves: Record<string, Pos>, label: string): void;
   autoLayout(): void;
   addProp(nodeId: string, name: string, type: string, value: unknown): void;
@@ -366,6 +368,39 @@ export const useGraph = create<Store>((set, get) => ({
       run: (g) => moveNodesOp(g, to),
       revert: (g) => moveNodesOp(g, from),
     });
+  },
+
+  silentMoveBoundary: (side, pos) => {
+    const { path, graph } = get();
+    if (!path.length) return;
+    const parentPath = path.slice(0, -1);
+    const nodeId = path[path.length - 1];
+    set({
+      graph: updateAtPath(graph, parentPath, (g) => setBoundaryPosOp(g, nodeId, side, pos)),
+    });
+  },
+
+  commitMoveBoundary: (side, from, to) => {
+    if (from.x === to.x && from.y === to.y) return;
+    const state = get();
+    const { path } = state;
+    if (!path.length) return;
+    // 代理节点属于“父节点”，不在当前层图里；所以直接压根图快照，不走 commit 的路径抬升。
+    const parentPath = path.slice(0, -1);
+    const nodeId = path[path.length - 1];
+    const beforeGraph = updateAtPath(state.graph, parentPath, (pg) =>
+      setBoundaryPosOp(pg, nodeId, side, from),
+    );
+    const afterGraph = updateAtPath(state.graph, parentPath, (pg) =>
+      setBoundaryPosOp(pg, nodeId, side, to),
+    );
+    const entry: Entry = {
+      label: side === 'in' ? '移动外层输入' : '移动外层输出',
+      run: () => afterGraph,
+      revert: () => beforeGraph,
+      at: Date.now(),
+    };
+    set({ graph: afterGraph, past: pushEntry(state.past, entry), future: [] });
   },
 
   autoLayout: () => {

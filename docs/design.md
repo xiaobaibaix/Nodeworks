@@ -412,7 +412,7 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 
 - 自动在两边子图卡片上创建外层端口并写 `subgraphMap`，根层生成一条普通边；整次操作一条历史可撤销；
 - 进入任一侧子图能看到内部节点到外层端口的虚线映射，根图看到两张卡片之间的实线；`cross.mjs` 9 项通过；
-- `pnpm test` 141 项通过（17 个文件；新增 cross 3、preview id 1）；`tsc` 干净；`vite build` 成功（JS gzip 153.16 kB、CSS gzip 7.09 kB）。
+- `pnpm test` 143 项通过（17 个文件；新增 cross 3、preview id 1、外层代理位置 2）；`tsc` 干净；`vite build` 成功（JS gzip 153.51 kB、CSS gzip 7.09 kB）。
 
 实现要点：`src/model/cross.ts` 的 `crossTargets/planCrossLink`（合成 addPortOp + setSubgraphMapOp + addEdgeOp，纯函数可测）；store 的 `linkCrossSubgraph` 单条历史；`CrossLinkDialog` 只列其它顶层子图内部的输入端口；子图层 `__cross__` 合成落点节点。
 

@@ -118,7 +118,7 @@ MCP 客户端配置（Claude Code / 任意 stdio 客户端）：
 ## 测试
 
 ```bash
-pnpm test     # 141 项：模型纯函数、历史合并、自动布局、快照差异、剪贴板、查询、路径、表格、影响面、跨子图、导入导出映射、项目多图、store 集成
+pnpm test     # 143 项：模型纯函数、历史合并、自动布局、快照差异、剪贴板、查询、路径、表格、影响面、跨子图、导入导出映射、项目多图、store 集成
 pnpm typecheck:mcp   # MCP 源码类型检查
 pnpm build    # tsc --noEmit && vite build
 ```

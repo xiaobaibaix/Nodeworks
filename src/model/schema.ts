@@ -31,6 +31,12 @@ const NodeBase = z.object({
   pos: z.object({ x: z.number(), y: z.number() }),
   subgraph: z.lazy(() => GraphSchema).optional(),
   subgraphMap: z.record(z.string(), EndpointSchema).optional(),
+  boundaryPos: z
+    .object({
+      in: z.object({ x: z.number(), y: z.number() }).optional(),
+      out: z.object({ x: z.number(), y: z.number() }).optional(),
+    })
+    .optional(),
 });
 
 function checkSubgraphMap(node: z.infer<typeof NodeBase>, ctx: z.RefinementCtx): void {

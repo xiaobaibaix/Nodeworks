@@ -130,3 +130,34 @@ describe('子图端口映射', () => {
     expect(useGraph.getState().past).toHaveLength(1); // 只有新建子图
   });
 });
+
+describe('子图层外层端口代理位置', () => {
+  it('静默拖动只改坐标不记历史，提交后一条历史、可撤销', () => {
+    useGraph.getState().addSubgraphNode({ x: 0, y: 0 });
+    const id = useGraph.getState().graph.nodes[0].id;
+    useGraph.getState().enterSubgraph(id);
+
+    useGraph.getState().silentMoveBoundary('in', { x: 12, y: 34 });
+    let node = useGraph.getState().graph.nodes[0];
+    expect(node.boundaryPos?.in).toEqual({ x: 12, y: 34 });
+    expect(useGraph.getState().past).toHaveLength(1); // 只有“新建子图单元”
+
+    useGraph.getState().commitMoveBoundary('in', { x: 160, y: 34 }, { x: 300, y: 120 });
+    node = useGraph.getState().graph.nodes[0];
+    expect(node.boundaryPos?.in).toEqual({ x: 300, y: 120 });
+    expect(useGraph.getState().past.at(-1)?.label).toBe('移动外层输入');
+
+    useGraph.getState().undo();
+    node = useGraph.getState().graph.nodes[0];
+    expect(node.boundaryPos?.in).toEqual({ x: 160, y: 34 });
+    // 父节点的位置不受影响，只回滚代理位置
+    expect(node.pos).toEqual({ x: 0, y: 0 });
+  });
+
+  it('根图层调用是空操作', () => {
+    useGraph.getState().silentMoveBoundary('out', { x: 1, y: 2 });
+    expect(useGraph.getState().past).toHaveLength(0);
+    useGraph.getState().commitMoveBoundary('out', { x: 0, y: 0 }, { x: 1, y: 2 });
+    expect(useGraph.getState().graph.nodes).toHaveLength(0);
+  });
+});
