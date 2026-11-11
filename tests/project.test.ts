@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addGraph, mergeKinds, normalizeProject, projectFromGraph, removeGraph, renameGraph,
-  syncActive, switchGraph, unifyKinds, type ProjectDoc,
+  addGraph, mergeKinds, normalizeProject, parseProjectDoc, projectFromGraph, removeGraph,
+  renameGraph, syncActive, switchGraph, unifyKinds, type ProjectDoc,
 } from '../src/model/project';
 import type { Graph } from '../src/model/types';
 
@@ -86,5 +86,18 @@ describe('project 容器', () => {
     expect(renameGraph(doc(), 'a', '   ').graphs[0].name).toBe('图 A');
     expect(switchGraph(doc(), 'b')?.active).toBe('b');
     expect(switchGraph(doc(), 'nope')).toBeNull();
+  });
+});
+
+
+describe('parseProjectDoc', () => {
+  it('接受 project 文档并忽略坏图', () => {
+    const graph = { version: 1 as const, nodes: [], edges: [], kinds: {} };
+    const doc = { version: 1 as const, active: 'g1', graphs: [{ id: 'g1', name: '主图', graph }] };
+    const parsed = parseProjectDoc(doc);
+    expect(parsed?.graphs).toHaveLength(1);
+    expect(parsed?.active).toBe('g1');
+    expect(parseProjectDoc({ ...doc, graphs: [{ id: 'g1', name: 'x', graph: { version: 1 } }] })).toBeNull();
+    expect(parseProjectDoc({ version: 2 })).toBeNull();
   });
 });

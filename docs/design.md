@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.7 · 2026-11-11 · 状态：P6 版本快照已实现（P0–P5 均验证）
+> 版本 v0.8 · 2026-11-11 · 状态：P0–P10 均已实现（多图、子图可视化、映射外置、MCP）
 
 ## 1. 定位
 
@@ -363,9 +363,48 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 - 回滚先退出子图层，再用**一条**历史整体替换根图，所以 ⌘Z 能撤销回滚；回滚不改文件、不自动保存快照。
 - UI：工具栏「快照…」、命令面板「快照与回滚…」「保存当前快照」；对话框内保存、查看差异明细、回滚、两步删除、Esc 关闭。
 
+### P7：多图容器（已完成，2026-11-11）
+
+范围：一个 project 管多张根图，kinds 模板共享；侧栏切换、重命名、删除；数据落在同一个 `nodeworks.project.v1`（应用）或 project.json（文件）。
+
+验收：
+
+- `pnpm test` 127 项通过（含 project 6、store 多图 3）；`multigraph.mjs` 9 项浏览器冒烟通过；
+- 切换图重置历史/选择/子图路径，重新打开项目仍停在最后一张图；
+- 至少保留一张图，删除当前图会切到第一张。
+
+实现要点：`src/model/project.ts` 的 `ProjectDoc/ProjectGraph`、`mergeKinds/unifyKinds`、`projectFromGraph`、`addGraph/switchGraph/renameGraph/removeGraph`；`parseProjectDoc` 逐图用 `GraphSchema` 校验；store 的 `projectGraphs/activeGraphId` 与 `switchGraph/addGraph/renameGraph/removeGraph`。
+
+### P8：子图卡片缩略图与跨层接线（已完成，2026-11-11）
+
+范围：子图卡片内画出内部结构的缩略图；进入子图后，父层端口以代理端口浮在画布两侧，直接拖线即可建立映射。
+
+验收：
+
+- 缩略图按内部节点包围盒等比缩放，单节点收成小色块，空子图有占位；`preview.test.ts` 4 项 + `thumb.mjs` 通过；
+- 子图层左右各一组「外层输入/输出」代理，拖线调 `setOuterMap` 写父节点 `subgraphMap`，撤销回到父层历史；`cross.mjs` 9 项通过。
+
+实现要点：`miniPreview`（estimateSize + 缩放 + kind 颜色）；`BoundaryNode` 合成节点与 `__map:` 虚线；App 的 `onConnect` 命中代理时走映射而非普通连线。
+
+### P9：导出映射外置（已完成，2026-11-11）
+
+范围：映射从代码常量移到 `src/mappings/forgeworks.mapping.json`，可在导出对话框里下载、载入自定义映射、恢复默认。
+
+验收：`validateMapping` 校验版本/表名/titleField/edges.store 等；映射存 `nodeworks.mapping.v1`，无效文件不改当前映射；导出对话框 3 个映射操作按钮；137 项单测通过。
+
+### P10：MCP 服务（已完成，2026-11-11）
+
+范围：stdio MCP server，让 AI 直接读写 project.json，完成看图、建模板、增删单元/连线、自动布局、导出与校验。
+
+工具：`project_info`、`get_graph`、`create_graph`、`set_active_graph`、`define_kind`、`find_nodes`、`add_node`、`update_node`、`remove_nodes`、`add_edge`、`remove_edges`、`auto_layout`、`export_project`、`validate_project`、`undo`。
+
+实现要点：`mcp/server.ts` 复用 `src/model/*`（不复制逻辑），按 project.json 读写，写前记录 50 步内存撤销栈；`pnpm build:mcp` 用 esbuild 打成 `mcp/server.mjs`；应用「打开」已支持 project 文档（`store.loadFile` + `parseProjectDoc`）。
+
+已知限制：应用不监听外部文件变化，AI 改完后需要在应用里重新「打开」；MCP 只使用默认 Forgeworks 映射（自定义映射尚未接入）。
+
 ### 之后（未排期）
 
-只读分享页、协作、折叠缩略图、多图容器、快照导出为文件。
+只读分享页、协作、快照导出为文件、端口类型强约束、跨子图连线。
 
 ## 8. 非目标
 

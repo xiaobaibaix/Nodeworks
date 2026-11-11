@@ -1,4 +1,5 @@
 import { emptyGraph } from './ops';
+import { GraphSchema } from './schema';
 import type { Graph, KindDef } from './types';
 
 export interface ProjectGraph {
@@ -93,4 +94,27 @@ export function removeGraph(project: ProjectDoc, id: string): ProjectDoc {
 export function switchGraph(project: ProjectDoc, id: string): ProjectDoc | null {
   if (!project.graphs.some((pg) => pg.id === id)) return null;
   return { ...project, active: id };
+}
+
+/** 解析 project.json（多图）；任何一张图不合法就整份拒绝，返回 null。 */
+export function parseProjectDoc(raw: unknown): ProjectDoc | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const doc = raw as Partial<ProjectDoc>;
+  if (doc.version !== 1 || !Array.isArray(doc.graphs) || doc.graphs.length === 0) return null;
+  const graphs: ProjectGraph[] = [];
+  for (const item of doc.graphs) {
+    if (!item || typeof item.id !== 'string') return null;
+    const result = GraphSchema.safeParse(item.graph);
+    if (!result.success) return null;
+    graphs.push({
+      id: item.id,
+      name: typeof item.name === 'string' && item.name ? item.name : '未命名图',
+      graph: result.data as Graph,
+    });
+  }
+  return normalizeProject({
+    version: 1,
+    active: typeof doc.active === 'string' ? doc.active : graphs[0].id,
+    graphs,
+  });
 }

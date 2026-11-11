@@ -1,5 +1,5 @@
 import { useReactFlow } from '@xyflow/react';
-import { downloadGraph, pickGraphFile } from '../persistence';
+import { downloadGraph, pickJsonFile } from '../persistence';
 import { useCurrentGraph, useGraph } from '../store';
 
 export default function Toolbar() {
@@ -10,7 +10,6 @@ export default function Toolbar() {
   const redo = useGraph((s) => s.redo);
   const canUndo = useGraph((s) => s.past.length > 0);
   const canRedo = useGraph((s) => s.future.length > 0);
-  const load = useGraph((s) => s.load);
   const toastOf = useGraph((s) => s.toastOf);
   const graph = useCurrentGraph();
   const count = graph.nodes.length;
@@ -23,6 +22,7 @@ export default function Toolbar() {
   const setView = useGraph((s) => s.setView);
   const impactOn = useGraph((s) => s.impactOn);
   const setImpactOn = useGraph((s) => s.setImpactOn);
+  const loadFile = useGraph((s) => s.loadFile);
   const { fitView } = useReactFlow();
 
   function toggleImpact() {
@@ -35,8 +35,7 @@ export default function Toolbar() {
 
   async function open() {
     try {
-      load(await pickGraphFile());
-      toastOf('已载入图');
+      loadFile(await pickJsonFile());
     } catch (error) {
       toastOf((error as Error).message);
     }

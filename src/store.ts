@@ -5,7 +5,7 @@ import { copySelection, pasteClip, type ClipPayload } from './model/clipboard';
 import { pushEntry, type Entry, type EntryInput } from './model/history';
 import { graphAtPath, normalizePath, updateAtPath } from './model/path';
 import { EMPTY_FILTER, type GraphFilter } from './model/query';
-import { emptySubgraph } from './model/schema';
+import { emptySubgraph, parseGraph } from './model/schema';
 import {
   addEdgeOp, addNodeOp, addPortOp, createEdge, createNode, createNodeFromKind, createPort,
   findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp,
@@ -20,7 +20,7 @@ import {
 import {
   activeGraph as projectActiveGraph, addGraph as projectAddGraph,
   projectFromGraph, removeGraph as projectRemoveGraph, renameGraph as projectRenameGraph,
-  syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
+  parseProjectDoc, syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
 } from './model/project';
 import { loadCached, loadProject, saveCached, saveProject } from './persistence';
 import type { Endpoint, Graph, KindDef, PropMeta, UnitPort } from './model/types';
@@ -128,6 +128,8 @@ interface Store {
   copy(): void;
   paste(): void;
   load(g: Graph): void;
+  /** 载入任意 JSON：project 文档（多图）或单图；返回是否为多图。 */
+  loadFile(raw: unknown): boolean;
   saveToCache(): void;
   enterSubgraph(id: string): void;
   goToPath(depth: number): void;
@@ -845,6 +847,24 @@ export const useGraph = create<Store>((set, get) => ({
         return { projectGraphs: seeded.graphs, activeGraphId: seeded.active };
       })(),
     }),
+
+  loadFile: (raw) => {
+    const project = parseProjectDoc(raw);
+    if (project) {
+      const active = projectActiveGraph(project);
+      get().load(active.graph);
+      set({
+        graph: active.graph,
+        projectGraphs: project.graphs,
+        activeGraphId: project.active,
+        toast: `已载入项目「${project.graphs.find((g) => g.id === project.active)?.name ?? ''}」· 共 ${project.graphs.length} 张图`,
+      });
+      return true;
+    }
+    get().load(parseGraph(raw));
+    set({ toast: '已载入图' });
+    return false;
+  },
 
   switchGraph: (id) => {
     const { graph, projectGraphs, activeGraphId } = get();

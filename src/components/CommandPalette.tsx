@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } fr
 import { useReactFlow } from '@xyflow/react';
 import { kindLabel } from '../model/query';
 import { importProject } from '../model/mapping';
-import { downloadGraph, pickGraphFile, pickJsonFile } from '../persistence';
+import { downloadGraph, pickJsonFile } from '../persistence';
 import { useCurrentGraph, useGraph } from '../store';
 
 interface Item {
@@ -57,11 +57,8 @@ export default function CommandPalette() {
       group: '命令',
       mutates: true,
       run: () => {
-        void pickGraphFile()
-          .then((g) => {
-            useGraph.getState().load(g);
-            useGraph.getState().toastOf('已载入图');
-          })
+        void pickJsonFile()
+          .then((raw) => useGraph.getState().loadFile(raw))
           .catch((error: unknown) => {
             useGraph.getState().toastOf((error as Error).message);
           });
