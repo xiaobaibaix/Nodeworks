@@ -2,21 +2,24 @@ import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } fr
 import { useReactFlow } from '@xyflow/react';
 import { kindLabel } from '../model/query';
 import { downloadGraph, pickGraphFile } from '../persistence';
-import { useGraph } from '../store';
+import { useCurrentGraph, useGraph } from '../store';
 
 interface Item {
   id: string;
   label: string;
   hint?: string;
   group: '命令' | '单元';
+  /** 只读预览时隐藏会改图的命令 */
+  mutates?: boolean;
   run: () => void;
 }
 
 export default function CommandPalette() {
   const open = useGraph((s) => s.paletteOpen);
   const togglePalette = useGraph((s) => s.togglePalette);
-  const graph = useGraph((s) => s.graph);
+  const graph = useCurrentGraph();
   const selected = useGraph((s) => s.selectedNodes);
+  const preview = useGraph((s) => s.preview);
   const { fitView } = useReactFlow();
 
   const [query, setQuery] = useState('');
@@ -34,13 +37,15 @@ export default function CommandPalette() {
   const items = useMemo<Item[]>(() => {
     const store = useGraph.getState();
     const list: Item[] = [];
-    list.push({ id: 'new', label: '新建单元', hint: '空白单元', group: '命令', run: () => store.addNode() });
+    list.push({ id: 'new', label: '新建单元', hint: '空白单元', group: '命令', mutates: true, run: () => store.addNode() });
+    list.push({ id: 'new-subgraph', label: '新建子图单元', hint: '双击进入编辑', group: '命令', mutates: true, run: () => store.addSubgraphNode() });
     for (const [key, def] of Object.entries(graph.kinds)) {
       list.push({
         id: `new:${key}`,
         label: `从模板新建：${def.name || key}`,
         hint: key,
         group: '命令',
+        mutates: true,
         run: () => store.addNode(undefined, key),
       });
     }
@@ -49,6 +54,7 @@ export default function CommandPalette() {
       id: 'open',
       label: '打开文件…',
       group: '命令',
+      mutates: true,
       run: () => {
         void pickGraphFile()
           .then((g) => {
@@ -61,10 +67,10 @@ export default function CommandPalette() {
       },
     });
     list.push({ id: 'fit', label: '适应视图', group: '命令', run: () => void fitView({ padding: 0.25, duration: 300 }) });
-    list.push({ id: 'undo', label: '撤销', hint: '⌘Z', group: '命令', run: () => useGraph.getState().undo() });
-    list.push({ id: 'redo', label: '重做', hint: '⇧⌘Z', group: '命令', run: () => useGraph.getState().redo() });
+    list.push({ id: 'undo', label: '撤销', hint: '⌘Z', group: '命令', mutates: true, run: () => useGraph.getState().undo() });
+    list.push({ id: 'redo', label: '重做', hint: '⇧⌘Z', group: '命令', mutates: true, run: () => useGraph.getState().redo() });
     list.push({ id: 'copy', label: '复制选中单元', hint: '⌘C', group: '命令', run: () => useGraph.getState().copy() });
-    list.push({ id: 'paste', label: '粘贴', hint: '⌘V', group: '命令', run: () => useGraph.getState().paste() });
+    list.push({ id: 'paste', label: '粘贴', hint: '⌘V', group: '命令', mutates: true, run: () => useGraph.getState().paste() });
     if (selected.length === 1) {
       const node = graph.nodes.find((n) => n.id === selected[0]);
       const def = node?.kind ? graph.kinds[node.kind] : undefined;
@@ -73,18 +79,20 @@ export default function CommandPalette() {
           id: 'apply-template',
           label: `应用模板「${def.name || node.kind}」到 ${node.title}`,
           group: '命令',
+          mutates: true,
           run: () => store.applyKindTemplate(node.id),
         });
       }
     }
     if (graph.edges.some((e) => e.orphan)) {
-      list.push({ id: 'orphans', label: '清理孤儿边', group: '命令', run: () => store.clearOrphans() });
+      list.push({ id: 'orphans', label: '清理孤儿边', group: '命令', mutates: true, run: () => store.clearOrphans() });
     }
     if (selected.length) {
       list.push({
         id: 'delete',
         label: `删除选中 ${selected.length} 个单元`,
         group: '命令',
+        mutates: true,
         run: () => useGraph.getState().removeNodes(useGraph.getState().selectedNodes),
       });
     }
@@ -106,10 +114,12 @@ export default function CommandPalette() {
   const needle = query.trim().toLowerCase();
   const filtered = useMemo(
     () =>
-      needle
-        ? items.filter((item) => `${item.label} ${item.hint ?? ''}`.toLowerCase().includes(needle))
-        : items,
-    [items, needle],
+      items.filter(
+        (item) =>
+          (!preview || !item.mutates) &&
+          (!needle || `${item.label} ${item.hint ?? ''}`.toLowerCase().includes(needle)),
+      ),
+    [items, needle, preview],
   );
 
   useEffect(() => setActive(0), [needle]);

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { findNode, isPortEndpoint } from '../model/ops';
-import { useGraph } from '../store';
+import { useCurrentGraph, useGraph } from '../store';
 
 const NEW = '__new__';
 
 export default function ReconnectWizard() {
   const pending = useGraph((s) => s.pendingPort);
-  const graph = useGraph((s) => s.graph);
+  const graph = useCurrentGraph();
   const confirmRemovePort = useGraph((s) => s.confirmRemovePort);
   const cancelRemovePort = useGraph((s) => s.cancelRemovePort);
   const [choice, setChoice] = useState(NEW);

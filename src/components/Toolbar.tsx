@@ -1,17 +1,20 @@
 import { useReactFlow } from '@xyflow/react';
 import { downloadGraph, pickGraphFile } from '../persistence';
-import { useGraph } from '../store';
+import { useCurrentGraph, useGraph } from '../store';
 
 export default function Toolbar() {
   const addNode = useGraph((s) => s.addNode);
+  const addSubgraphNode = useGraph((s) => s.addSubgraphNode);
+  const preview = useGraph((s) => s.preview);
   const undo = useGraph((s) => s.undo);
   const redo = useGraph((s) => s.redo);
   const canUndo = useGraph((s) => s.past.length > 0);
   const canRedo = useGraph((s) => s.future.length > 0);
   const load = useGraph((s) => s.load);
   const toastOf = useGraph((s) => s.toastOf);
-  const count = useGraph((s) => s.graph.nodes.length);
-  const kinds = useGraph((s) => s.graph.kinds);
+  const graph = useCurrentGraph();
+  const count = graph.nodes.length;
+  const kinds = graph.kinds;
   const togglePalette = useGraph((s) => s.togglePalette);
   const { fitView } = useReactFlow();
 
@@ -32,10 +35,12 @@ export default function Toolbar() {
         <span className="sub">单元节点编辑器</span>
       </div>
       <div className="bar-actions">
-        <button onClick={() => addNode()}>+ 单元</button>
+        <button onClick={() => addNode()} disabled={preview}>+ 单元</button>
+        <button onClick={() => addSubgraphNode()} disabled={preview} title="新建一个空子图单元，双击进入编辑">+ 子图</button>
         <select
           className="template-pick"
           value=""
+          disabled={preview}
           title="从模板新建"
           onChange={(e) => {
             const key = e.target.value;
@@ -48,14 +53,14 @@ export default function Toolbar() {
           ))}
         </select>
         <button className="kbd" title="命令面板 (⌘K)" onClick={() => togglePalette(true)}>⌘K</button>
-        <button onClick={undo} disabled={!canUndo}>撤销</button>
-        <button onClick={redo} disabled={!canRedo}>重做</button>
+        <button onClick={undo} disabled={!canUndo || preview}>撤销</button>
+        <button onClick={redo} disabled={!canRedo || preview}>重做</button>
         <span className="sep" />
         <button onClick={() => downloadGraph(useGraph.getState().graph)}>保存</button>
         <button onClick={open}>打开</button>
         <span className="sep" />
         <button onClick={() => fitView({ padding: 0.25, duration: 300 })}>适应视图</button>
-        <span className="count">{count} 个单元</span>
+        <span className="count">{count} 个单元{preview ? ' · 预览' : ''}</span>
       </div>
     </header>
   );

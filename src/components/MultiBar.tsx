@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { alignRects, distributeRects, type AlignMode, type Rect } from '../model/layout';
-import { useGraph } from '../store';
+import { useCurrentGraph, useGraph } from '../store';
 
 export default function MultiBar() {
-  const graph = useGraph((s) => s.graph);
+  const graph = useCurrentGraph();
   const selected = useGraph((s) => s.selectedNodes);
+  const preview = useGraph((s) => s.preview);
   const moveNodes = useGraph((s) => s.moveNodes);
   const copy = useGraph((s) => s.copy);
   const removeNodes = useGraph((s) => s.removeNodes);
@@ -29,7 +30,7 @@ export default function MultiBar() {
       });
   }, [selected, graph, getNodes]);
 
-  if (selected.length < 2 || rects.length < 2) return null;
+  if (preview || selected.length < 2 || rects.length < 2) return null;
 
   const align = (mode: AlignMode, label: string) => {
     moveNodes(alignRects(rects, mode), label);

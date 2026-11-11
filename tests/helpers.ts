@@ -14,6 +14,8 @@ export function resetStore(): void {
     pasteCount: 0,
     pendingPort: null,
     paletteOpen: false,
+    path: [],
+    preview: false,
     booted: true,
   });
 }

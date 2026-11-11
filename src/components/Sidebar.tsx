@@ -3,7 +3,7 @@ import { useReactFlow } from '@xyflow/react';
 import {
   groupByKind, isolatedNodeIds, kindOptions, nodeMatches, orphanNodeIds, visibleNodes,
 } from '../model/query';
-import { useGraph } from '../store';
+import { useCurrentGraph, useGraph } from '../store';
 
 function highlight(text: string, query: string) {
   const needle = query.trim().toLowerCase();
@@ -25,7 +25,7 @@ function highlight(text: string, query: string) {
 }
 
 export default function Sidebar() {
-  const graph = useGraph((s) => s.graph);
+  const graph = useCurrentGraph();
   const filter = useGraph((s) => s.filter);
   const setFilter = useGraph((s) => s.setFilter);
   const selectedNodes = useGraph((s) => s.selectedNodes);

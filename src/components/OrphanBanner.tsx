@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { useGraph } from '../store';
+import { graphOf, useGraph } from '../store';
 
 export default function OrphanBanner() {
-  const orphans = useGraph((s) => s.graph.edges.filter((e) => e.orphan).length);
+  const orphans = useGraph((s) => graphOf(s).edges.filter((e) => e.orphan).length);
   const clearOrphans = useGraph((s) => s.clearOrphans);
   const toast = useGraph((s) => s.toast);
   const toastOf = useGraph((s) => s.toastOf);

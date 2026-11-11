@@ -267,3 +267,23 @@ export function createNodeFromKind(
 export function orphanEdges(g: Graph): UnitEdge[] {
   return g.edges.filter((e) => e.orphan);
 }
+
+/** 设置某节点的子图端口映射；传空对象表示清空。 */
+export function setSubgraphMapOp(
+  g: Graph,
+  nodeId: string,
+  map: Record<string, Endpoint>,
+): Graph {
+  return {
+    ...g,
+    nodes: g.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      if (!Object.keys(map).length) {
+        const next = { ...n };
+        delete next.subgraphMap;
+        return next;
+      }
+      return { ...n, subgraphMap: map };
+    }),
+  };
+}

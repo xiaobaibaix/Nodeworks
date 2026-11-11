@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGraph } from '../store';
+import { useCurrentGraph, useGraph } from '../store';
 
 const TYPES = ['string', 'number', 'boolean', 'json'];
 
@@ -118,7 +118,7 @@ function AddProp({ nodeId }: { nodeId: string }) {
 }
 
 export default function Inspector() {
-  const graph = useGraph((s) => s.graph);
+  const graph = useCurrentGraph();
   const selectedNodes = useGraph((s) => s.selectedNodes);
   const edgeId = useGraph((s) => s.selectedEdge);
   const renameNode = useGraph((s) => s.renameNode);
@@ -133,6 +133,10 @@ export default function Inspector() {
   const removeEdge = useGraph((s) => s.removeEdge);
   const applyKindTemplate = useGraph((s) => s.applyKindTemplate);
   const saveAsKind = useGraph((s) => s.saveAsKind);
+  const preview = useGraph((s) => s.preview);
+  const setPreview = useGraph((s) => s.setPreview);
+  const enterSubgraph = useGraph((s) => s.enterSubgraph);
+  const setSubgraphMap = useGraph((s) => s.setSubgraphMap);
 
   const edge = edgeId ? graph.edges.find((e) => e.id === edgeId) : undefined;
   const node = selectedNodes.length === 1
@@ -145,15 +149,19 @@ export default function Inspector() {
     return (
       <aside className="inspector">
         <h2>连线</h2>
-        <label className="field">
-          <span>标签</span>
-          <TextCommit value={edge.label ?? ''} onCommit={(v) => setEdgeLabel(edge.id, v)} />
-        </label>
+        {preview ? (
+          <div className="field"><span>标签</span><div>{edge.label || '（无标签）'}</div></div>
+        ) : (
+          <label className="field">
+            <span>标签</span>
+            <TextCommit value={edge.label ?? ''} onCommit={(v) => setEdgeLabel(edge.id, v)} />
+          </label>
+        )}
         <div className="hint">
           {from?.title ?? '?'} → {to?.title ?? '?'}
           {edge.orphan ? '（孤儿边：端口已删除）' : ''}
         </div>
-        <button className="danger" onClick={() => removeEdge(edge.id)}>删除连线</button>
+        {!preview && <button className="danger" onClick={() => removeEdge(edge.id)}>删除连线</button>}
       </aside>
     );
   }
@@ -187,6 +195,30 @@ export default function Inspector() {
           <br />
           快捷键：⌘K 命令面板 · ⌘C/⌘V 复制粘贴 · ⌘Z 撤销。
         </div>
+      </aside>
+    );
+  }
+
+  if (preview) {
+    return (
+      <aside className="inspector">
+        <h2>单元 <span className="dim">只读预览</span></h2>
+        <div className="field"><span>标题</span><div>{node.title}</div></div>
+        <div className="field"><span>kind</span><div>{node.kind || '（无）'}</div></div>
+        <h3>属性 <span className="dim">{Object.keys(node.props).length}</span></h3>
+        <ul className="multi-list">
+          {Object.entries(node.props).map(([key, meta]) => (
+            <li key={key}><code>{key}</code> = {typeof meta.value === 'string' ? meta.value : JSON.stringify(meta.value)}</li>
+          ))}
+          {!Object.keys(node.props).length && <li className="hint">无</li>}
+        </ul>
+        <h3>端口</h3>
+        <ul className="multi-list">
+          {node.ports.map((port) => (
+            <li key={port.id}>{port.dir === 'in' ? 'IN' : 'OUT'} · {port.label || port.id}</li>
+          ))}
+        </ul>
+        <button onClick={() => setPreview(false)}>退出预览以编辑</button>
       </aside>
     );
   }
@@ -279,6 +311,52 @@ export default function Inspector() {
         </button>
       </div>
       <div className="hint">模板只补缺省值，不覆盖已有属性和同名端口。</div>
+
+      {node.subgraph && (
+        <>
+          <h3>子图 <span className="dim">{node.subgraph.nodes.length} 个单元</span></h3>
+          <div className="btn-row">
+            <button onClick={() => enterSubgraph(node.id)}>进入子图</button>
+          </div>
+          {node.ports.length > 0 && (
+            <div className="map-list">
+              {[...ins, ...outs].map((port) => {
+                const mapped = node.subgraphMap?.[port.id];
+                const innerPorts = node.subgraph!.nodes.flatMap((inner) =>
+                  inner.ports
+                    .filter((p) => p.dir === port.dir)
+                    .map((p) => ({ node: inner, port: p })),
+                );
+                return (
+                  <label className="map-row" key={port.id}>
+                    <span className="map-outer">{port.label || port.id}</span>
+                    <select
+                      value={mapped ? `${mapped.node}|${mapped.port}` : ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (!value) {
+                          setSubgraphMap(node.id, port.id, null);
+                          return;
+                        }
+                        const [innerId, innerPort] = value.split('|');
+                        setSubgraphMap(node.id, port.id, { node: innerId, port: innerPort });
+                      }}
+                    >
+                      <option value="">未映射</option>
+                      {innerPorts.map(({ node: inner, port: p }) => (
+                        <option key={`${inner.id}|${p.id}`} value={`${inner.id}|${p.id}`}>
+                          {inner.title} · {p.label || p.id}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                );
+              })}
+              <div className="hint">映射决定父端口进出子图后接到哪个内部端口。</div>
+            </div>
+          )}
+        </>
+      )}
 
       <h3>危险区</h3>
       <button className="danger" onClick={() => removeNode(node.id)}>删除单元</button>

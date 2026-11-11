@@ -3,6 +3,7 @@ import {
   Background, Controls, MiniMap, ReactFlow, ReactFlowProvider,
   type Connection, type Edge, type EdgeChange, type Node, type NodeChange,
 } from '@xyflow/react';
+import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
 import Inspector from './components/Inspector';
 import MultiBar from './components/MultiBar';
@@ -13,14 +14,14 @@ import Toolbar from './components/Toolbar';
 import UnitNode from './components/UnitNode';
 import { isFiltering, nodeMatches, visibleNodes } from './model/query';
 import { downloadGraph, saveCached } from './persistence';
-import { useGraph } from './store';
+import { useCurrentGraph, useGraph } from './store';
 
 const nodeTypes = { unit: UnitNode };
 
 type Pos = { x: number; y: number };
 
 function Canvas() {
-  const graph = useGraph((s) => s.graph);
+  const graph = useCurrentGraph();
   const filter = useGraph((s) => s.filter);
   const selectedNodes = useGraph((s) => s.selectedNodes);
   const selectedEdge = useGraph((s) => s.selectedEdge);
@@ -30,6 +31,8 @@ function Canvas() {
   const commitMoveMany = useGraph((s) => s.commitMoveMany);
   const removeNodes = useGraph((s) => s.removeNodes);
   const removeEdge = useGraph((s) => s.removeEdge);
+  const preview = useGraph((s) => s.preview);
+  const enterSubgraph = useGraph((s) => s.enterSubgraph);
 
   const dragFrom = useRef<Record<string, Pos>>({});
   const dragAnchor = useRef<string | null>(null);
@@ -200,6 +203,7 @@ function Canvas() {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onDelete={({ nodes: gone, edges: alsoGone }) => {
+        if (preview) return;
         if (!gone.length) {
           alsoGone.forEach((e) => removeEdge(e.id));
           return;
@@ -213,7 +217,14 @@ function Canvas() {
       fitView
       minZoom={0.15}
       maxZoom={2.5}
-      deleteKeyCode={['Backspace', 'Delete']}
+      nodesDraggable={!preview}
+      nodesConnectable={!preview}
+      elementsSelectable
+      onNodeDoubleClick={(_, node) => {
+        const inner = (node.data as { node?: { subgraph?: unknown } } | undefined)?.node?.subgraph;
+        if (inner) enterSubgraph(node.id);
+      }}
+      deleteKeyCode={preview ? null : ['Backspace', 'Delete']}
       proOptions={{ hideAttribution: true }}
     >
       <Background gap={24} size={1} />
@@ -276,6 +287,7 @@ export default function App() {
         return;
       }
       if (typing) return;
+      if (state.preview) return; // 预览只读：不响应撤销/复制/粘贴等写操作
       if (mod && key === 'z') {
         e.preventDefault();
         if (e.shiftKey) state.redo();
@@ -304,6 +316,7 @@ export default function App() {
           <Sidebar />
           <div className="canvas">
             {ready && <Canvas />}
+            <Breadcrumbs />
             <MultiBar />
           </div>
           <Inspector />
