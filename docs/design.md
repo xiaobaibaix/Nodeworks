@@ -301,7 +301,7 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 验收：
 
 - `pnpm test` 90 项通过（11 个文件；P3 新增 table 8、impact 6、store 表格/影响面 6，另含此前端点归一化 3 项）；
-- `tsc --noEmit` 干净；`vite build` 成功（JS 449.06 kB / gzip 140.34 kB，CSS 31.48 kB / gzip 6.18 kB）；
+- `tsc --noEmit` 干净；`vite build` 成功（JS 449.48 kB / gzip 140.51 kB，CSS 31.48 kB / gzip 6.18 kB）；
 - 浏览器自动化：Playwright P3 冒烟 9 项通过——影响面面板计数与高亮、切换到表格（3 行）、按 value 升降序、单元格编辑 + 撤销、批量改 tier + 撤销、列显隐 + 恢复、双击行回画布、控制台无错误；P1 的 11 项与 P2 的 11 项冒烟同步回归通过。
 
 实现要点：

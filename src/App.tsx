@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow,
+  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useNodesInitialized, useReactFlow,
   type Connection, type Edge, type EdgeChange, type Node, type NodeChange,
 } from '@xyflow/react';
 import Breadcrumbs from './components/Breadcrumbs';
@@ -42,6 +42,8 @@ function Canvas() {
   const focus = useGraph((s) => s.focus);
   const setFocus = useGraph((s) => s.setFocus);
   const { fitView } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
+  const didFit = useRef(false);
 
   const dragFrom = useRef<Record<string, Pos>>({});
   const dragAnchor = useRef<string | null>(null);
@@ -64,6 +66,12 @@ function Canvas() {
   );
   const impactNodes = useMemo(() => new Set(impact?.nodes ?? []), [impact]);
   const impactEdges = useMemo(() => new Set(impact?.edges ?? []), [impact]);
+
+  useEffect(() => {
+    if (!nodesInitialized || didFit.current || graph.nodes.length === 0) return;
+    didFit.current = true;
+    void fitView({ padding: 0.25, duration: 200 });
+  }, [nodesInitialized, fitView, graph.nodes.length]);
 
   useEffect(() => {
     if (!focus) return;
@@ -246,7 +254,6 @@ function Canvas() {
         removeNodes([...doomed]);
         standalone.forEach((e) => removeEdge(e.id));
       }}
-      fitView
       minZoom={0.15}
       maxZoom={2.5}
       nodesDraggable={!preview}
