@@ -14,6 +14,9 @@ import {
 import { sampleGraph } from './model/sample';
 import { loadCached, saveCached } from './persistence';
 import type { Endpoint, Graph, KindDef, PropMeta, UnitPort } from './model/types';
+import type { SortDir } from './model/table';
+
+export type ViewMode = 'graph' | 'table';
 
 export type PortDeleteTarget =
   | { kind: 'rewire'; portId: string }
@@ -41,6 +44,16 @@ interface Store {
   path: string[];
   /** 子图内只读预览 */
   preview: boolean;
+  /** 图 / 表格两种投影 */
+  view: ViewMode;
+  /** 影响面只读高亮开关 */
+  impactOn: boolean;
+  impactDepth: number;
+  tableSort: { key: string; dir: SortDir } | null;
+  /** 表格里被隐藏的列 key */
+  hiddenColumns: string[];
+  /** 切回图视图后需要定位的节点（一次性） */
+  focus: string | null;
   boot(): void;
   toastOf(msg: string | null): void;
   select(nodes: string[], edge: string | null): void;
@@ -61,7 +74,15 @@ interface Store {
   moveNodes(moves: Record<string, Pos>, label: string): void;
   addProp(nodeId: string, name: string, type: string, value: unknown): void;
   setProp(nodeId: string, name: string, value: unknown): void;
+  setPropMany(ids: string[], name: string, type: string, value: unknown): void;
   removeProp(nodeId: string, name: string): void;
+  setView(view: ViewMode): void;
+  setImpactOn(on: boolean): void;
+  setImpactDepth(depth: number): void;
+  setTableSort(key: string | null): void;
+  toggleColumn(key: string): void;
+  resetColumns(): void;
+  setFocus(id: string | null): void;
   addPort(nodeId: string, dir: 'in' | 'out'): void;
   setPort(nodeId: string, portId: string, patch: Partial<UnitPort>): void;
   requestRemovePort(nodeId: string, portId: string): void;
@@ -108,6 +129,12 @@ export const useGraph = create<Store>((set, get) => ({
   paletteOpen: false,
   path: [],
   preview: false,
+  view: 'graph',
+  impactOn: false,
+  impactDepth: 2,
+  tableSort: null,
+  hiddenColumns: [],
+  focus: null,
 
   boot: () => {
     if (get().booted) return;
@@ -323,6 +350,70 @@ export const useGraph = create<Store>((set, get) => ({
       revert: (g) => setPropOp(g, nodeId, name, old),
     });
   },
+
+  setPropMany: (ids, rawName, type, value) => {
+    const name = rawName.trim();
+    if (!name) {
+      set({ toast: '属性名不能为空' });
+      return;
+    }
+    const targets = graphOf(get()).nodes.filter((n) => ids.includes(n.id));
+    if (!targets.length) return;
+    const olds = new Map(targets.map((n) => [n.id, n.props[name]] as const));
+    get().commit({
+      label: `批量改「${name}」（${targets.length} 个单元）`,
+      run: (g) => {
+        let next = g;
+        for (const node of targets) {
+          next = setPropOp(next, node.id, name, { ...(node.props[name] ?? {}), type, value });
+        }
+        return next;
+      },
+      revert: (g) => {
+        let next = g;
+        for (const node of targets) {
+          const old = olds.get(node.id);
+          next = old ? setPropOp(next, node.id, name, old) : removePropOp(next, node.id, name);
+        }
+        return next;
+      },
+    });
+    set({ toast: `已更新 ${targets.length} 个单元的「${name}」` });
+  },
+
+  setView: (view) => set({ view }),
+
+  setImpactOn: (on) => set({ impactOn: on }),
+
+  setImpactDepth: (depth) => {
+    const rounded = Math.floor(depth);
+    set({ impactDepth: Number.isFinite(rounded) ? Math.max(1, Math.min(5, rounded)) : 2 });
+  },
+
+  setTableSort: (key) => {
+    if (!key) {
+      set({ tableSort: null });
+      return;
+    }
+    const current = get().tableSort;
+    set({
+      tableSort:
+        current?.key === key
+          ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
+          : { key, dir: 'asc' },
+    });
+  },
+
+  toggleColumn: (key) =>
+    set({
+      hiddenColumns: get().hiddenColumns.includes(key)
+        ? get().hiddenColumns.filter((k) => k !== key)
+        : [...get().hiddenColumns, key],
+    }),
+
+  resetColumns: () => set({ hiddenColumns: [] }),
+
+  setFocus: (id) => set({ focus: id }),
 
   addPort: (nodeId, dir) => {
     const port = createPort(dir);
@@ -600,6 +691,10 @@ export const useGraph = create<Store>((set, get) => ({
       path: [],
       preview: false,
       filter: EMPTY_FILTER,
+      impactOn: false,
+      tableSort: null,
+      hiddenColumns: [],
+      focus: null,
     }),
 
   saveToCache: () => saveCached(get().graph),

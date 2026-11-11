@@ -16,6 +16,12 @@ export function resetStore(): void {
     paletteOpen: false,
     path: [],
     preview: false,
+    view: 'graph',
+    impactOn: false,
+    impactDepth: 2,
+    tableSort: null,
+    hiddenColumns: [],
+    focus: null,
     booted: true,
   });
 }

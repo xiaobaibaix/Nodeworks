@@ -205,3 +205,90 @@ describe('多选、删除与复制粘贴', () => {
     expect(useGraph.getState().graph.nodes[1].pos).toEqual({ x: 10, y: 10 });
   });
 });
+
+describe('表格与影响面状态', () => {
+  const twoNodes = (): Graph => ({
+    version: 1 as const,
+    edges: [],
+    kinds: {},
+    nodes: [
+      { id: 'a', title: 'A', props: { value: { value: 1, type: 'number' } }, ports: [], pos: { x: 0, y: 0 } },
+      { id: 'b', title: 'B', props: {}, ports: [], pos: { x: 100, y: 0 } },
+    ],
+  });
+
+  it('批量改同一属性只记一条历史，撤销恢复旧值与缺失', () => {
+    setGraph(twoNodes());
+    useGraph.getState().setPropMany(['a', 'b'], 'value', 'number', 5);
+    const after = useGraph.getState();
+    expect(after.graph.nodes[0].props.value).toEqual({ value: 5, type: 'number' });
+    expect(after.graph.nodes[1].props.value).toEqual({ value: 5, type: 'number' });
+    expect(after.past).toHaveLength(1);
+    expect(after.toast).toContain('已更新 2');
+
+    after.undo();
+    const undone = useGraph.getState().graph;
+    expect(undone.nodes[0].props.value).toEqual({ value: 1, type: 'number' });
+    expect(undone.nodes[1].props.value).toBeUndefined();
+  });
+
+  it('批量改属性会保留旧 meta 的其他字段', () => {
+    setGraph({
+      ...twoNodes(),
+      nodes: [
+        {
+          id: 'a',
+          title: 'A',
+          props: { value: { value: 1, type: 'number', unit: '件' } },
+          ports: [],
+          pos: { x: 0, y: 0 },
+        },
+      ],
+    });
+    useGraph.getState().setPropMany(['a'], 'value', 'number', 2);
+    expect(useGraph.getState().graph.nodes[0].props.value).toMatchObject({ value: 2, unit: '件' });
+  });
+
+  it('视图、焦点与列显隐', () => {
+    const store = useGraph.getState();
+    store.setView('table');
+    expect(useGraph.getState().view).toBe('table');
+    store.setView('graph');
+    expect(useGraph.getState().view).toBe('graph');
+
+    store.setFocus('n1');
+    expect(useGraph.getState().focus).toBe('n1');
+    store.setFocus(null);
+    expect(useGraph.getState().focus).toBeNull();
+
+    store.toggleColumn('prop:value');
+    expect(useGraph.getState().hiddenColumns).toEqual(['prop:value']);
+    store.toggleColumn('prop:value');
+    expect(useGraph.getState().hiddenColumns).toEqual([]);
+    store.toggleColumn('title');
+    store.resetColumns();
+    expect(useGraph.getState().hiddenColumns).toEqual([]);
+  });
+
+  it('表头排序同列切换升降序，换列重置为升序', () => {
+    const store = useGraph.getState();
+    store.setTableSort('prop:value');
+    expect(useGraph.getState().tableSort).toEqual({ key: 'prop:value', dir: 'asc' });
+    store.setTableSort('prop:value');
+    expect(useGraph.getState().tableSort).toEqual({ key: 'prop:value', dir: 'desc' });
+    store.setTableSort('title');
+    expect(useGraph.getState().tableSort).toEqual({ key: 'title', dir: 'asc' });
+    store.setTableSort(null);
+    expect(useGraph.getState().tableSort).toBeNull();
+  });
+
+  it('影响面深度夹在 1..5', () => {
+    const store = useGraph.getState();
+    store.setImpactDepth(9);
+    expect(useGraph.getState().impactDepth).toBe(5);
+    store.setImpactDepth(0);
+    expect(useGraph.getState().impactDepth).toBe(1);
+    store.setImpactDepth(2.7);
+    expect(useGraph.getState().impactDepth).toBe(2);
+  });
+});

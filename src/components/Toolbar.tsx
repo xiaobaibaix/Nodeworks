@@ -16,7 +16,19 @@ export default function Toolbar() {
   const count = graph.nodes.length;
   const kinds = graph.kinds;
   const togglePalette = useGraph((s) => s.togglePalette);
+  const view = useGraph((s) => s.view);
+  const setView = useGraph((s) => s.setView);
+  const impactOn = useGraph((s) => s.impactOn);
+  const setImpactOn = useGraph((s) => s.setImpactOn);
   const { fitView } = useReactFlow();
+
+  function toggleImpact() {
+    if (!impactOn && useGraph.getState().selectedNodes.length !== 1) {
+      toastOf('先选中一个单元，再打开影响面');
+      return;
+    }
+    setImpactOn(!impactOn);
+  }
 
   async function open() {
     try {
@@ -33,6 +45,22 @@ export default function Toolbar() {
         <span className="dot" />
         Nodeworks
         <span className="sub">单元节点编辑器</span>
+      </div>
+      <div className="view-switch" role="group" aria-label="视图">
+        <button
+          className={view === 'graph' ? 'on' : ''}
+          onClick={() => setView('graph')}
+          title="画布视图"
+        >
+          图
+        </button>
+        <button
+          className={view === 'table' ? 'on' : ''}
+          onClick={() => setView('table')}
+          title="表格投影：批量编辑属性"
+        >
+          表格
+        </button>
       </div>
       <div className="bar-actions">
         <button onClick={() => addNode()} disabled={preview}>+ 单元</button>
@@ -60,6 +88,15 @@ export default function Toolbar() {
         <button onClick={open}>打开</button>
         <span className="sep" />
         <button onClick={() => fitView({ padding: 0.25, duration: 300 })}>适应视图</button>
+        {view === 'graph' && (
+          <button
+            className={impactOn ? 'on' : ''}
+            onClick={toggleImpact}
+            title="高亮选中单元的上下游依赖（只读）"
+          >
+            影响面
+          </button>
+        )}
         <span className="count">{count} 个单元{preview ? ' · 预览' : ''}</span>
       </div>
     </header>

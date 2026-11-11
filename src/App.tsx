@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider,
+  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow,
   type Connection, type Edge, type EdgeChange, type Node, type NodeChange,
 } from '@xyflow/react';
 import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
+import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
 import MultiBar from './components/MultiBar';
 import OrphanBanner from './components/OrphanBanner';
 import ReconnectWizard from './components/ReconnectWizard';
 import Sidebar from './components/Sidebar';
+import TableView from './components/TableView';
 import Toolbar from './components/Toolbar';
 import UnitNode from './components/UnitNode';
 import { isFiltering, nodeMatches, visibleNodes } from './model/query';
+import { impactOf } from './model/impact';
 import { orientEdge } from './model/ops';
 import { downloadGraph, saveCached } from './persistence';
 import { graphOf, useCurrentGraph, useGraph } from './store';
@@ -34,6 +37,11 @@ function Canvas() {
   const removeEdge = useGraph((s) => s.removeEdge);
   const preview = useGraph((s) => s.preview);
   const enterSubgraph = useGraph((s) => s.enterSubgraph);
+  const impactOn = useGraph((s) => s.impactOn);
+  const impactDepth = useGraph((s) => s.impactDepth);
+  const focus = useGraph((s) => s.focus);
+  const setFocus = useGraph((s) => s.setFocus);
+  const { fitView } = useReactFlow();
 
   const dragFrom = useRef<Record<string, Pos>>({});
   const dragAnchor = useRef<string | null>(null);
@@ -50,6 +58,20 @@ function Canvas() {
     () => new Set(graph.nodes.filter((n) => nodeMatches(n, needle)).map((n) => n.id)),
     [graph.nodes, needle],
   );
+  const impact = useMemo(
+    () => (impactOn && selectedNodes.length === 1 ? impactOf(graph, selectedNodes[0], impactDepth) : null),
+    [impactOn, selectedNodes, impactDepth, graph],
+  );
+  const impactNodes = useMemo(() => new Set(impact?.nodes ?? []), [impact]);
+  const impactEdges = useMemo(() => new Set(impact?.edges ?? []), [impact]);
+
+  useEffect(() => {
+    if (!focus) return;
+    const exists = graph.nodes.some((n) => n.id === focus);
+    setFocus(null);
+    if (!exists) return;
+    void fitView({ nodes: [{ id: focus }], duration: 300, maxZoom: 1.15, padding: 2.2 });
+  }, [focus, graph.nodes, fitView, setFocus]);
 
   const nodes: Node[] = useMemo(
     () =>
@@ -62,11 +84,12 @@ function Canvas() {
         hidden: filtering && !visibleIds.has(n.id),
         data: {
           node: n,
-          dimmed: Boolean(needle) && !matchIds.has(n.id),
+          dimmed: (Boolean(needle) && !matchIds.has(n.id)) || (impact ? !impactNodes.has(n.id) : false),
           matched: Boolean(needle) && matchIds.has(n.id),
+          impact: Boolean(impact && impactNodes.has(n.id)),
         },
       })),
-    [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, measuredVersion],
+    [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, impact, impactNodes, measuredVersion],
   );
 
   const edges: Edge[] = useMemo(() => {
@@ -87,10 +110,13 @@ function Canvas() {
         animated: false,
         selected: selectedEdge === e.id,
         hidden: filtering && (!visibleIds.has(e.from.node) || !visibleIds.has(e.to.node)),
+        ...(impact
+          ? { style: impactEdges.has(e.id) ? { stroke: '#f0a25c', strokeWidth: 2 } : { opacity: 0.12 } }
+          : {}),
       });
     }
     return list;
-  }, [graph, selectedEdge, filtering, visibleIds]);
+  }, [graph, selectedEdge, filtering, visibleIds, impact, impactEdges]);
 
   const onConnect = useCallback(
     (c: Connection) => {
@@ -251,6 +277,7 @@ function Canvas() {
 export default function App() {
   const [ready, setReady] = useState(false);
   const graph = useGraph((s) => s.graph);
+  const view = useGraph((s) => s.view);
 
   useEffect(() => {
     useGraph.getState().boot();
@@ -320,10 +347,11 @@ export default function App() {
         <Toolbar />
         <div className="body">
           <Sidebar />
-          <div className="canvas">
-            {ready && <Canvas />}
-            <Breadcrumbs />
-            <MultiBar />
+          <div className={`canvas${view === 'table' ? ' table-canvas' : ''}`}>
+            {view === 'table' ? <TableView /> : ready && <Canvas />}
+            {view === 'graph' && <Breadcrumbs />}
+            {view === 'graph' && <MultiBar />}
+            {view === 'graph' && <ImpactPanel />}
           </div>
           <Inspector />
         </div>

@@ -14,6 +14,7 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   const node = data.node as UnitNodeModel;
   const dimmed = Boolean(data.dimmed);
   const matched = Boolean(data.matched);
+  const impact = Boolean(data.impact);
   const ins = node.ports.filter((p) => p.dir === 'in');
   const outs = node.ports.filter((p) => p.dir === 'out');
   const props = Object.entries(node.props);
@@ -26,7 +27,7 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   }, [id, portKey, updateNodeInternals]);
   return (
     <div
-      className={`unit-node${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}${matched ? ' is-match' : ''}`}
+      className={`unit-node${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}${matched ? ' is-match' : ''}${impact ? ' is-impact' : ''}`}
     >
       <div className="unit-head">
         <span className="unit-kind">{node.kind || 'unit'}</span>

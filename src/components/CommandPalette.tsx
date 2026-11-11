@@ -66,7 +66,22 @@ export default function CommandPalette() {
           });
       },
     });
-    list.push({ id: 'fit', label: '适应视图', group: '命令', run: () => void fitView({ padding: 0.25, duration: 300 }) });
+    list.push({ id: 'fit', label: '适应视图', group: '命令', run: () => { useGraph.getState().setView('graph'); void fitView({ padding: 0.25, duration: 300 }); } });
+    list.push({ id: 'view-graph', label: '切换到画布视图', group: '命令', run: () => useGraph.getState().setView('graph') });
+    list.push({ id: 'view-table', label: '切换到表格视图', hint: '批量编辑属性', group: '命令', run: () => useGraph.getState().setView('table') });
+    list.push({
+      id: 'impact',
+      label: '影响面：高亮上下游',
+      hint: selected.length === 1 ? '只读派生' : '先选一个单元',
+      group: '命令',
+      run: () => {
+        if (useGraph.getState().selectedNodes.length !== 1) {
+          useGraph.getState().toastOf('先选中一个单元，再打开影响面');
+          return;
+        }
+        useGraph.getState().setImpactOn(!useGraph.getState().impactOn);
+      },
+    });
     list.push({ id: 'undo', label: '撤销', hint: '⌘Z', group: '命令', mutates: true, run: () => useGraph.getState().undo() });
     list.push({ id: 'redo', label: '重做', hint: '⇧⌘Z', group: '命令', mutates: true, run: () => useGraph.getState().redo() });
     list.push({ id: 'copy', label: '复制选中单元', hint: '⌘C', group: '命令', run: () => useGraph.getState().copy() });
@@ -103,8 +118,10 @@ export default function CommandPalette() {
         hint: `${kindLabel(node.kind ?? '')} · ${node.id}`,
         group: '单元',
         run: () => {
-          useGraph.getState().select([node.id], null);
-          void fitView({ nodes: [{ id: node.id }], duration: 300, maxZoom: 1.15, padding: 2.2 });
+          const store = useGraph.getState();
+          store.select([node.id], null);
+          store.setView('graph');
+          store.setFocus(node.id);
         },
       });
     }

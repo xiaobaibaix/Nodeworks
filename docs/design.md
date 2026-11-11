@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.3 · 2026-11-11 · 状态：P2 已实现并验证（自动化）
+> 版本 v0.4 · 2026-11-11 · 状态：P3 已实现并验证（自动化）
 
 ## 1. 定位
 
@@ -141,7 +141,7 @@ export.mapping.json     # 导出契约（P4）
 - 字段废弃不删除：标 `deprecated`，迁移时搬到新字段并保留旧值一个版本，避免用户数据静默丢失。
 
 
-## 5. 交互设计（P2 现状）
+## 5. 交互设计（P3 现状）
 
 ### 5.1 画布
 
@@ -186,15 +186,23 @@ export.mapping.json     # 导出契约（P4）
 - 改数值前预览：列出直接依赖、二层依赖、受影响的物品/配方数量（口径与 Forgeworks `content/impact` 一致）；
 - 影响面只做"读"，不自动改下游数值——自动改是求解器的事，不是编辑器的默认行为。
 
+### 5.7 表格投影（P3）
+
+- 顶部「图 / 表格」切换；表格与画布共享同一份图、同一套选择与撤销栈，行选中即画布选中。
+- 列：标题、kind、属性并集（按名排序）、端口数（只读）；表头点击排序，同列再点切换升降序，数字列按数值比较，缺失值恒排最后。
+- 按 `kind` 分组可开关，`未分类` 组排最后；行内编辑失焦/回车提交，`Esc` 取消；双击行回到画布并定位该单元。
+- 选中多行出现批量条：属性名 / 类型 / 值一次写入全部选中节点，只记一条历史，撤销恢复各节点旧值或缺失。
+- 列显隐菜单只影响表格视图，不删除属性数据。
+
 
 ## 6. 架构
 
 ```
 src/
-  model/       types / schema / sample / ops / history / layout / clipboard / query
-  store.ts     zustand：图 + 历史 + 选择 + 过滤 + 剪贴板 + 面板状态 + toast
+  model/       types / schema / sample / ops / history / layout / clipboard / query / path / table / impact
+  store.ts     zustand：图 + 历史 + 选择 + 过滤 + 剪贴板 + 面板状态 + 视图/影响面 + toast
   components/  UnitNode / Toolbar / Inspector / OrphanBanner / Sidebar /
-               CommandPalette / MultiBar / ReconnectWizard
+               CommandPalette / MultiBar / ReconnectWizard / Breadcrumbs / TableView / ImpactPanel
   persistence.ts  localStorage + 文件下载/读取
   App.tsx      画布装配、多选拖动、快捷键、自动保存
 ```
@@ -286,12 +294,22 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 - 子图是完整 `Graph`（自带 `kinds` 副本），复制/校验/序列化复用同一套代码；端口映射在 schema 里校验存在性与方向。
 - 预览只关编辑入口（拖拽、连线、删除、新建、撤销/复制/粘贴命令），不另存一份只读数据。
 
-### P3：表格投影（约 1 周）
+### P3（已完成，2026-11-11）
 
-- 同一份图渲染成可编辑表格：按 `kind` 分组、按属性列排序/过滤；
-- 单元格编辑走同一条 `commit`，与画布互相同步；
-- 批量改（选中多行改同一列）、列显示/隐藏；
-- 影响面面板（见 5.6）：上下游高亮 + 改动前预览受影响清单。
+范围：表格投影（按 `kind` 分组、按属性列排序/过滤、单元格编辑、批量改、列显隐）、影响面面板（上下游 N 层高亮 + 受影响清单，只读）。
+
+验收：
+
+- `pnpm test` 90 项通过（11 个文件；P3 新增 table 8、impact 6、store 表格/影响面 6，另含此前端点归一化 3 项）；
+- `tsc --noEmit` 干净；`vite build` 成功（JS 449.06 kB / gzip 140.34 kB，CSS 31.48 kB / gzip 6.18 kB）；
+- 浏览器自动化：Playwright P3 冒烟 9 项通过——影响面面板计数与高亮、切换到表格（3 行）、按 value 升降序、单元格编辑 + 撤销、批量改 tier + 撤销、列显隐 + 恢复、双击行回画布、控制台无错误；P1 的 11 项与 P2 的 11 项冒烟同步回归通过。
+
+实现要点：
+
+- 表格与画布共享 `selectedNodes` 与 `commit`：行选中直接写 store，批量改走 `setPropMany`（一条历史，保留旧 meta 的其它字段）。
+- `table.ts` 负责列并集、单元格文本、类型解析、排序（缺失值恒最后）、过滤与分组；表格只是投影，不改数据结构。
+- `impact.ts` 双向 BFS（默认 2 层，可调 1–5），跳过孤儿边、环安全；画布高亮相关节点/边，其余淡出；面板按层列出清单，只读派生，不写回图。
+- 视图状态（`view`、`impactOn`、`tableSort`、`hiddenColumns`、`focus`）存在 store，不进撤销历史；`focus` 由画布消费后立即清空。
 
 ### P4：导出契约（约 1 周）
 
