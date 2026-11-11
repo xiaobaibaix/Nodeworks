@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.6 · 2026-11-11 · 状态：P5 自动布局已实现（P0–P4 均验证）
+> 版本 v0.7 · 2026-11-11 · 状态：P6 版本快照已实现（P0–P5 均验证）
 
 ## 1. 定位
 
@@ -346,9 +346,26 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 - store 的 `autoLayout()` 走 `moveNodes(..., '自动布局')`，整次布局只有一条历史；预览态下按钮禁用。
 - 入口：工具栏「自动布局」、命令面板「自动布局（分层）」、`⌘⇧L`。
 
+### P6：版本快照与回滚（已完成，2026-11-11）
+
+范围：把整张图存成本地快照，能对比当前差异、一键回滚并撤销；不做云同步、不做逐条命令日志。
+
+验收：
+
+- `pnpm test` 118 项通过（14 个文件；P6 新增 snapshot 7、store 快照 4）；
+- `tsc --noEmit` 干净；`vite build` 成功（JS 468.61 kB / gzip 147.42 kB，CSS gzip 6.62 kB）；
+- 浏览器自动化：Playwright 9 项通过——空态、保存快照、改图后显示差异明细、回滚、⌘Z 撤销回滚、刷新后仍在、删除、Esc 关闭、命令面板入口、无 console error。
+
+实现要点：
+
+- `src/model/snapshot.ts`：`Snapshot{id,at,label,graph}`；`newSnapshot` 深拷贝整张根图；`loadSnapshots/persistSnapshots` 读写 `localStorage` 的 `nodeworks.snapshots.v1`（最多 20 份，超大或损坏的条目跳过）；`diffGraphs` 按节点 id / 边端点比对，输出增删改、移动、标题与属性变化明细。
+- store：`snapshots`、`snapshotOpen`；`takeSnapshot(label?)`（默认名带时间）、`restoreSnapshot(id)`、`deleteSnapshot(id)`。
+- 回滚先退出子图层，再用**一条**历史整体替换根图，所以 ⌘Z 能撤销回滚；回滚不改文件、不自动保存快照。
+- UI：工具栏「快照…」、命令面板「快照与回滚…」「保存当前快照」；对话框内保存、查看差异明细、回滚、两步删除、Esc 关闭。
+
 ### 之后（未排期）
 
-版本快照与回滚、只读分享页、协作、折叠缩略图、多图容器。
+只读分享页、协作、折叠缩略图、多图容器、快照导出为文件。
 
 ## 8. 非目标
 

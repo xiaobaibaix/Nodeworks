@@ -23,6 +23,8 @@ export function resetStore(): void {
     hiddenColumns: [],
     focus: null,
     exportOpen: false,
+    snapshots: [],
+    snapshotOpen: false,
     booted: true,
   });
 }

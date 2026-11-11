@@ -75,6 +75,20 @@ export default function CommandPalette() {
       run: () => useGraph.getState().setExportOpen(true),
     });
     list.push({
+      id: 'snapshots',
+      label: '快照与回滚…',
+      hint: '本地版本副本',
+      group: '命令',
+      run: () => useGraph.getState().openSnapshots(true),
+    });
+    list.push({
+      id: 'snapshot-save',
+      label: '保存当前快照',
+      hint: '整图副本，可回滚',
+      group: '命令',
+      run: () => useGraph.getState().takeSnapshot(),
+    });
+    list.push({
       id: 'import-project',
       label: '导入 project.json…',
       hint: '按附录 A 反向导入',

@@ -12,6 +12,7 @@ import MultiBar from './components/MultiBar';
 import OrphanBanner from './components/OrphanBanner';
 import ReconnectWizard from './components/ReconnectWizard';
 import Sidebar from './components/Sidebar';
+import SnapshotDialog from './components/SnapshotDialog';
 import TableView from './components/TableView';
 import Toolbar from './components/Toolbar';
 import UnitNode from './components/UnitNode';
@@ -325,6 +326,8 @@ export default function App() {
       if (e.key === 'Escape') {
         if (state.paletteOpen) {
           state.togglePalette(false);
+        } else if (state.snapshotOpen) {
+          state.openSnapshots(false);
         } else if (state.exportOpen) {
           state.setExportOpen(false);
         } else if (state.pendingPort) {
@@ -374,6 +377,7 @@ export default function App() {
         <CommandPalette />
         <ReconnectWizard />
         <ExportDialog />
+        <SnapshotDialog />
       </div>
     </ReactFlowProvider>
   );

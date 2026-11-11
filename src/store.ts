@@ -13,6 +13,9 @@ import {
   setPropOp, setSubgraphMapOp, validateConnection, withKindDefaults,
 } from './model/ops';
 import { sampleGraph } from './model/sample';
+import {
+  formatTime, loadSnapshots, newSnapshot, persistSnapshots, pushSnapshot, type Snapshot,
+} from './model/snapshot';
 import { loadCached, saveCached } from './persistence';
 import type { Endpoint, Graph, KindDef, PropMeta, UnitPort } from './model/types';
 import type { SortDir } from './model/table';
@@ -57,6 +60,9 @@ interface Store {
   focus: string | null;
   /** 导出 dry-run 对话框 */
   exportOpen: boolean;
+  /** 本地版本快照（最新在前，最多 SNAPSHOT_LIMIT 份） */
+  snapshots: Snapshot[];
+  snapshotOpen: boolean;
   boot(): void;
   toastOf(msg: string | null): void;
   select(nodes: string[], edge: string | null): void;
@@ -88,6 +94,10 @@ interface Store {
   resetColumns(): void;
   setFocus(id: string | null): void;
   setExportOpen(open: boolean): void;
+  openSnapshots(open?: boolean): void;
+  takeSnapshot(label?: string): void;
+  restoreSnapshot(id: string): void;
+  deleteSnapshot(id: string): void;
   addPort(nodeId: string, dir: 'in' | 'out'): void;
   setPort(nodeId: string, portId: string, patch: Partial<UnitPort>): void;
   requestRemovePort(nodeId: string, portId: string): void;
@@ -141,11 +151,13 @@ export const useGraph = create<Store>((set, get) => ({
   hiddenColumns: [],
   focus: null,
   exportOpen: false,
+  snapshots: [],
+  snapshotOpen: false,
 
   boot: () => {
     if (get().booted) return;
     const cached = loadCached();
-    set({ graph: cached ?? sampleGraph(), booted: true });
+    set({ graph: cached ?? sampleGraph(), booted: true, snapshots: loadSnapshots() });
   },
 
   toastOf: (msg) => set({ toast: msg }),
@@ -431,6 +443,50 @@ export const useGraph = create<Store>((set, get) => ({
 
   setExportOpen: (open) => set({ exportOpen: open }),
 
+  openSnapshots: (open) => set({ snapshotOpen: open ?? !get().snapshotOpen }),
+
+  takeSnapshot: (label) => {
+    const snap = newSnapshot(get().graph, label?.trim() || `快照 ${formatTime(Date.now())}`);
+    const list = pushSnapshot(get().snapshots, snap);
+    const saved = persistSnapshots(list);
+    set({ snapshots: list });
+    set({
+      toast: saved
+        ? `已保存快照「${snap.label}」`
+        : `已保存快照「${snap.label}」（仅本次会话）`,
+    });
+  },
+
+  restoreSnapshot: (id) => {
+    const snap = get().snapshots.find((item) => item.id === id);
+    if (!snap) return;
+    const before = get().graph;
+    // 回滚永远作用于根图，先退出子图层再提交，历史里是根图整体替换。
+    set({
+      path: [],
+      preview: false,
+      selectedNodes: [],
+      selectedEdge: null,
+      pendingPort: null,
+      filter: EMPTY_FILTER,
+      snapshotOpen: false,
+    });
+    get().commit({
+      label: `回滚到「${snap.label}」`,
+      run: () => JSON.parse(JSON.stringify(snap.graph)) as Graph,
+      revert: () => before,
+    });
+    set({ toast: `已回滚到「${snap.label}」（⌘Z 可撤销）` });
+  },
+
+  deleteSnapshot: (id) => {
+    const snap = get().snapshots.find((item) => item.id === id);
+    const list = get().snapshots.filter((item) => item.id !== id);
+    persistSnapshots(list);
+    set({ snapshots: list });
+    if (snap) set({ toast: `已删除快照「${snap.label}」` });
+  },
+
   addPort: (nodeId, dir) => {
     const port = createPort(dir);
     get().commit({
@@ -712,6 +768,7 @@ export const useGraph = create<Store>((set, get) => ({
       hiddenColumns: [],
       focus: null,
       exportOpen: false,
+      snapshotOpen: false,
     }),
 
   saveToCache: () => saveCached(get().graph),

@@ -312,3 +312,75 @@ describe('自动布局', () => {
     expect(useGraph.getState().graph.nodes.find((n) => n.id === 'A')?.pos).toEqual({ x: 500, y: 500 });
   });
 });
+
+describe('版本快照', () => {
+  function tiny(): Graph {
+    const a = { ...createNode('A', { x: 0, y: 0 }), id: 'A' };
+    const b = { ...createNode('B', { x: 300, y: 0 }), id: 'B' };
+    return {
+      version: 1,
+      kinds: {},
+      nodes: [a, b],
+      edges: [createEdge({ node: 'A', port: 'p_out' }, { node: 'B', port: 'p_in' })],
+    };
+  }
+
+  it('保存、回滚、撤销', () => {
+    setGraph(tiny());
+    useGraph.getState().takeSnapshot('基线');
+    const { snapshots } = useGraph.getState();
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0].label).toBe('基线');
+    expect(useGraph.getState().toast).toContain('已保存快照');
+
+    useGraph.getState().addNode({ x: 10, y: 10 });
+    expect(useGraph.getState().graph.nodes).toHaveLength(3);
+    const historyBefore = useGraph.getState().past.length;
+
+    useGraph.getState().restoreSnapshot(snapshots[0].id);
+    const restored = useGraph.getState();
+    expect(restored.graph.nodes).toHaveLength(2);
+    expect(restored.past).toHaveLength(historyBefore + 1);
+    expect(restored.past[restored.past.length - 1].label).toContain('回滚到');
+    expect(restored.snapshotOpen).toBe(false);
+    expect(restored.toast).toContain('已回滚');
+
+    useGraph.getState().undo();
+    expect(useGraph.getState().graph.nodes).toHaveLength(3);
+  });
+
+  it('回滚时退出子图层并清空选择', () => {
+    const g = tiny();
+    const parent = { ...createNode('父', { x: 0, y: 0 }), id: 'P' };
+    parent.subgraph = { version: 1, kinds: {}, nodes: [], edges: [] };
+    g.nodes.push(parent);
+    setGraph(g);
+    useGraph.getState().takeSnapshot('带子图');
+    useGraph.getState().enterSubgraph('P');
+    useGraph.getState().select(['x'], null);
+    expect(useGraph.getState().path).toEqual(['P']);
+
+    useGraph.getState().restoreSnapshot(useGraph.getState().snapshots[0].id);
+    const state = useGraph.getState();
+    expect(state.path).toEqual([]);
+    expect(state.selectedNodes).toEqual([]);
+    expect(state.graph.nodes).toHaveLength(3);
+  });
+
+  it('删除快照', () => {
+    setGraph(tiny());
+    useGraph.getState().takeSnapshot('a');
+    const id = useGraph.getState().snapshots[0].id;
+    useGraph.getState().deleteSnapshot(id);
+    expect(useGraph.getState().snapshots).toHaveLength(0);
+    expect(useGraph.getState().toast).toContain('已删除快照');
+  });
+
+  it('默认名称带时间，最多保留 20 份', () => {
+    setGraph(tiny());
+    for (let i = 0; i < 25; i += 1) useGraph.getState().takeSnapshot();
+    const { snapshots } = useGraph.getState();
+    expect(snapshots).toHaveLength(20);
+    expect(snapshots[0].label).toContain('快照');
+  });
+});

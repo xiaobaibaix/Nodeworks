@@ -17,6 +17,7 @@ export default function Toolbar() {
   const kinds = graph.kinds;
   const togglePalette = useGraph((s) => s.togglePalette);
   const setExportOpen = useGraph((s) => s.setExportOpen);
+  const openSnapshots = useGraph((s) => s.openSnapshots);
   const autoLayout = useGraph((s) => s.autoLayout);
   const view = useGraph((s) => s.view);
   const setView = useGraph((s) => s.setView);
@@ -90,6 +91,9 @@ export default function Toolbar() {
         <button onClick={open}>打开</button>
         <button onClick={() => setExportOpen(true)} title="按映射导出为 project.json（先 dry-run）">
           导出…
+        </button>
+        <button onClick={() => openSnapshots(true)} title="本地快照：对比、回滚（可撤销）">
+          快照…
         </button>
         <span className="sep" />
         <button onClick={() => fitView({ padding: 0.25, duration: 300 })}>适应视图</button>
