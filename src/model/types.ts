@@ -26,7 +26,10 @@ export interface UnitNode {
   props: PropBag;
   ports: UnitPort[];
   pos: { x: number; y: number };
-  subgraph?: unknown;
+  /** 嵌套子图；坐标与 id 都在子图内部作用域 */
+  subgraph?: Graph;
+  /** 父端口 id → 子图内部端点，用于子图边界映射 */
+  subgraphMap?: Record<string, Endpoint>;
 }
 
 export interface Endpoint {
