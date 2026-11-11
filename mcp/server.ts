@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { layeredLayout, estimateSize } from '../src/model/autolayout';
-import { DEFAULT_MAPPING, exportProject, type DryRunReport } from '../src/model/mapping';
+import { DEFAULT_MAPPING, exportProject, validateMapping, type DryRunReport, type ExportMapping } from '../src/model/mapping';
 import {
   addEdgeOp, addNodeOp, createEdge, createNode, createNodeFromKind, createPort,
   findNode, moveNodesOp, removeEdgeOp, removeNodesOp, renameNodeOp, setKindOp,
@@ -30,6 +30,49 @@ function arg(name: string): string | undefined {
   return i >= 0 ? argv[i + 1] : undefined;
 }
 const FILE = resolve(arg('--file') ?? process.env.NODEWORKS_PROJECT ?? '.nodeworks/project.json');
+const MAPPING_FILE = arg('--mapping') ?? process.env.NODEWORKS_MAPPING;
+const SNAP_FILE = `${FILE}.snapshots.json`;
+const SNAP_LIMIT = 20;
+
+/** 解析导出映射：工具参数 > --mapping/env > 内置默认。 */
+function resolveMapping(ref?: string): ExportMapping {
+  const raw = ref ?? MAPPING_FILE;
+  if (!raw) return DEFAULT_MAPPING;
+  const target = isAbsolute(raw) ? raw : resolve(dirname(FILE), raw);
+  if (!existsSync(target)) throw new Error(`映射文件不存在：${target}`);
+  try {
+    return validateMapping(JSON.parse(readFileSync(target, 'utf8')));
+  } catch (error) {
+    throw new Error(`映射文件无效：${target}（${(error as Error).message}）`);
+  }
+}
+
+interface SnapEntry {
+  id: string;
+  at: number;
+  label: string;
+  project: ProjectDoc;
+}
+
+function loadSnaps(): SnapEntry[] {
+  if (!existsSync(SNAP_FILE)) return [];
+  try {
+    const raw = JSON.parse(readFileSync(SNAP_FILE, 'utf8')) as { snapshots?: unknown };
+    if (!Array.isArray(raw.snapshots)) return [];
+    return raw.snapshots.filter((entry): entry is SnapEntry => {
+      const snap = entry as SnapEntry;
+      return Boolean(snap && typeof snap.id === 'string' && typeof snap.label === 'string'
+        && typeof snap.at === 'number' && parseProjectDoc(snap.project));
+    });
+  } catch {
+    return [];
+  }
+}
+
+function saveSnaps(list: SnapEntry[]): void {
+  mkdirSync(dirname(SNAP_FILE), { recursive: true });
+  writeFileSync(SNAP_FILE, `${JSON.stringify({ version: 1, snapshots: list }, null, 2)}\n`, 'utf8');
+}
 
 let doc: ProjectDoc | null = null;
 let onDisk = false;
@@ -458,21 +501,87 @@ const tools: Tool[] = [
   },
   {
     name: 'export_project',
-    description: '按映射导出为 Forgeworks project.json 并 dry-run；可选写出文件。',
+    description: '按映射导出为 Forgeworks project.json 并 dry-run；可选自定义映射文件与写出文件。',
     inputSchema: S.obj('参数', {
       ...common,
+      mapping: S.str('映射文件路径（相对项目文件）；省略用 --mapping 或内置默认映射'),
       out: S.str('输出路径；省略则只返回报告'),
     }),
-    run: ({ graph, out }) => {
+    run: ({ graph, out, mapping }) => {
       const d = loadDoc();
       const g = graphOf(d, typeof graph === 'string' ? graph : undefined);
-      const result = exportProject(g, DEFAULT_MAPPING);
+      const result = exportProject(g, resolveMapping(typeof mapping === 'string' ? mapping : undefined));
       if (typeof out === 'string' && out) {
         const target = isAbsolute(out) ? out : resolve(dirname(FILE), out);
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, `${JSON.stringify(result.project, null, 2)}\n`, 'utf8');
       }
       return { ...reportOf(result.report), wrote: typeof out === 'string' ? out : null };
+    },
+  },
+  {
+    name: 'list_snapshots',
+    description: '列出文件级快照（与项目文件同目录的 .snapshots.json，独立于编辑器 localStorage 快照）。',
+    inputSchema: S.obj('无参数'),
+    run: () => {
+      const list = loadSnaps();
+      return {
+        file: SNAP_FILE,
+        snapshots: list.map((s) => ({
+          id: s.id,
+          label: s.label,
+          at: new Date(s.at).toISOString(),
+          graphs: s.project.graphs.length,
+          nodes: s.project.graphs.reduce((n, g) => n + g.graph.nodes.length, 0),
+        })),
+      };
+    },
+  },
+  {
+    name: 'create_snapshot',
+    description: '把当前整个项目（所有图）存为快照，用于危险批量编辑前回滚。',
+    inputSchema: S.obj('参数', { label: S.str('快照名；省略用时间') }),
+    run: ({ label }) => {
+      const list = loadSnaps();
+      const at = Date.now();
+      const time = new Date(at).toTimeString().slice(0, 5);
+      const entry: SnapEntry = {
+        id: `snap_${at.toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        at,
+        label: typeof label === 'string' && label.trim() ? label.trim() : `快照 ${time}`,
+        project: structuredClone(loadDoc()),
+      };
+      list.unshift(entry);
+      saveSnaps(list.slice(0, SNAP_LIMIT));
+      return { id: entry.id, label: entry.label, total: Math.min(list.length, SNAP_LIMIT) };
+    },
+  },
+  {
+    name: 'restore_snapshot',
+    description: '回滚到某个文件级快照（覆盖当前项目文件；可用 undo 退回回滚前）。',
+    inputSchema: S.obj('参数', { id: S.str('快照 id') }, ['id']),
+    run: ({ id }) => {
+      const list = loadSnaps();
+      const snap = list.find((s) => s.id === id);
+      if (!snap) throw new Error(`找不到快照「${String(id)}」`);
+      mutate('restore snapshot', (d) => {
+        const next = structuredClone(snap.project);
+        d.version = next.version;
+        d.active = next.active;
+        d.graphs = next.graphs;
+      });
+      return { restored: snap.label, graphs: snap.project.graphs.map((g) => `${g.name}: ${g.graph.nodes.length} 单元`) };
+    },
+  },
+  {
+    name: 'delete_snapshot',
+    description: '删除一个文件级快照。',
+    inputSchema: S.obj('参数', { id: S.str('快照 id') }, ['id']),
+    run: ({ id }) => {
+      const list = loadSnaps();
+      const next = list.filter((s) => s.id !== id);
+      saveSnaps(next);
+      return { deleted: list.length - next.length, total: next.length };
     },
   },
   {
