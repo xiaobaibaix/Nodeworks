@@ -34,9 +34,10 @@ pnpm dev
 - 自动布局：工具栏「自动布局」或 `⌘⇧L`，按依赖分层重排当前层（回边、孤儿边、孤立节点都有处理），整次布局一条历史可撤销
 - 版本快照：工具栏「快照…」把整图存成本地副本（最多 20 份），可查看与当前的差异明细、一键回滚；回滚是一条历史，⌘Z 可撤销
 - 多图容器：一个 project 管多张根图、共享 `kinds`；侧栏切换/重命名/删除，整份数据存 `nodeworks.project.v1`
-- 子图可视化：子图卡片内画内部缩略图；进入子图后，左右出现「外层输入/输出」代理，直接拖线就把父端口映射到本层端点
+- 子图可视化：子图卡片内是可交互缩略图（滚轮缩放、拖动平移、点小方块进入并选中）；进入子图后左右出现「外层输入/输出」代理，直接拖线就把父端口映射到本层端点
 - 映射外置：`src/mappings/forgeworks.mapping.json`，导出对话框可下载映射、载入自定义 `export.mapping.json`、恢复默认
-- MCP：`mcp/server.ts` 提供 stdio MCP，AI 可读图、建模板、增删单元/连线、自动布局、导出与校验（见下）
+- 跨子图直连：子图层把输出端口拖到「连接到其它子图…」，选另一子图内部的输入端口；自动建外层端口、写映射、连根层边，一条历史可撤销
+- MCP：`mcp/server.ts` 提供 stdio MCP，AI 可读图、建模板、增删单元/连线、自动布局、导出与校验、文件级快照（见下）
 - 持久化：编辑防抖写入 localStorage；工具栏「保存」下载 `project.graph.json`，「打开」支持单图或 project 多图文件并做 zod 校验
 - 示例图：钛矿 → 钛锭 → 钛板
 
@@ -99,14 +100,15 @@ MCP 客户端配置（Claude Code / 任意 stdio 客户端）：
 }
 ```
 
-工具：`project_info`、`get_graph`、`create_graph`、`set_active_graph`、`define_kind`、`find_nodes`、`add_node`、`update_node`、`remove_nodes`、`add_edge`、`remove_edges`、`auto_layout`、`export_project`、`validate_project`、`undo`。
+工具（19 个）：`project_info`、`get_graph`、`create_graph`、`set_active_graph`、`define_kind`、`find_nodes`、`add_node`、`update_node`、`remove_nodes`、`add_edge`、`remove_edges`、`auto_layout`、`export_project`、`validate_project`、`list_snapshots`、`create_snapshot`、`restore_snapshot`、`delete_snapshot`、`undo`。
+
+自定义映射：启动加 `--mapping <export.mapping.json>`（或 env `NODEWORKS_MAPPING`），`export_project` 也可单次传 `mapping`。快照为文件级，存 `<project>.snapshots.json`（最多 20 份），与编辑器 localStorage 快照彼此独立；`restore_snapshot` 整体替换项目，`undo` 可退回。
 
 注意：MCP 直接写文件；应用不会自动监听外部修改，AI 改完后在应用里重新「打开」同一文件即可。文件读写的是 project 文档（`{version:1, active, graphs}`），与应用 localStorage 同构。
 
 ## 下一步
 
-- 只读分享页、协作、快照导出为文件、端口类型强约束、跨子图连线
-- MCP 接入自定义映射文件与快照工具
+- 只读分享页、协作、快照导出为文件、端口类型强约束、嵌套子图互连
 
 ## 开发约定
 
@@ -116,7 +118,7 @@ MCP 客户端配置（Claude Code / 任意 stdio 客户端）：
 ## 测试
 
 ```bash
-pnpm test     # 137 项：模型纯函数、历史合并、自动布局、快照差异、剪贴板、查询、路径、表格、影响面、导入导出映射、项目多图、store 集成
+pnpm test     # 141 项：模型纯函数、历史合并、自动布局、快照差异、剪贴板、查询、路径、表格、影响面、跨子图、导入导出映射、项目多图、store 集成
 pnpm typecheck:mcp   # MCP 源码类型检查
 pnpm build    # tsc --noEmit && vite build
 ```

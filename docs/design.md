@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.8 · 2026-11-11 · 状态：P0–P10 均已实现（多图、子图可视化、映射外置、MCP）
+> 版本 v0.9 · 2026-11-11 · 状态：P0–P11 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图）
 
 ## 1. 定位
 
@@ -381,10 +381,10 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 
 验收：
 
-- 缩略图按内部节点包围盒等比缩放，单节点收成小色块，空子图有占位；`preview.test.ts` 4 项 + `thumb.mjs` 通过；
+- 缩略图按内部节点包围盒等比缩放，单节点收成小色块，空子图有占位；缩略图可交互：滚轮缩放、拖动平移、点击小方块进入子图并选中该单元，滚轮不会穿透缩放画布；`preview.test.ts` 5 项 + `minimap.mjs` 7 项通过；
 - 子图层左右各一组「外层输入/输出」代理，拖线调 `setOuterMap` 写父节点 `subgraphMap`，撤销回到父层历史；`cross.mjs` 9 项通过。
 
-实现要点：`miniPreview`（estimateSize + 缩放 + kind 颜色）；`BoundaryNode` 合成节点与 `__map:` 虚线；App 的 `onConnect` 命中代理时走映射而非普通连线。
+实现要点：`miniPreview`（estimateSize + 缩放 + kind 颜色 + 节点 id）；`UnitNode` 内的缩略图维护 `{tx,ty,k}` 视图变换，原生非 passive wheel 监听；`BoundaryNode` 合成节点与 `__map:` 虚线；App 的 `onConnect` 命中代理时走映射而非普通连线。
 
 ### P9：导出映射外置（已完成，2026-11-11）
 
@@ -396,15 +396,29 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 
 范围：stdio MCP server，让 AI 直接读写 project.json，完成看图、建模板、增删单元/连线、自动布局、导出与校验。
 
-工具：`project_info`、`get_graph`、`create_graph`、`set_active_graph`、`define_kind`、`find_nodes`、`add_node`、`update_node`、`remove_nodes`、`add_edge`、`remove_edges`、`auto_layout`、`export_project`、`validate_project`、`undo`。
+工具（19 个）：`project_info`、`get_graph`、`create_graph`、`set_active_graph`、`define_kind`、`find_nodes`、`add_node`、`update_node`、`remove_nodes`、`add_edge`、`remove_edges`、`auto_layout`、`export_project`、`validate_project`、`list_snapshots`、`create_snapshot`、`restore_snapshot`、`delete_snapshot`、`undo`。
+
+映射与快照：`export_project` 接受 `mapping`（相对项目文件），默认取 `--mapping` / `NODEWORKS_MAPPING`，都没有才用内置映射；快照为文件级，存在 `<project>.snapshots.json`，最多 20 份，回滚整体替换项目并可用 `undo` 退回。
 
 实现要点：`mcp/server.ts` 复用 `src/model/*`（不复制逻辑），按 project.json 读写，写前记录 50 步内存撤销栈；`pnpm build:mcp` 用 esbuild 打成 `mcp/server.mjs`；应用「打开」已支持 project 文档（`store.loadFile` + `parseProjectDoc`）。
 
-已知限制：应用不监听外部文件变化，AI 改完后需要在应用里重新「打开」；MCP 只使用默认 Forgeworks 映射（自定义映射尚未接入）。
+已知限制：应用不监听外部文件变化，AI 改完后需要在应用里重新「打开」；MCP 快照与编辑器 localStorage 快照彼此独立。
+
+### P11：跨子图直连（已完成，2026-11-11）
+
+范围：两个子图内部的节点直接互连（不经过手动建端口/映射）；在子图层把输出端口拖到「连接到其它子图…」落点，选目标内部输入端口即可。
+
+验收：
+
+- 自动在两边子图卡片上创建外层端口并写 `subgraphMap`，根层生成一条普通边；整次操作一条历史可撤销；
+- 进入任一侧子图能看到内部节点到外层端口的虚线映射，根图看到两张卡片之间的实线；`cross.mjs` 9 项通过；
+- `pnpm test` 141 项通过（17 个文件；新增 cross 3、preview id 1）；`tsc` 干净；`vite build` 成功（JS gzip 153.16 kB、CSS gzip 7.09 kB）。
+
+实现要点：`src/model/cross.ts` 的 `crossTargets/planCrossLink`（合成 addPortOp + setSubgraphMapOp + addEdgeOp，纯函数可测）；store 的 `linkCrossSubgraph` 单条历史；`CrossLinkDialog` 只列其它顶层子图内部的输入端口；子图层 `__cross__` 合成落点节点。
 
 ### 之后（未排期）
 
-只读分享页、协作、快照导出为文件、端口类型强约束、跨子图连线。
+只读分享页、协作、快照导出为文件、端口类型强约束、嵌套子图互连（当前跨子图直连限于顶层兄弟子图）。
 
 ## 8. 非目标
 
