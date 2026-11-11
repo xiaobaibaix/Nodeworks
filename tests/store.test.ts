@@ -384,3 +384,73 @@ describe('版本快照', () => {
     expect(snapshots[0].label).toContain('快照');
   });
 });
+
+describe('多图容器', () => {
+  function makeGraph(title: string): Graph {
+    return {
+      version: 1,
+      kinds: {},
+      nodes: [{ ...createNode(title, { x: 0, y: 0 }), id: 'n1' }],
+      edges: [],
+    };
+  }
+
+  function seedProject(): void {
+    const a = makeGraph('A');
+    const b = makeGraph('B');
+    useGraph.setState({
+      graph: a,
+      projectGraphs: [
+        { id: 'a', name: '图 A', graph: a },
+        { id: 'b', name: '图 B', graph: b },
+      ],
+      activeGraphId: 'a',
+      past: [],
+      future: [],
+    });
+  }
+
+  it('切换图会重置历史与选择', () => {
+    seedProject();
+    useGraph.getState().addNode({ x: 5, y: 5 });
+    useGraph.getState().select(['n1'], null);
+    expect(useGraph.getState().past).toHaveLength(1);
+
+    useGraph.getState().switchGraph('b');
+    const state = useGraph.getState();
+    expect(state.graph.nodes[0].title).toBe('B');
+    expect(state.past).toHaveLength(0);
+    expect(state.selectedNodes).toEqual([]);
+    expect(state.toast).toContain('图 B');
+
+    useGraph.getState().switchGraph('a');
+    expect(useGraph.getState().graph.nodes).toHaveLength(2);
+  });
+
+  it('新建图会带上并共享 kinds', () => {
+    seedProject();
+    const withKind: Graph = {
+      ...makeGraph('A'),
+      kinds: { item: { name: '物品' } },
+    };
+    useGraph.setState({ graph: withKind });
+    useGraph.getState().addGraph('新图');
+    const state = useGraph.getState();
+    expect(state.projectGraphs).toHaveLength(3);
+    const added = state.projectGraphs.find((pg) => pg.id === state.activeGraphId);
+    expect(added?.name).toBe('新图');
+    expect(added?.graph.kinds.item).toEqual({ name: '物品' });
+    expect(state.graph.nodes).toHaveLength(0);
+  });
+
+  it('重命名与删除当前图', () => {
+    seedProject();
+    useGraph.getState().renameGraph('钛生产线');
+    expect(useGraph.getState().projectGraphs[0].name).toBe('钛生产线');
+    useGraph.getState().removeGraph();
+    const state = useGraph.getState();
+    expect(state.projectGraphs).toHaveLength(1);
+    expect(state.activeGraphId).toBe('b');
+    expect(state.graph.nodes[0].title).toBe('B');
+  });
+});

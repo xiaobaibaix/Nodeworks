@@ -16,7 +16,12 @@ import { sampleGraph } from './model/sample';
 import {
   formatTime, loadSnapshots, newSnapshot, persistSnapshots, pushSnapshot, type Snapshot,
 } from './model/snapshot';
-import { loadCached, saveCached } from './persistence';
+import {
+  activeGraph as projectActiveGraph, addGraph as projectAddGraph,
+  projectFromGraph, removeGraph as projectRemoveGraph, renameGraph as projectRenameGraph,
+  syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
+} from './model/project';
+import { loadCached, loadProject, saveCached, saveProject } from './persistence';
 import type { Endpoint, Graph, KindDef, PropMeta, UnitPort } from './model/types';
 import type { SortDir } from './model/table';
 
@@ -63,6 +68,9 @@ interface Store {
   /** 本地版本快照（最新在前，最多 SNAPSHOT_LIMIT 份） */
   snapshots: Snapshot[];
   snapshotOpen: boolean;
+  /** 多图容器：一个 project 下的所有根图（当前图另外存在 graph 里） */
+  projectGraphs: ProjectGraph[];
+  activeGraphId: string;
   boot(): void;
   toastOf(msg: string | null): void;
   select(nodes: string[], edge: string | null): void;
@@ -98,6 +106,10 @@ interface Store {
   takeSnapshot(label?: string): void;
   restoreSnapshot(id: string): void;
   deleteSnapshot(id: string): void;
+  switchGraph(id: string): void;
+  addGraph(name?: string): void;
+  renameGraph(name: string): void;
+  removeGraph(): void;
   addPort(nodeId: string, dir: 'in' | 'out'): void;
   setPort(nodeId: string, portId: string, patch: Partial<UnitPort>): void;
   requestRemovePort(nodeId: string, portId: string): void;
@@ -153,11 +165,32 @@ export const useGraph = create<Store>((set, get) => ({
   exportOpen: false,
   snapshots: [],
   snapshotOpen: false,
+  projectGraphs: [],
+  activeGraphId: '',
 
   boot: () => {
     if (get().booted) return;
-    const cached = loadCached();
-    set({ graph: cached ?? sampleGraph(), booted: true, snapshots: loadSnapshots() });
+    const project = loadProject();
+    if (project) {
+      const active = projectActiveGraph(project);
+      set({
+        graph: active.graph,
+        projectGraphs: project.graphs,
+        activeGraphId: active.id,
+        booted: true,
+        snapshots: loadSnapshots(),
+      });
+      return;
+    }
+    const seeded = projectFromGraph(loadCached() ?? sampleGraph());
+    const active = projectActiveGraph(seeded);
+    set({
+      graph: active.graph,
+      projectGraphs: seeded.graphs,
+      activeGraphId: active.id,
+      booted: true,
+      snapshots: loadSnapshots(),
+    });
   },
 
   toastOf: (msg) => set({ toast: msg }),
@@ -769,9 +802,139 @@ export const useGraph = create<Store>((set, get) => ({
       focus: null,
       exportOpen: false,
       snapshotOpen: false,
+      ...(() => {
+        const seeded = projectFromGraph(g);
+        return { projectGraphs: seeded.graphs, activeGraphId: seeded.active };
+      })(),
     }),
 
-  saveToCache: () => saveCached(get().graph),
+  switchGraph: (id) => {
+    const { graph, projectGraphs, activeGraphId } = get();
+    if (id === activeGraphId) return;
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs },
+      graph,
+      activeGraphId,
+    );
+    const next = switchProjectGraph(synced, id);
+    if (!next) return;
+    const active = projectActiveGraph(next);
+    set({
+      graph: active.graph,
+      projectGraphs: next.graphs,
+      activeGraphId: next.active,
+      past: [],
+      future: [],
+      selectedNodes: [],
+      selectedEdge: null,
+      pendingPort: null,
+      path: [],
+      preview: false,
+      filter: EMPTY_FILTER,
+      focus: null,
+      impactOn: false,
+      tableSort: null,
+      hiddenColumns: [],
+      toast: `切换到「${active.name}」`,
+    });
+  },
+
+  addGraph: (name) => {
+    const { graph, projectGraphs, activeGraphId } = get();
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs },
+      graph,
+      activeGraphId,
+    );
+    if (synced.graphs.length >= 24) {
+      set({ toast: '一个 project 最多 24 张图' });
+      return;
+    }
+    const created = projectAddGraph(synced, name);
+    const active = projectActiveGraph(created.project);
+    set({
+      graph: active.graph,
+      projectGraphs: created.project.graphs,
+      activeGraphId: active.id,
+      past: [],
+      future: [],
+      selectedNodes: [],
+      selectedEdge: null,
+      pendingPort: null,
+      path: [],
+      preview: false,
+      filter: EMPTY_FILTER,
+      focus: null,
+      impactOn: false,
+      tableSort: null,
+      hiddenColumns: [],
+      toast: `已新建「${active.name}」`,
+    });
+    saveProject(created.project);
+  },
+
+  renameGraph: (name) => {
+    const { projectGraphs, activeGraphId } = get();
+    const before = projectGraphs.find((pg) => pg.id === activeGraphId);
+    if (!before) return;
+    const project = projectRenameGraph(
+      { version: 1, active: activeGraphId, graphs: projectGraphs },
+      activeGraphId,
+      name,
+    );
+    set({ projectGraphs: project.graphs, toast: `已重命名为「${name.trim() || before.name}」` });
+    saveProject(project);
+  },
+
+  removeGraph: () => {
+    const { graph, projectGraphs, activeGraphId } = get();
+    if (projectGraphs.length <= 1) {
+      set({ toast: '至少保留一张图' });
+      return;
+    }
+    if (typeof window !== 'undefined' && !window.confirm('删除当前图？该图的节点与连线会一起删除。')) {
+      return;
+    }
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs },
+      graph,
+      activeGraphId,
+    );
+    const next = projectRemoveGraph(synced, activeGraphId);
+    const active = projectActiveGraph(next);
+    set({
+      graph: active.graph,
+      projectGraphs: next.graphs,
+      activeGraphId: active.id,
+      past: [],
+      future: [],
+      selectedNodes: [],
+      selectedEdge: null,
+      pendingPort: null,
+      path: [],
+      preview: false,
+      filter: EMPTY_FILTER,
+      focus: null,
+      impactOn: false,
+      tableSort: null,
+      hiddenColumns: [],
+      toast: `已删除，切换到「${active.name}」`,
+    });
+    saveProject(next);
+  },
+
+  saveToCache: () => {
+    const { graph, projectGraphs, activeGraphId } = get();
+    saveCached(graph);
+    if (!projectGraphs.length) return;
+    const project = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs },
+      graph,
+      activeGraphId,
+    );
+    set({ projectGraphs: project.graphs });
+    saveProject(project);
+  },
 
   enterSubgraph: (id) => {
     const node = findNode(graphOf(get()), id);

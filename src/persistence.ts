@@ -1,7 +1,9 @@
-import { parseGraph } from './model/schema';
+import { normalizeProject, type ProjectDoc, type ProjectGraph } from './model/project';
+import { GraphSchema, parseGraph } from './model/schema';
 import type { Graph } from './model/types';
 
 const KEY = 'nodeworks.graph.v1';
+const PROJECT_KEY = 'nodeworks.project.v1';
 
 export function loadCached(): Graph | null {
   try {
@@ -10,6 +12,44 @@ export function loadCached(): Graph | null {
     return parseGraph(JSON.parse(raw));
   } catch {
     return null;
+  }
+}
+
+export function loadProject(): ProjectDoc | null {
+  try {
+    const raw = localStorage.getItem(PROJECT_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const doc = parsed as Partial<ProjectDoc>;
+    if (doc.version !== 1 || !Array.isArray(doc.graphs) || doc.graphs.length === 0) return null;
+    const graphs: ProjectGraph[] = [];
+    for (const item of doc.graphs) {
+      if (!item || typeof item.id !== 'string') return null;
+      const result = GraphSchema.safeParse(item.graph);
+      if (!result.success) return null;
+      graphs.push({
+        id: item.id,
+        name: typeof item.name === 'string' && item.name ? item.name : '未命名图',
+        graph: result.data as Graph,
+      });
+    }
+    return normalizeProject({
+      version: 1,
+      active: typeof doc.active === 'string' ? doc.active : graphs[0].id,
+      graphs,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function saveProject(doc: ProjectDoc): boolean {
+  try {
+    localStorage.setItem(PROJECT_KEY, JSON.stringify(doc));
+    return true;
+  } catch {
+    return false;
   }
 }
 

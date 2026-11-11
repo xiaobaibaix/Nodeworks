@@ -19,7 +19,7 @@ import UnitNode from './components/UnitNode';
 import { isFiltering, nodeMatches, visibleNodes } from './model/query';
 import { impactOf } from './model/impact';
 import { orientEdge } from './model/ops';
-import { downloadGraph, saveCached } from './persistence';
+import { downloadGraph } from './persistence';
 import { graphOf, useCurrentGraph, useGraph } from './store';
 
 const nodeTypes = { unit: UnitNode };
@@ -294,7 +294,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => saveCached(graph), 250);
+    const timer = setTimeout(() => useGraph.getState().saveToCache(), 250);
     return () => clearTimeout(timer);
   }, [graph]);
 

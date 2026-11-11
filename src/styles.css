@@ -858,3 +858,21 @@ table.grid { width: 100%; border-collapse: collapse; }
 .snapshot-actions button { font-size: 12px; padding: 4px 10px; }
 button.danger { border-color: #5b2b2b; color: #fca5a5; }
 button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a; }
+
+/* ---------- 多图容器 ---------- */
+.graph-bar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 0;
+}
+.graph-bar select {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+.graph-bar button {
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1;
+}

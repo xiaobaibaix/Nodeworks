@@ -75,6 +75,33 @@ export default function CommandPalette() {
       run: () => useGraph.getState().setExportOpen(true),
     });
     list.push({
+      id: 'graph-new',
+      label: '新建图',
+      hint: '同一 project，模板共享',
+      group: '命令',
+      mutates: true,
+      run: () => useGraph.getState().addGraph(),
+    });
+    list.push({
+      id: 'graph-rename',
+      label: '重命名当前图…',
+      group: '命令',
+      run: () => {
+        const st = useGraph.getState();
+        const current = st.projectGraphs.find((pg) => pg.id === st.activeGraphId);
+        const name = window.prompt('图名称', current?.name ?? '');
+        if (name) st.renameGraph(name);
+      },
+    });
+    list.push({
+      id: 'graph-delete',
+      label: '删除当前图…',
+      hint: '至少保留一张',
+      group: '命令',
+      mutates: true,
+      run: () => useGraph.getState().removeGraph(),
+    });
+    list.push({
       id: 'snapshots',
       label: '快照与回滚…',
       hint: '本地版本副本',

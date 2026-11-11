@@ -31,7 +31,14 @@ export default function Sidebar() {
   const selectedNodes = useGraph((s) => s.selectedNodes);
   const select = useGraph((s) => s.select);
   const togglePalette = useGraph((s) => s.togglePalette);
+  const projectGraphs = useGraph((s) => s.projectGraphs);
+  const activeGraphId = useGraph((s) => s.activeGraphId);
+  const switchGraph = useGraph((s) => s.switchGraph);
+  const addGraph = useGraph((s) => s.addGraph);
+  const renameGraph = useGraph((s) => s.renameGraph);
+  const removeGraph = useGraph((s) => s.removeGraph);
   const { fitView } = useReactFlow();
+  const activeName = projectGraphs.find((pg) => pg.id === activeGraphId)?.name ?? '';
 
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
@@ -78,6 +85,34 @@ export default function Sidebar() {
         <span>大纲</span>
         <button className="kbd" title="命令面板" onClick={() => togglePalette(true)}>⌘K</button>
       </header>
+
+      <div className="graph-bar" title="一个 project 管多张根图，模板共享">
+        <select
+          value={activeGraphId}
+          aria-label="切换图"
+          onChange={(e) => {
+            if (e.target.value === '__new') addGraph();
+            else switchGraph(e.target.value);
+          }}
+        >
+          {projectGraphs.map((pg) => (
+            <option key={pg.id} value={pg.id}>{pg.name}</option>
+          ))}
+          <option value="__new">＋ 新建图…</option>
+        </select>
+        <button
+          title="重命名当前图"
+          onClick={() => {
+            const name = window.prompt('图名称', activeName);
+            if (name) renameGraph(name);
+          }}
+        >
+          ✎
+        </button>
+        <button title="删除当前图" onClick={removeGraph} disabled={projectGraphs.length <= 1}>
+          −
+        </button>
+      </div>
 
       <div className="search-box">
         <input

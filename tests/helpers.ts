@@ -25,6 +25,8 @@ export function resetStore(): void {
     exportOpen: false,
     snapshots: [],
     snapshotOpen: false,
+    projectGraphs: [],
+    activeGraphId: '',
     booted: true,
   });
 }
