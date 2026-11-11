@@ -82,6 +82,6 @@ pnpm dev
 ## 测试
 
 ```bash
-pnpm test     # 66 项：模型纯函数、历史合并、布局、剪贴板、查询、路径、store 集成
+pnpm test     # 67 项：模型纯函数、历史合并、布局、剪贴板、查询、路径、store 集成
 pnpm build    # tsc --noEmit && vite build
 ```

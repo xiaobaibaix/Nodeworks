@@ -14,7 +14,7 @@ import Toolbar from './components/Toolbar';
 import UnitNode from './components/UnitNode';
 import { isFiltering, nodeMatches, visibleNodes } from './model/query';
 import { downloadGraph, saveCached } from './persistence';
-import { useCurrentGraph, useGraph } from './store';
+import { graphOf, useCurrentGraph, useGraph } from './store';
 
 const nodeTypes = { unit: UnitNode };
 
@@ -100,7 +100,7 @@ function Canvas() {
     const ids = state.selectedNodes.includes(node.id) ? state.selectedNodes : [node.id];
     const from: Record<string, Pos> = {};
     for (const id of ids) {
-      const model = state.graph.nodes.find((n) => n.id === id);
+      const model = graphOf(state).nodes.find((n) => n.id === id);
       if (model) from[id] = { ...model.pos };
     }
     dragFrom.current = from;

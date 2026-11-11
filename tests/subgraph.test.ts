@@ -57,6 +57,21 @@ describe('子图导航与路径化编辑', () => {
     expect(useGraph.getState().path).toEqual([outer]);
   });
 
+  it('层内拖动只改当前子图里的位置', () => {
+    useGraph.getState().addSubgraphNode({ x: 0, y: 0 });
+    const outer = useGraph.getState().graph.nodes[0].id;
+    useGraph.getState().enterSubgraph(outer);
+    useGraph.getState().addNode({ x: 0, y: 0 });
+    const inner = graphOf(useGraph.getState()).nodes[0].id;
+
+    useGraph.getState().silentMoveMany({ [inner]: { x: 40, y: 50 } });
+    expect(graphOf(useGraph.getState()).nodes[0].pos).toEqual({ x: 40, y: 50 });
+
+    useGraph.getState().goToPath(0);
+    expect(useGraph.getState().graph.nodes[0].pos).toEqual({ x: 0, y: 0 });
+    expect(useGraph.getState().graph.nodes[0].subgraph!.nodes[0].pos).toEqual({ x: 40, y: 50 });
+  });
+
   it('只读预览保留选择但取消待处理的端口删除', () => {
     useGraph.getState().addNode();
     const id = useGraph.getState().graph.nodes[0].id;
