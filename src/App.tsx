@@ -197,6 +197,7 @@ function Canvas() {
       nodeTypes={nodeTypes}
       colorMode="dark"
       onConnect={onConnect}
+      connectionRadius={44}
       onNodeDragStart={onNodeDragStart}
       onNodeDrag={onNodeDrag}
       onNodeDragStop={onNodeDragStop}

@@ -431,9 +431,25 @@ export const useGraph = create<Store>((set, get) => ({
   cancelRemovePort: () => set({ pendingPort: null }),
 
   connect: (from, to) => {
-    const error = validateConnection(graphOf(get()), from, to);
+    const graph = graphOf(get());
+    const error = validateConnection(graph, from, to);
     if (error) {
-      set({ toast: error });
+      const dup =
+        error === '这条线已经存在'
+          ? graph.edges.find(
+              (e) =>
+                !e.orphan &&
+                e.from.node === from.node &&
+                e.from.port === from.port &&
+                e.to.node === to.node &&
+                e.to.port === to.port,
+            )
+          : undefined;
+      set(
+        dup
+          ? { toast: '这条线已经存在（已选中该连线）', selectedNodes: [], selectedEdge: dup.id }
+          : { toast: error },
+      );
       return;
     }
     const edge = createEdge(from, to);

@@ -193,13 +193,27 @@ input:focus, select:focus { outline: 1px solid var(--accent); border-color: var(
 }
 
 .react-flow__handle.unit-handle {
-  width: 9px;
-  height: 9px;
-  background: var(--accent);
-  border: 2px solid var(--bg);
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.react-flow__handle.unit-handle:hover { background: #ffc24d; }
+.react-flow__handle.unit-handle::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-sizing: border-box;
+}
+
+.react-flow__handle.unit-handle:hover::after { background: #ffc24d; }
+
 
 
 .react-flow__controls {

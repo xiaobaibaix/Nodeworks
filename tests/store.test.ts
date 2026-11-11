@@ -176,6 +176,24 @@ describe('多选、删除与复制粘贴', () => {
     expect(state.selectedNodes).toEqual(pasted.map((n) => n.id));
   });
 
+  it('重复连线不会新增边，并选中已有的那条', () => {
+    const a = createNode('A', { x: 0, y: 0 });
+    const out = createPort('out', '产物');
+    a.ports.push(out);
+    const b = createNode('B', { x: 10, y: 0 });
+    const input = createPort('in', '原料');
+    b.ports.push(input);
+    const edge = createEdge({ node: a.id, port: out.id }, { node: b.id, port: input.id });
+    setGraph({ version: 1, nodes: [a, b], edges: [edge], kinds: {} });
+    useGraph.getState().connect({ node: a.id, port: out.id }, { node: b.id, port: input.id });
+    const state = useGraph.getState();
+    expect(state.graph.edges).toHaveLength(1);
+    expect(state.past).toHaveLength(0);
+    expect(state.selectedEdge).toBe(edge.id);
+    expect(state.selectedNodes).toEqual([]);
+    expect(state.toast).toContain('已选中该连线');
+  });
+
   it('多节点移动生成一条历史，撤销回到原位', () => {
     const a = createNode('A', { x: 0, y: 0 });
     const b = createNode('B', { x: 10, y: 10 });
