@@ -54,64 +54,72 @@ export interface ExportOutput {
   report: DryRunReport;
 }
 
-/** 附录 A 的默认契约；节点 id 优先用 key 属性（ORE_TI 这类业务 id）。 */
-export const FORGEWORKS_MAPPING: ExportMapping = {
-  version: 1,
-  target: 'forgeworks.project.json',
-  ports: { in: '输入', out: '输出' },
-  nodes: {
-    element: {
-      table: 'elements',
-      titleField: 'name',
-      idProp: 'key',
-      props: { color: 'color', icon: 'icon' },
-    },
-    item: {
-      table: 'items',
-      titleField: 'name',
-      idProp: 'key',
-      props: {
-        tier: 'tier',
-        type: 'type',
-        value: 'value',
-        color: 'color',
-        icon: 'icon',
-        mesh: 'mesh',
-        mat: 'mat',
-        modelStatus: 'modelStatus',
-      },
-      required: ['name'],
-    },
-    machine: {
-      table: 'machines',
-      titleField: 'name',
-      idProp: 'key',
-      props: { footprint: 'footprint', icon: 'icon' },
-    },
-    recipe: {
-      table: 'recipes',
-      titleField: 'name',
-      idProp: 'key',
-      props: { cycle: 'cycle', power: 'power' },
-      arrays: ['inputs', 'outputs'],
-      required: ['name'],
-      requireMachine: true,
-    },
-    tech: {
-      table: 'techs',
-      titleField: 'name',
-      idProp: 'key',
-      props: { cost: 'cost', time: 'time' },
-      arrays: ['unlocks'],
-    },
-  },
-  edges: [
-    { id: 'recipe-input', from: 'item', to: 'recipe', store: 'recipeInput', amountProp: 'amount' },
-    { id: 'recipe-output', from: 'recipe', to: 'item', store: 'recipeOutput', amountProp: 'amount' },
-    { id: 'runs-on', from: 'recipe', to: 'machine', store: 'machineRef', field: 'machine' },
-    { id: 'unlocks', from: 'tech', to: 'recipe', store: 'refList', field: 'unlocks' },
-  ],
-};
+import defaultMapping from '../mappings/forgeworks.mapping.json';
+
+/** 附录 A 的默认契约（外置在 src/mappings/forgeworks.mapping.json，可被自定义映射替换）。 */
+export const DEFAULT_MAPPING: ExportMapping = defaultMapping as ExportMapping;
+
+/** @deprecated 用 DEFAULT_MAPPING；保留别名避免旧代码断裂。 */
+export const FORGEWORKS_MAPPING = DEFAULT_MAPPING;
+
+const STORES = new Set(['recipeInput', 'recipeOutput', 'machineRef', 'refList']);
+
+/** 校验外部映射文件（用户/AI 编辑的 export.mapping.json）。错误信息可直接展示。 */
+export function validateMapping(raw: unknown): ExportMapping {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('映射必须是 JSON 对象');
+  }
+  const value = raw as Record<string, unknown>;
+  if (value.version !== 1) throw new Error('version 必须是 1');
+  if (typeof value.target !== 'string' || !value.target) throw new Error('缺少 target 文件名');
+  if (!value.nodes || typeof value.nodes !== 'object' || Array.isArray(value.nodes)) {
+    throw new Error('缺少 nodes 表映射');
+  }
+  const tables = new Set<string>();
+  for (const [kind, entry] of Object.entries(value.nodes as Record<string, unknown>)) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error(`nodes.${kind} 必须是对象`);
+    }
+    const def = entry as Record<string, unknown>;
+    if (typeof def.table !== 'string' || !def.table) throw new Error(`nodes.${kind}.table 缺失`);
+    if (typeof def.titleField !== 'string' || !def.titleField) {
+      throw new Error(`nodes.${kind}.titleField 缺失`);
+    }
+    if (tables.has(def.table)) throw new Error(`表名重复：${def.table}`);
+    tables.add(def.table);
+    for (const key of ['props', 'defaults'] as const) {
+      if (def[key] !== undefined && (typeof def[key] !== 'object' || Array.isArray(def[key]))) {
+        throw new Error(`nodes.${kind}.${key} 必须是对象`);
+      }
+    }
+    for (const key of ['arrays', 'required'] as const) {
+      if (def[key] !== undefined && !Array.isArray(def[key])) {
+        throw new Error(`nodes.${kind}.${key} 必须是数组`);
+      }
+    }
+  }
+  if (!Array.isArray(value.edges)) throw new Error('缺少 edges 规则');
+  for (const [i, rule] of value.edges.entries()) {
+    if (!rule || typeof rule !== 'object') throw new Error(`edges[${i}] 必须是对象`);
+    const r = rule as Record<string, unknown>;
+    if (typeof r.id !== 'string' || !r.id) throw new Error(`edges[${i}].id 缺失`);
+    if (typeof r.from !== 'string' || !(r.from in (value.nodes as Record<string, unknown>))) {
+      throw new Error(`edges[${i}].from 不是已声明的 kind`);
+    }
+    if (typeof r.to !== 'string' || !(r.to in (value.nodes as Record<string, unknown>))) {
+      throw new Error(`edges[${i}].to 不是已声明的 kind`);
+    }
+    if (!STORES.has(String(r.store))) throw new Error(`edges[${i}].store 不支持：${String(r.store)}`);
+    if (r.store === 'recipeInput' || r.store === 'recipeOutput') {
+      if (r.amountProp !== undefined && typeof r.amountProp !== 'string') {
+        throw new Error(`edges[${i}].amountProp 必须是字符串`);
+      }
+    } else if (typeof r.field !== 'string' || !r.field) {
+      throw new Error(`edges[${i}].field 缺失`);
+    }
+  }
+  return raw as ExportMapping;
+}
 
 class Collector {
   readonly issues: DryRunIssue[] = [];

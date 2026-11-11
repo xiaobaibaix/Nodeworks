@@ -3,6 +3,7 @@ import {
   Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useNodesInitialized, useReactFlow,
   type Connection, type Edge, type EdgeChange, type Node, type NodeChange,
 } from '@xyflow/react';
+import BoundaryNode from './components/BoundaryNode';
 import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
 import ExportDialog from './components/ExportDialog';
@@ -18,11 +19,17 @@ import Toolbar from './components/Toolbar';
 import UnitNode from './components/UnitNode';
 import { isFiltering, nodeMatches, visibleNodes } from './model/query';
 import { impactOf } from './model/impact';
+import { graphAtPath } from './model/path';
 import { orientEdge } from './model/ops';
 import { downloadGraph } from './persistence';
 import { graphOf, useCurrentGraph, useGraph } from './store';
 
-const nodeTypes = { unit: UnitNode };
+const nodeTypes = { unit: UnitNode, boundary: BoundaryNode };
+
+/** 子图层里代表“外层端口”的合成节点：只做可视与接线，不写进图数据。 */
+const OUTER_IN = '__outer_in';
+const OUTER_OUT = '__outer_out';
+const MAP_EDGE_STYLE = { stroke: '#7c8798', strokeDasharray: '4 3' };
 
 type Pos = { x: number; y: number };
 
@@ -39,6 +46,8 @@ function Canvas() {
   const removeEdge = useGraph((s) => s.removeEdge);
   const preview = useGraph((s) => s.preview);
   const enterSubgraph = useGraph((s) => s.enterSubgraph);
+  const path = useGraph((s) => s.path);
+  const rootGraph = useGraph((s) => s.graph);
   const impactOn = useGraph((s) => s.impactOn);
   const impactDepth = useGraph((s) => s.impactDepth);
   const focus = useGraph((s) => s.focus);
@@ -75,6 +84,16 @@ function Canvas() {
     void fitView({ padding: 0.25, duration: 200 });
   }, [nodesInitialized, fitView, graph.nodes.length]);
 
+  const lastPath = useRef(path.join('/'));
+  useEffect(() => {
+    const key = path.join('/');
+    if (key === lastPath.current) return;
+    lastPath.current = key;
+    if (!nodesInitialized) return;
+    const timer = setTimeout(() => void fitView({ padding: 0.22, duration: 250 }), 50);
+    return () => clearTimeout(timer);
+  }, [path, nodesInitialized, fitView]);
+
   useEffect(() => {
     if (!focus) return;
     const exists = graph.nodes.some((n) => n.id === focus);
@@ -83,24 +102,55 @@ function Canvas() {
     void fitView({ nodes: [{ id: focus }], duration: 300, maxZoom: 1.15, padding: 2.2 });
   }, [focus, graph.nodes, fitView, setFocus]);
 
-  const nodes: Node[] = useMemo(
-    () =>
-      graph.nodes.map((n) => ({
-        id: n.id,
-        type: 'unit',
-        position: n.pos,
-        ...(measured.current[n.id] ? { measured: measured.current[n.id] } : {}),
-        selected: selectedNodes.includes(n.id),
-        hidden: filtering && !visibleIds.has(n.id),
+  // 当前层所属的子图节点（用于在内部画出“外层端口”）。
+  const parent = useMemo(() => {
+    if (!path.length) return null;
+    const parentGraph = graphAtPath(rootGraph, path.slice(0, -1));
+    return parentGraph?.nodes.find((n) => n.id === path[path.length - 1]) ?? null;
+  }, [path, rootGraph]);
+
+  const nodes: Node[] = useMemo(() => {
+    const list: Node[] = graph.nodes.map((n) => ({
+      id: n.id,
+      type: 'unit',
+      position: n.pos,
+      ...(measured.current[n.id] ? { measured: measured.current[n.id] } : {}),
+      selected: selectedNodes.includes(n.id),
+      hidden: filtering && !visibleIds.has(n.id),
+      data: {
+        node: n,
+        dimmed: (Boolean(needle) && !matchIds.has(n.id)) || (impact ? !impactNodes.has(n.id) : false),
+        matched: Boolean(needle) && matchIds.has(n.id),
+        impact: Boolean(impact && impactNodes.has(n.id)),
+      },
+    }));
+    if (parent) {
+      const xs = graph.nodes.map((n) => n.pos.x);
+      const ys = graph.nodes.map((n) => n.pos.y);
+      const minX = xs.length ? Math.min(...xs) : 0;
+      const maxX = xs.length ? Math.max(...xs) : 240;
+      const midY = ys.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 0;
+      const mapped = Object.keys(parent.subgraphMap ?? {});
+      const outer = (id: string, side: 'in' | 'out', x: number): Node => ({
+        id,
+        type: 'boundary',
+        position: { x, y: midY },
+        draggable: false,
+        selectable: false,
+        deletable: false,
+        connectable: !preview,
         data: {
-          node: n,
-          dimmed: (Boolean(needle) && !matchIds.has(n.id)) || (impact ? !impactNodes.has(n.id) : false),
-          matched: Boolean(needle) && matchIds.has(n.id),
-          impact: Boolean(impact && impactNodes.has(n.id)),
+          side,
+          title: parent.title,
+          ports: parent.ports.filter((p) => (side === 'in' ? p.dir === 'in' : p.dir === 'out')),
+          mapped,
         },
-      })),
-    [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, impact, impactNodes, measuredVersion],
-  );
+      });
+      list.push(outer(OUTER_IN, 'in', minX - 280));
+      list.push(outer(OUTER_OUT, 'out', maxX + 90));
+    }
+    return list;
+  }, [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, impact, impactNodes, measuredVersion, parent, preview]);
 
   const edges: Edge[] = useMemo(() => {
     const list: Edge[] = [];
@@ -125,15 +175,59 @@ function Canvas() {
           : {}),
       });
     }
+    if (parent) {
+      // 映射边：外层输入 → 内部消费口；内部产出 → 外层输出。虚线，不可选/删。
+      for (const [portId, ep] of Object.entries(parent.subgraphMap ?? {})) {
+        const outerPort = parent.ports.find((p) => p.id === portId);
+        const innerPort = parent.subgraph?.nodes.find((n) => n.id === ep.node)?.ports.find((p) => p.id === ep.port);
+        if (!outerPort || !innerPort) continue;
+        if (filtering && !visibleIds.has(ep.node)) continue;
+        list.push(
+          outerPort.dir === 'in'
+            ? {
+                id: `__map:${portId}`,
+                source: OUTER_IN,
+                sourceHandle: portId,
+                target: ep.node,
+                targetHandle: ep.port,
+                type: 'smoothstep',
+                style: MAP_EDGE_STYLE,
+                selectable: false,
+                deletable: false,
+              }
+            : {
+                id: `__map:${portId}`,
+                source: ep.node,
+                sourceHandle: ep.port,
+                target: OUTER_OUT,
+                targetHandle: portId,
+                type: 'smoothstep',
+                style: MAP_EDGE_STYLE,
+                selectable: false,
+                deletable: false,
+              },
+        );
+      }
+    }
     return list;
-  }, [graph, selectedEdge, filtering, visibleIds, impact, impactEdges]);
+  }, [graph, selectedEdge, filtering, visibleIds, impact, impactEdges, parent, preview]);
 
+  const setOuterMap = useGraph((s) => s.setOuterMap);
   const onConnect = useCallback(
     (c: Connection) => {
       if (!c.source || !c.target || !c.sourceHandle || !c.targetHandle) return;
+      // 从外层端口代理接线 = 建立“外层端口 ↔ 内部端口”的映射，不新增本层边。
+      if (c.source === OUTER_IN) {
+        setOuterMap(c.sourceHandle, { node: c.target, port: c.targetHandle });
+        return;
+      }
+      if (c.target === OUTER_OUT) {
+        setOuterMap(c.targetHandle, { node: c.source, port: c.sourceHandle });
+        return;
+      }
       connect({ node: c.source, port: c.sourceHandle }, { node: c.target, port: c.targetHandle });
     },
-    [connect],
+    [connect, setOuterMap],
   );
 
   const onNodeDragStart = useCallback((_: unknown, node: Node) => {

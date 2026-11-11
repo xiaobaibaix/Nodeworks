@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { layeredLayout } from './model/autolayout';
+import { DEFAULT_MAPPING, validateMapping, type ExportMapping } from './model/mapping';
 import { copySelection, pasteClip, type ClipPayload } from './model/clipboard';
 import { pushEntry, type Entry, type EntryInput } from './model/history';
 import { graphAtPath, normalizePath, updateAtPath } from './model/path';
@@ -102,6 +103,9 @@ interface Store {
   resetColumns(): void;
   setFocus(id: string | null): void;
   setExportOpen(open: boolean): void;
+  mapping: ExportMapping;
+  setMapping(mapping: ExportMapping): void;
+  resetMapping(): void;
   openSnapshots(open?: boolean): void;
   takeSnapshot(label?: string): void;
   restoreSnapshot(id: string): void;
@@ -130,11 +134,26 @@ interface Store {
   setPreview(on: boolean): void;
   addSubgraphNode(pos?: Pos): void;
   setSubgraphMap(nodeId: string, portId: string, endpoint: Endpoint | null): void;
+  /** 在子图层内映射“外层端口 → 本层端点”，历史挂在父层操作上。 */
+  setOuterMap(portId: string, endpoint: Endpoint | null): void;
 }
 
 /** 当前层图（根 / 子图）；组件统一通过它读，写操作由 commit 自动映射回根。 */
 export function graphOf(state: { graph: Graph; path: string[] }): Graph {
   return graphAtPath(state.graph, state.path) ?? state.graph;
+}
+
+const MAPPING_KEY = 'nodeworks.mapping.v1';
+
+function loadMapping(): ExportMapping {
+  if (typeof localStorage === 'undefined') return DEFAULT_MAPPING;
+  try {
+    const raw = localStorage.getItem(MAPPING_KEY);
+    if (!raw) return DEFAULT_MAPPING;
+    return validateMapping(JSON.parse(raw));
+  } catch {
+    return DEFAULT_MAPPING;
+  }
 }
 
 function randomPos(): Pos {
@@ -163,6 +182,7 @@ export const useGraph = create<Store>((set, get) => ({
   hiddenColumns: [],
   focus: null,
   exportOpen: false,
+  mapping: loadMapping(),
   snapshots: [],
   snapshotOpen: false,
   projectGraphs: [],
@@ -475,6 +495,24 @@ export const useGraph = create<Store>((set, get) => ({
   setFocus: (id) => set({ focus: id }),
 
   setExportOpen: (open) => set({ exportOpen: open }),
+
+  setMapping: (mapping) => {
+    try {
+      localStorage.setItem(MAPPING_KEY, JSON.stringify(mapping));
+    } catch {
+      /* 忽略配额错误，仅本次会话生效 */
+    }
+    set({ mapping, toast: `已载入映射「${mapping.target}」` });
+  },
+
+  resetMapping: () => {
+    try {
+      localStorage.removeItem(MAPPING_KEY);
+    } catch {
+      /* ignore */
+    }
+    set({ mapping: DEFAULT_MAPPING, toast: '已恢复默认映射' });
+  },
 
   openSnapshots: (open) => set({ snapshotOpen: open ?? !get().snapshotOpen }),
 
@@ -978,6 +1016,44 @@ export const useGraph = create<Store>((set, get) => ({
       revert: (g) => removeNodeOp(g, node.id),
     });
     set({ selectedNodes: [node.id], selectedEdge: null });
+  },
+
+  setOuterMap: (portId, endpoint) => {
+    const state = get();
+    if (!state.path.length) return;
+    const parentPath = state.path.slice(0, -1);
+    const nodeId = state.path[state.path.length - 1];
+    const parent = graphAtPath(state.graph, parentPath);
+    const node = parent?.nodes.find((n) => n.id === nodeId);
+    if (!parent || !node) return;
+    const beforeMap = node.subgraphMap ?? {};
+    const afterMap: Record<string, Endpoint> = { ...beforeMap };
+    if (endpoint) {
+      const inner = node.subgraph?.nodes.find((n) => n.id === endpoint.node);
+      const innerPort = inner?.ports.find((p) => p.id === endpoint.port);
+      const outer = node.ports.find((p) => p.id === portId);
+      if (!innerPort || !outer) {
+        set({ toast: '映射端点不存在' });
+        return;
+      }
+      if (innerPort.dir !== outer.dir) {
+        set({ toast: '只能接到同方向的外层端口' });
+        return;
+      }
+      afterMap[portId] = { ...endpoint };
+    } else {
+      delete afterMap[portId];
+    }
+    const beforeRoot = state.graph;
+    const afterRoot = updateAtPath(beforeRoot, parentPath, (g) => setSubgraphMapOp(g, nodeId, afterMap));
+    if (afterRoot === beforeRoot) return;
+    const entry: Entry = {
+      label: endpoint ? '映射外层端口' : '取消外层端口映射',
+      run: () => afterRoot,
+      revert: () => beforeRoot,
+      at: Date.now(),
+    };
+    set({ graph: afterRoot, past: pushEntry(state.past, entry), future: [] });
   },
 
   setSubgraphMap: (nodeId, portId, endpoint) => {

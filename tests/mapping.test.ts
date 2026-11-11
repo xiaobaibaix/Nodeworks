@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FORGEWORKS_MAPPING, exportProject, importProject } from '../src/model/mapping';
+import { DEFAULT_MAPPING, FORGEWORKS_MAPPING, exportProject, importProject, validateMapping } from '../src/model/mapping';
 import type { Graph, PropMeta, UnitEdge, UnitNode, UnitPort } from '../src/model/types';
 
 const port = (id: string, dir: 'in' | 'out'): UnitPort => ({
@@ -174,5 +174,35 @@ describe('importProject', () => {
     const { project } = exportProject(fixture());
     expect(project).toHaveProperty('recipes');
     expect(FORGEWORKS_MAPPING.target).toBe('forgeworks.project.json');
+  });
+});
+
+
+describe('映射文件校验', () => {
+  it('默认映射自身通过校验', () => {
+    expect(validateMapping(DEFAULT_MAPPING)).toBe(DEFAULT_MAPPING);
+  });
+
+  it('拒绝错误版本、重复表与未知 store', () => {
+    expect(() => validateMapping({ version: 2 })).toThrow(/version/);
+    expect(() =>
+      validateMapping({
+        version: 1,
+        target: 'x',
+        nodes: {
+          a: { table: 't', titleField: 'name' },
+          b: { table: 't', titleField: 'name' },
+        },
+        edges: [],
+      }),
+    ).toThrow(/重复/);
+    expect(() =>
+      validateMapping({
+        version: 1,
+        target: 'x',
+        nodes: { a: { table: 't', titleField: 'name' } },
+        edges: [{ id: 'e', from: 'a', to: 'a', store: 'nope' }],
+      }),
+    ).toThrow(/store/);
   });
 });

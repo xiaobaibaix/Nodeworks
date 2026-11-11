@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  FORGEWORKS_MAPPING,
+  DEFAULT_MAPPING,
   exportProject,
   importProject,
+  validateMapping,
   type DryRunReport,
 } from '../model/mapping';
 import { downloadJson, pickJsonFile } from '../persistence';
@@ -14,10 +15,13 @@ export default function ExportDialog() {
   const graph = useGraph((s) => s.graph);
   const load = useGraph((s) => s.load);
   const toast = useGraph((s) => s.toastOf);
+  const mapping = useGraph((s) => s.mapping);
+  const setMapping = useGraph((s) => s.setMapping);
+  const resetMapping = useGraph((s) => s.resetMapping);
   const [imported, setImported] = useState<DryRunReport | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const result = useMemo(() => exportProject(graph, FORGEWORKS_MAPPING), [graph]);
+  const result = useMemo(() => exportProject(graph, mapping), [graph, mapping]);
 
   useEffect(() => {
     if (open) setImported(null);
@@ -30,10 +34,8 @@ export default function ExportDialog() {
   const blocking = report.errors > 0;
 
   const doExport = () => {
-    downloadJson(result.project, FORGEWORKS_MAPPING.target);
-    toast(
-      `已导出 ${FORGEWORKS_MAPPING.target}${report.warnings ? `（${report.warnings} 条提示）` : ''}`,
-    );
+    downloadJson(result.project, mapping.target);
+    toast(`已导出 ${mapping.target}${report.warnings ? `（${report.warnings} 条提示）` : ''}`);
     setOpen(false);
   };
 
@@ -41,7 +43,7 @@ export default function ExportDialog() {
     setBusy(true);
     try {
       const raw = await pickJsonFile();
-      const res = importProject(raw, FORGEWORKS_MAPPING);
+      const res = importProject(raw, mapping);
       if (res.report.errors > 0) {
         setImported(res.report);
         toast(`导入有 ${res.report.errors} 个错误，见列表`);
@@ -61,12 +63,27 @@ export default function ExportDialog() {
     }
   };
 
+  const doLoadMapping = async () => {
+    setBusy(true);
+    try {
+      const raw = await pickJsonFile();
+      const next = validateMapping(raw);
+      setMapping(next);
+      setImported(null);
+    } catch (error) {
+      toast(`映射文件无效：${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="modal-backdrop">
       <div className="modal export-modal">
-        <h2>导出契约 · {FORGEWORKS_MAPPING.target}</h2>
+        <h2>导出契约 · {mapping.target}</h2>
         <p className="hint">
-          按附录 A 的映射把当前图投影成目标格式。先 dry-run：错误清零才能导出，提示不阻塞。
+          按映射文件把当前图投影成目标格式。映射外置在源文件 src/mappings/forgeworks.mapping.json，
+          也可载入自己的 export.mapping.json。先 dry-run：错误清零才能导出，提示不阻塞。
         </p>
 
         <div className="export-counts">
@@ -90,6 +107,14 @@ export default function ExportDialog() {
         ) : (
           <p className="ok">没有发现问题，可以导出。</p>
         )}
+
+        <div className="modal-actions mapping-actions">
+          <button onClick={() => downloadJson(mapping, 'export.mapping.json')}>下载映射</button>
+          <button onClick={doLoadMapping} disabled={busy}>载入映射…</button>
+          <button onClick={resetMapping} disabled={mapping.target === DEFAULT_MAPPING.target && mapping === DEFAULT_MAPPING}>
+            恢复默认
+          </button>
+        </div>
 
         <div className="modal-actions">
           <button onClick={() => setOpen(false)}>取消</button>

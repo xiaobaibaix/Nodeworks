@@ -1,3 +1,4 @@
+import { DEFAULT_MAPPING } from '../src/model/mapping';
 import { EMPTY_FILTER } from '../src/model/query';
 import { useGraph } from '../src/store';
 
@@ -25,6 +26,7 @@ export function resetStore(): void {
     exportOpen: false,
     snapshots: [],
     snapshotOpen: false,
+    mapping: DEFAULT_MAPPING,
     projectGraphs: [],
     activeGraphId: '',
     booted: true,

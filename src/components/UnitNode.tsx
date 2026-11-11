@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { miniPreview } from '../model/preview';
 import type { UnitNode as UnitNodeModel } from '../model/types';
 
 function short(value: unknown): string {
@@ -18,6 +19,8 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   const ins = node.ports.filter((p) => p.dir === 'in');
   const outs = node.ports.filter((p) => p.dir === 'out');
   const props = Object.entries(node.props);
+  const subgraph = node.subgraph;
+  const preview = useMemo(() => (subgraph ? miniPreview(subgraph) : null), [subgraph]);
   // 端口增删后强制 React Flow 重新量 handle 位置。尺寸变化通常会自动触发，
   // 但同名高度（例如替换端口）时可能不触发，边就会因找不到 handle 而整条不画。
   const updateNodeInternals = useUpdateNodeInternals();
@@ -33,6 +36,26 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
         <span className="unit-kind">{node.kind || 'unit'}</span>
         <span className="unit-title">{node.title}</span>
       </div>
+      {subgraph && (
+        <div
+          className="unit-subgraph"
+          title={`子图：${subgraph.nodes.length} 个单元 / ${subgraph.edges.length} 条连线`}
+        >
+          {preview && preview.nodes.length > 0 ? (
+            <svg viewBox="0 0 200 54" preserveAspectRatio="none" aria-hidden>
+              {preview.edges.map((e, i) => (
+                <line key={`e${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} />
+              ))}
+              {preview.nodes.map((n, i) => (
+                <rect key={`n${i}`} x={n.x} y={n.y} width={n.w} height={n.h} rx={1.5} fill={n.fill} />
+              ))}
+            </svg>
+          ) : (
+            <span className="unit-subgraph-empty">空子图</span>
+          )}
+          <span className="unit-subgraph-tag">子图 · {subgraph.nodes.length}</span>
+        </div>
+      )}
       <div className="unit-props">
         {props.length === 0 && <div className="unit-empty">无属性</div>}
         {props.slice(0, 6).map(([key, meta]) => (

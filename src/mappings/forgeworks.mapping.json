@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "target": "forgeworks.project.json",
+  "ports": { "in": "输入", "out": "输出" },
+  "nodes": {
+    "element": {
+      "table": "elements",
+      "titleField": "name",
+      "idProp": "key",
+      "props": { "color": "color", "icon": "icon" }
+    },
+    "item": {
+      "table": "items",
+      "titleField": "name",
+      "idProp": "key",
+      "props": {
+        "tier": "tier",
+        "type": "type",
+        "value": "value",
+        "color": "color",
+        "icon": "icon",
+        "mesh": "mesh",
+        "mat": "mat",
+        "modelStatus": "modelStatus"
+      },
+      "required": ["name"]
+    },
+    "machine": {
+      "table": "machines",
+      "titleField": "name",
+      "idProp": "key",
+      "props": { "footprint": "footprint", "icon": "icon" }
+    },
+    "recipe": {
+      "table": "recipes",
+      "titleField": "name",
+      "idProp": "key",
+      "props": { "cycle": "cycle", "power": "power" },
+      "arrays": ["inputs", "outputs"],
+      "required": ["name"],
+      "requireMachine": true
+    },
+    "tech": {
+      "table": "techs",
+      "titleField": "name",
+      "idProp": "key",
+      "props": { "cost": "cost", "time": "time" },
+      "arrays": ["unlocks"]
+    }
+  },
+  "edges": [
+    { "id": "recipe-input", "from": "item", "to": "recipe", "store": "recipeInput", "amountProp": "amount" },
+    { "id": "recipe-output", "from": "recipe", "to": "item", "store": "recipeOutput", "amountProp": "amount" },
+    { "id": "runs-on", "from": "recipe", "to": "machine", "store": "machineRef", "field": "machine" },
+    { "id": "unlocks", "from": "tech", "to": "recipe", "store": "refList", "field": "unlocks" }
+  ]
+}

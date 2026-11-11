@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { kindLabel } from '../model/query';
-import { FORGEWORKS_MAPPING, importProject } from '../model/mapping';
+import { importProject } from '../model/mapping';
 import { downloadGraph, pickGraphFile, pickJsonFile } from '../persistence';
 import { useCurrentGraph, useGraph } from '../store';
 
@@ -124,7 +124,7 @@ export default function CommandPalette() {
       run: () => {
         void pickJsonFile()
           .then((raw) => {
-            const res = importProject(raw, FORGEWORKS_MAPPING);
+            const res = importProject(raw, useGraph.getState().mapping);
             if (res.report.errors > 0) {
               useGraph.getState().toastOf(`导入有 ${res.report.errors} 个错误，未载入`);
               return;

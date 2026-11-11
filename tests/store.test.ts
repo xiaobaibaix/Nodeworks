@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createEdge, createNode, createPort } from '../src/model/ops';
-import type { Graph } from '../src/model/types';
+import type { Graph, UnitNode } from '../src/model/types';
 import { useGraph } from '../src/store';
 import { resetStore } from './helpers';
 
@@ -452,5 +452,77 @@ describe('多图容器', () => {
     expect(state.projectGraphs).toHaveLength(1);
     expect(state.activeGraphId).toBe('b');
     expect(state.graph.nodes[0].title).toBe('B');
+  });
+});
+
+describe('子图外层端口映射', () => {
+  const outer: UnitNode = {
+    id: 'sub',
+    title: '产线',
+    props: {},
+    ports: [
+      { id: 'oi', dir: 'in', label: '入料', capacity: 'many' },
+      { id: 'oo', dir: 'out', label: '出料', capacity: 'many' },
+    ],
+    pos: { x: 0, y: 0 },
+    subgraph: {
+      version: 1,
+      kinds: {},
+      nodes: [
+        {
+          id: 'inner',
+          title: '内部机',
+          props: {},
+          ports: [
+            { id: 'ii', dir: 'in', label: '进', capacity: 'one' },
+            { id: 'io', dir: 'out', label: '出', capacity: 'one' },
+          ],
+          pos: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    },
+  };
+
+  function loadOuter(): void {
+    useGraph.getState().load({ version: 1, kinds: {}, nodes: [outer], edges: [] });
+    useGraph.getState().enterSubgraph('sub');
+  }
+
+  it('在子图内映射外层端口写入父节点，撤销可还原', () => {
+    loadOuter();
+    useGraph.getState().setOuterMap('oi', { node: 'inner', port: 'ii' });
+    expect(useGraph.getState().graph.nodes[0].subgraphMap).toEqual({
+      oi: { node: 'inner', port: 'ii' },
+    });
+    expect(useGraph.getState().past).toHaveLength(1);
+    useGraph.getState().undo();
+    expect(useGraph.getState().graph.nodes[0].subgraphMap).toBeUndefined();
+  });
+
+  it('方向不一致时拒绝且不写历史', () => {
+    loadOuter();
+    const before = useGraph.getState().past.length;
+    useGraph.getState().setOuterMap('oi', { node: 'inner', port: 'io' });
+    expect(useGraph.getState().graph.nodes[0].subgraphMap).toBeUndefined();
+    expect(useGraph.getState().toast).toContain('同方向');
+    expect(useGraph.getState().past.length).toBe(before);
+  });
+});
+
+
+describe('自定义导出映射', () => {
+  it('可载入自定义映射并恢复默认', () => {
+    const custom = {
+      version: 1 as const,
+      target: 'x.json',
+      nodes: { item: { table: 'things', titleField: 'name' } },
+      edges: [],
+    };
+    useGraph.getState().setMapping(custom);
+    expect(useGraph.getState().mapping.target).toBe('x.json');
+    expect(useGraph.getState().toast).toContain('x.json');
+    useGraph.getState().resetMapping();
+    expect(useGraph.getState().mapping.target).toBe('forgeworks.project.json');
   });
 });
