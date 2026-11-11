@@ -13,6 +13,7 @@ import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import UnitNode from './components/UnitNode';
 import { isFiltering, nodeMatches, visibleNodes } from './model/query';
+import { orientEdge } from './model/ops';
 import { downloadGraph, saveCached } from './persistence';
 import { graphOf, useCurrentGraph, useGraph } from './store';
 
@@ -68,24 +69,28 @@ function Canvas() {
     [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, measuredVersion],
   );
 
-  const edges: Edge[] = useMemo(
-    () =>
-      graph.edges
-        .filter((e) => !e.orphan)
-        .map((e) => ({
-          id: e.id,
-          source: e.from.node,
-          target: e.to.node,
-          sourceHandle: e.from.port,
-          targetHandle: e.to.port,
-          label: e.label,
-          type: 'smoothstep',
-          animated: false,
-          selected: selectedEdge === e.id,
-          hidden: filtering && (!visibleIds.has(e.from.node) || !visibleIds.has(e.to.node)),
-        })),
-    [graph.edges, selectedEdge, filtering, visibleIds],
-  );
+  const edges: Edge[] = useMemo(() => {
+    const list: Edge[] = [];
+    for (const e of graph.edges) {
+      if (e.orphan) continue;
+      // 反着存的边（in→out）React Flow 找不到 source handle，会整条不画；先摆正再渲染。
+      const o = orientEdge(graph, e);
+      if (!o) continue;
+      list.push({
+        id: e.id,
+        source: o.from.node,
+        target: o.to.node,
+        sourceHandle: o.from.port,
+        targetHandle: o.to.port,
+        label: e.label,
+        type: 'smoothstep',
+        animated: false,
+        selected: selectedEdge === e.id,
+        hidden: filtering && (!visibleIds.has(e.from.node) || !visibleIds.has(e.to.node)),
+      });
+    }
+    return list;
+  }, [graph, selectedEdge, filtering, visibleIds]);
 
   const onConnect = useCallback(
     (c: Connection) => {

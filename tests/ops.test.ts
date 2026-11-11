@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addEdgeOp, addNodeOp, addPortOp, createEdge, createNode, createPort, emptyGraph,
-  findPort, orphanEdges, removeNodeOp, removePortEdgesOp, removePortOp, replacePortInEdgesOp,
+  findPort, orientEdge, orphanEdges, removeNodeOp, removePortEdgesOp, removePortOp, replacePortInEdgesOp,
   setNodePosOp, validateConnection, withKindDefaults,
 } from '../src/model/ops';
 import type { Graph, UnitNode } from '../src/model/types';
@@ -149,5 +149,29 @@ describe('批量操作与端口改接', () => {
     expect(next.props.tier.value).toBe(1);
     expect(next.ports).toHaveLength(2);
     expect(next.ports.filter((p) => p.dir === 'in')).toHaveLength(1);
+  });
+});
+
+describe('orientEdge 端点归一化', () => {
+  it('正常边原样返回', () => {
+    const { g, a, b, out, input } = fixture();
+    const e = createEdge({ node: a.id, port: out }, { node: b.id, port: input });
+    expect(orientEdge(g, e)).toEqual({ from: e.from, to: e.to });
+  });
+
+  it('反向存成 in→out 的边会摆正', () => {
+    const { g, a, b, out, input } = fixture();
+    const e = createEdge({ node: b.id, port: input }, { node: a.id, port: out });
+    const o = orientEdge(g, e);
+    expect(o?.from).toEqual({ node: a.id, port: out });
+    expect(o?.to).toEqual({ node: b.id, port: input });
+  });
+
+  it('端口不存在或同向时返回 null', () => {
+    const { g, a, b, out, input } = fixture();
+    const missing = createEdge({ node: a.id, port: 'nope' }, { node: b.id, port: input });
+    expect(orientEdge(g, missing)).toBeNull();
+    const sameDir = createEdge({ node: a.id, port: out }, { node: b.id, port: out });
+    expect(orientEdge(g, sameDir)).toBeNull();
   });
 });

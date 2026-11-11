@@ -287,3 +287,20 @@ export function setSubgraphMapOp(
     }),
   };
 }
+
+/**
+ * 按端口方向把一条边摆正：source 必须是 out，target 必须是 in。
+ * 历史数据/导入数据里如果存反了（in→out），React Flow 找不到 source handle，
+ * 整条线会静默不渲染；渲染层用这个函数归一化。端口缺失时返回 null。
+ */
+export function orientEdge(
+  g: Graph,
+  edge: UnitEdge,
+): { from: Endpoint; to: Endpoint } | null {
+  const a = findPort(g, edge.from.node, edge.from.port);
+  const b = findPort(g, edge.to.node, edge.to.port);
+  if (!a || !b) return null;
+  if (a.dir === 'out' && b.dir === 'in') return { from: edge.from, to: edge.to };
+  if (a.dir === 'in' && b.dir === 'out') return { from: edge.to, to: edge.from };
+  return null;
+}
