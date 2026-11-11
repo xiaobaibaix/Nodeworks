@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.4 · 2026-11-11 · 状态：P3 已实现并验证（自动化）
+> 版本 v0.5 · 2026-11-11 · 状态：P4 已实现并验证（自动化）
 
 ## 1. 定位
 
@@ -120,7 +120,7 @@ P0 是**单图单文件**：
 ```
 project.graph.json      # 图本身
 assets/                 # 图标、模型等外部资产（P4 起用）
-export.mapping.json     # 导出契约（P4）
+export.mapping.json     # 导出契约（P4，当前以 src/model/mapping.ts 的常量表达）
 ```
 
 - 图文件里只存相对路径（`assets/icon_ti.png`），不存 base64，避免 json 膨胀；
@@ -311,13 +311,23 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 - `impact.ts` 双向 BFS（默认 2 层，可调 1–5），跳过孤儿边、环安全；画布高亮相关节点/边，其余淡出；面板按层列出清单，只读派生，不写回图。
 - 视图状态（`view`、`impactOn`、`tableSort`、`hiddenColumns`、`focus`）存在 store，不进撤销历史；`focus` 由画布消费后立即清空。
 
-### P4：导出契约（约 1 周）
+### P4（已完成，2026-11-11）
 
-- `export.mapping.json`：节点 kind → 目标表/字段，属性名 → 列名，边 → 关系表；
-- 导出前 dry-run：列出"未映射的属性""必填缺失""引用悬空"；
-- 第一个目标：Forgeworks `project.json`，与旧管线输出对拍；
-- 反向导入器 `import.mapping.json` + dry-run 报告（见 6.2）；
-- 字段映射按附录 A 的草案实现，未映射字段必须显式告警。
+范围：`export.mapping.json`（节点 kind → 目标表/字段，属性名 → 列名，边 → 关系表）、导出前 dry-run、Forgeworks `project.json` 对拍、反向导入器 + dry-run。
+
+验收：
+
+- `pnpm test` 99 项通过（12 个文件；P4 新增 mapping 9 项）；
+- `tsc --noEmit` 干净；`vite build` 成功（JS 458.64 kB / gzip 143.95 kB，CSS 32.50 kB / gzip 6.42 kB）；
+- 浏览器自动化：Playwright P4 冒烟 12 项通过——导出对话框与目标名、表计数、未映射属性告警、无错误可导出、下载文件名、命令面板入口、反向导入（4 单元 / 3 连线）、往返后 dry-run 无错误、无 console error；P1 11 项、P2 11 项、P3 9 项回归通过。
+
+实现要点：
+
+- `src/model/mapping.ts`：`ExportMapping` 描述节点表映射与四种边规则（recipe-input / recipe-output / runs-on / unlocks）；`exportProject` 同时产出目标 JSON 与 dry-run 报告，`importProject` 反向建图并用 zod 复验。当前映射以 `FORGEWORKS_MAPPING` 常量表达，后续可原样抽成 json。
+- 业务 id：优先 `key` 属性（`ORE_TI`），没有则退回图内 id；导入时保留业务 id，冲突改为新 uid，保证对拍稳定。
+- dry-run 分级：缺 kind 映射、未映射属性、孤儿边、未匹配边规则只告警；业务 id 重复、必填缺失（配方无 machine）、连线端点落不了表为错误，错误未清零不允许导出。
+- 导入端：按表建节点（常量端口 `p_in` / `p_out`、网格坐标），`inputs/outputs/machine/unlocks` 反向还原成边；未知字段告警，悬空引用报错，最后统一走 `GraphSchema.parse`。
+- UI：Toolbar「导出…」、命令面板「导出契约（dry-run）」「导入 project.json…」；`ExportDialog` 展示表计数与分级问题列表，导入有错时保留列表不载入。
 
 ### 之后（未排期）
 
@@ -357,7 +367,7 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 
 ## 附录 A：Forgeworks `project.json` → Graph 映射草案
 
-P4 的导入/导出都按这张表实现；节点 id 优先沿用业务 id（`ORE_TI`、`R_SMT_FE`），保证对拍稳定。
+P4 的导入/导出都按这张表实现；节点 id 优先沿用业务 id（`ORE_TI`、`R_SMT_FE`），保证对拍稳定。代码里以 `src/model/mapping.ts` 的 `FORGEWORKS_MAPPING` 为准（与下表一一对应）。
 
 | 旧结构 | 新图 | 说明 |
 | --- | --- | --- |

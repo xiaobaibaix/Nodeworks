@@ -5,6 +5,7 @@ import {
 } from '@xyflow/react';
 import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
+import ExportDialog from './components/ExportDialog';
 import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
 import MultiBar from './components/MultiBar';
@@ -319,6 +320,8 @@ export default function App() {
       if (e.key === 'Escape') {
         if (state.paletteOpen) {
           state.togglePalette(false);
+        } else if (state.exportOpen) {
+          state.setExportOpen(false);
         } else if (state.pendingPort) {
           state.cancelRemovePort();
         } else if (!typing) {
@@ -365,6 +368,7 @@ export default function App() {
         <OrphanBanner />
         <CommandPalette />
         <ReconnectWizard />
+        <ExportDialog />
       </div>
     </ReactFlowProvider>
   );

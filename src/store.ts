@@ -54,6 +54,8 @@ interface Store {
   hiddenColumns: string[];
   /** 切回图视图后需要定位的节点（一次性） */
   focus: string | null;
+  /** 导出 dry-run 对话框 */
+  exportOpen: boolean;
   boot(): void;
   toastOf(msg: string | null): void;
   select(nodes: string[], edge: string | null): void;
@@ -83,6 +85,7 @@ interface Store {
   toggleColumn(key: string): void;
   resetColumns(): void;
   setFocus(id: string | null): void;
+  setExportOpen(open: boolean): void;
   addPort(nodeId: string, dir: 'in' | 'out'): void;
   setPort(nodeId: string, portId: string, patch: Partial<UnitPort>): void;
   requestRemovePort(nodeId: string, portId: string): void;
@@ -135,6 +138,7 @@ export const useGraph = create<Store>((set, get) => ({
   tableSort: null,
   hiddenColumns: [],
   focus: null,
+  exportOpen: false,
 
   boot: () => {
     if (get().booted) return;
@@ -414,6 +418,8 @@ export const useGraph = create<Store>((set, get) => ({
   resetColumns: () => set({ hiddenColumns: [] }),
 
   setFocus: (id) => set({ focus: id }),
+
+  setExportOpen: (open) => set({ exportOpen: open }),
 
   addPort: (nodeId, dir) => {
     const port = createPort(dir);
@@ -695,6 +701,7 @@ export const useGraph = create<Store>((set, get) => ({
       tableSort: null,
       hiddenColumns: [],
       focus: null,
+      exportOpen: false,
     }),
 
   saveToCache: () => saveCached(get().graph),

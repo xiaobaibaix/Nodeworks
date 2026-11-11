@@ -21,17 +21,21 @@ export function saveCached(g: Graph): void {
   }
 }
 
-export function downloadGraph(g: Graph): void {
-  const blob = new Blob([JSON.stringify(g, null, 2)], { type: 'application/json' });
+export function downloadJson(data: unknown, filename: string): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'project.graph.json';
+  a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function pickGraphFile(): Promise<Graph> {
+export function downloadGraph(g: Graph): void {
+  downloadJson(g, 'project.graph.json');
+}
+
+function readJsonFile(): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -43,11 +47,19 @@ export function pickGraphFile(): Promise<Graph> {
         return;
       }
       try {
-        resolve(parseGraph(JSON.parse(await file.text())));
+        resolve(JSON.parse(await file.text()));
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
       }
     };
     input.click();
   });
+}
+
+export async function pickJsonFile(): Promise<unknown> {
+  return readJsonFile();
+}
+
+export function pickGraphFile(): Promise<Graph> {
+  return readJsonFile().then((raw) => parseGraph(raw));
 }

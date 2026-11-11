@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { kindLabel } from '../model/query';
-import { downloadGraph, pickGraphFile } from '../persistence';
+import { FORGEWORKS_MAPPING, importProject } from '../model/mapping';
+import { downloadGraph, pickGraphFile, pickJsonFile } from '../persistence';
 import { useCurrentGraph, useGraph } from '../store';
 
 interface Item {
@@ -60,6 +61,38 @@ export default function CommandPalette() {
           .then((g) => {
             useGraph.getState().load(g);
             useGraph.getState().toastOf('已载入图');
+          })
+          .catch((error: unknown) => {
+            useGraph.getState().toastOf((error as Error).message);
+          });
+      },
+    });
+    list.push({
+      id: 'export-project',
+      label: '导出契约（dry-run）',
+      hint: 'Forgeworks project.json',
+      group: '命令',
+      run: () => useGraph.getState().setExportOpen(true),
+    });
+    list.push({
+      id: 'import-project',
+      label: '导入 project.json…',
+      hint: '按附录 A 反向导入',
+      group: '命令',
+      mutates: true,
+      run: () => {
+        void pickJsonFile()
+          .then((raw) => {
+            const res = importProject(raw, FORGEWORKS_MAPPING);
+            if (res.report.errors > 0) {
+              useGraph.getState().toastOf(`导入有 ${res.report.errors} 个错误，未载入`);
+              return;
+            }
+            useGraph.getState().load(res.graph);
+            useGraph.getState().toastOf(
+              `已导入 ${res.graph.nodes.length} 个单元` +
+                (res.report.warnings ? `（${res.report.warnings} 条提示）` : ''),
+            );
           })
           .catch((error: unknown) => {
             useGraph.getState().toastOf((error as Error).message);

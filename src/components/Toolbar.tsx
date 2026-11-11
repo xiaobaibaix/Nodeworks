@@ -16,6 +16,7 @@ export default function Toolbar() {
   const count = graph.nodes.length;
   const kinds = graph.kinds;
   const togglePalette = useGraph((s) => s.togglePalette);
+  const setExportOpen = useGraph((s) => s.setExportOpen);
   const view = useGraph((s) => s.view);
   const setView = useGraph((s) => s.setView);
   const impactOn = useGraph((s) => s.impactOn);
@@ -86,6 +87,9 @@ export default function Toolbar() {
         <span className="sep" />
         <button onClick={() => downloadGraph(useGraph.getState().graph)}>保存</button>
         <button onClick={open}>打开</button>
+        <button onClick={() => setExportOpen(true)} title="按映射导出为 project.json（先 dry-run）">
+          导出…
+        </button>
         <span className="sep" />
         <button onClick={() => fitView({ padding: 0.25, duration: 300 })}>适应视图</button>
         {view === 'graph' && (

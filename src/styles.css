@@ -769,3 +769,46 @@ table.grid { width: 100%; border-collapse: collapse; }
   border-color: #f0a25c;
   box-shadow: 0 0 0 2px rgba(240, 162, 92, .16), 0 8px 22px rgba(0, 0, 0, .4);
 }
+
+/* ---------- 导出 dry-run ---------- */
+
+.export-modal { width: min(720px, 94vw); }
+.export-modal .hint { margin: 4px 0 10px; }
+.export-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.count-chip {
+  padding: 3px 8px;
+  border: 1px solid #333a48;
+  border-radius: 999px;
+  background: #12141a;
+  color: #9aa4b6;
+  font-size: 12px;
+}
+.count-chip b { color: #e5e7eb; font-variant-numeric: tabular-nums; }
+.issue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.issue-list li {
+  display: grid;
+  grid-template-columns: 40px 132px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #12141a;
+  border: 1px solid #242a35;
+  font-size: 12px;
+  color: #c9d0dd;
+}
+.issue-list li.error { border-color: #5b2b2b; background: #1d1315; }
+.issue-list li.warn { border-color: #4d3d22; background: #1d1810; }
+.issue-level { color: #f0a25c; font-weight: 600; }
+.issue-list li.error .issue-level { color: #f87171; }
+.issue-code { color: #6b7280; font-family: var(--mono, ui-monospace, SFMono-Regular, monospace); font-size: 11px; }
+.export-modal .ok { color: #86efac; font-size: 13px; }
