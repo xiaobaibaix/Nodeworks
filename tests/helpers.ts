@@ -22,6 +22,7 @@ export function resetStore(): void {
     tableSort: null,
     hiddenColumns: [],
     focus: null,
+    exportOpen: false,
     booted: true,
   });
 }

@@ -292,3 +292,23 @@ describe('表格与影响面状态', () => {
     expect(useGraph.getState().impactDepth).toBe(2);
   });
 });
+
+describe('自动布局', () => {
+  it('一次提交，撤销回到原坐标', () => {
+    const a = { ...createNode('A', { x: 500, y: 500 }), id: 'A' };
+    const b = { ...createNode('B', { x: 520, y: 520 }), id: 'B' };
+    setGraph({
+      version: 1,
+      kinds: {},
+      nodes: [a, b],
+      edges: [createEdge({ node: 'A', port: 'p_out' }, { node: 'B', port: 'p_in' })],
+    });
+    useGraph.getState().autoLayout();
+    const laid = useGraph.getState();
+    expect(laid.past).toHaveLength(1);
+    expect(laid.toast).toContain('已自动布局');
+    expect(laid.graph.nodes.find((n) => n.id === 'A')?.pos).not.toEqual({ x: 500, y: 500 });
+    useGraph.getState().undo();
+    expect(useGraph.getState().graph.nodes.find((n) => n.id === 'A')?.pos).toEqual({ x: 500, y: 500 });
+  });
+});

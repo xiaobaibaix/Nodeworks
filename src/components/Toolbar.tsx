@@ -17,6 +17,7 @@ export default function Toolbar() {
   const kinds = graph.kinds;
   const togglePalette = useGraph((s) => s.togglePalette);
   const setExportOpen = useGraph((s) => s.setExportOpen);
+  const autoLayout = useGraph((s) => s.autoLayout);
   const view = useGraph((s) => s.view);
   const setView = useGraph((s) => s.setView);
   const impactOn = useGraph((s) => s.impactOn);
@@ -92,6 +93,9 @@ export default function Toolbar() {
         </button>
         <span className="sep" />
         <button onClick={() => fitView({ padding: 0.25, duration: 300 })}>适应视图</button>
+        <button onClick={autoLayout} disabled={preview} title="按依赖分层重新排列（⌘⇧L，可撤销）">
+          自动布局
+        </button>
         {view === 'graph' && (
           <button
             className={impactOn ? 'on' : ''}

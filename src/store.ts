@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { layeredLayout } from './model/autolayout';
 import { copySelection, pasteClip, type ClipPayload } from './model/clipboard';
 import { pushEntry, type Entry, type EntryInput } from './model/history';
 import { graphAtPath, normalizePath, updateAtPath } from './model/path';
@@ -74,6 +75,7 @@ interface Store {
   commitMove(id: string, from: Pos, to: Pos): void;
   commitMoveMany(from: Record<string, Pos>, to: Record<string, Pos>): void;
   moveNodes(moves: Record<string, Pos>, label: string): void;
+  autoLayout(): void;
   addProp(nodeId: string, name: string, type: string, value: unknown): void;
   setProp(nodeId: string, name: string, value: unknown): void;
   setPropMany(ids: string[], name: string, type: string, value: unknown): void;
@@ -294,6 +296,14 @@ export const useGraph = create<Store>((set, get) => ({
       run: (g) => moveNodesOp(g, to),
       revert: (g) => moveNodesOp(g, from),
     });
+  },
+
+  autoLayout: () => {
+    const graph = graphOf(get());
+    if (!graph.nodes.length) return;
+    const { positions } = layeredLayout(graph);
+    get().moveNodes(positions, '自动布局');
+    set({ toast: '已自动布局（⌘Z 可撤销）' });
   },
 
   moveNodes: (moves, label) => {

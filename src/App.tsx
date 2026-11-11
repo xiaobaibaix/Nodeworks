@@ -317,6 +317,11 @@ export default function App() {
         downloadGraph(state.graph);
         return;
       }
+      if (mod && e.shiftKey && key === 'l') {
+        e.preventDefault();
+        if (!state.preview) state.autoLayout();
+        return;
+      }
       if (e.key === 'Escape') {
         if (state.paletteOpen) {
           state.togglePalette(false);

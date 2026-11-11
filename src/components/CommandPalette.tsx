@@ -99,6 +99,14 @@ export default function CommandPalette() {
           });
       },
     });
+    list.push({
+      id: 'auto-layout',
+      label: '自动布局（分层）',
+      hint: '⌘⇧L',
+      group: '命令',
+      mutates: true,
+      run: () => useGraph.getState().autoLayout(),
+    });
     list.push({ id: 'fit', label: '适应视图', group: '命令', run: () => { useGraph.getState().setView('graph'); void fitView({ padding: 0.25, duration: 300 }); } });
     list.push({ id: 'view-graph', label: '切换到画布视图', group: '命令', run: () => useGraph.getState().setView('graph') });
     list.push({ id: 'view-table', label: '切换到表格视图', hint: '批量编辑属性', group: '命令', run: () => useGraph.getState().setView('table') });
