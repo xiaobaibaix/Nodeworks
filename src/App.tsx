@@ -96,7 +96,7 @@ function Canvas() {
     if (key === lastPath.current) return;
     lastPath.current = key;
     if (!nodesInitialized) return;
-    const timer = setTimeout(() => void fitView({ padding: 0.22, duration: 250 }), 50);
+    const timer = setTimeout(() => void fitView({ padding: 0.22, duration: 250, maxZoom: 1.6 }), 50);
     return () => clearTimeout(timer);
   }, [path, nodesInitialized, fitView]);
 
