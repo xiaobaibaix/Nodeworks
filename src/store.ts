@@ -4,6 +4,7 @@ import { DEFAULT_MAPPING, validateMapping, type ExportMapping } from './model/ma
 import { copySelection, pasteClip, type ClipPayload } from './model/clipboard';
 import { pushEntry, type Entry, type EntryInput } from './model/history';
 import { graphAtPath, normalizePath, updateAtPath } from './model/path';
+import { planCrossLink, type CrossTarget } from './model/cross';
 import { EMPTY_FILTER, type GraphFilter } from './model/query';
 import { emptySubgraph, parseGraph } from './model/schema';
 import {
@@ -138,6 +139,8 @@ interface Store {
   setSubgraphMap(nodeId: string, portId: string, endpoint: Endpoint | null): void;
   /** 在子图层内映射“外层端口 → 本层端点”，历史挂在父层操作上。 */
   setOuterMap(portId: string, endpoint: Endpoint | null): void;
+  /** 跨子图连线：源是当前子图内部输出端口，落点是另一子图内部的输入端口。 */
+  linkCrossSubgraph(source: Endpoint, target: CrossTarget): void;
 }
 
 /** 当前层图（根 / 子图）；组件统一通过它读，写操作由 commit 自动映射回根。 */
@@ -1074,6 +1077,33 @@ export const useGraph = create<Store>((set, get) => ({
       at: Date.now(),
     };
     set({ graph: afterRoot, past: pushEntry(state.past, entry), future: [] });
+  },
+
+  linkCrossSubgraph: (source, target) => {
+    const state = get();
+    if (state.path.length !== 1) {
+      set({ toast: '跨子图连线要先进入一个顶层子图，再从输出端口拖到「连接到其他子图」' });
+      return;
+    }
+    const plan = planCrossLink(state.graph, state.path[0], source, target);
+    if (!plan) {
+      set({ toast: '跨子图连线失败：请检查端口方向或子图结构' });
+      return;
+    }
+    const beforeRoot = state.graph;
+    const afterRoot = plan.graph;
+    const entry: Entry = {
+      label: '跨子图连线',
+      run: () => afterRoot,
+      revert: () => beforeRoot,
+      at: Date.now(),
+    };
+    set({
+      graph: afterRoot,
+      past: pushEntry(state.past, entry),
+      future: [],
+      toast: `已连接「${target.nodeTitle} · ${target.portLabel}」`,
+    });
   },
 
   setSubgraphMap: (nodeId, portId, endpoint) => {

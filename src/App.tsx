@@ -6,6 +6,7 @@ import {
 import BoundaryNode from './components/BoundaryNode';
 import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
+import CrossLinkDialog from './components/CrossLinkDialog';
 import ExportDialog from './components/ExportDialog';
 import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
@@ -20,6 +21,7 @@ import UnitNode from './components/UnitNode';
 import { isFiltering, nodeMatches, visibleNodes } from './model/query';
 import { impactOf } from './model/impact';
 import { graphAtPath } from './model/path';
+import type { Endpoint } from './model/types';
 import { orientEdge } from './model/ops';
 import { downloadGraph } from './persistence';
 import { graphOf, useCurrentGraph, useGraph } from './store';
@@ -29,6 +31,9 @@ const nodeTypes = { unit: UnitNode, boundary: BoundaryNode };
 /** 子图层里代表“外层端口”的合成节点：只做可视与接线，不写进图数据。 */
 const OUTER_IN = '__outer_in';
 const OUTER_OUT = '__outer_out';
+/** 子图层里“连接到其它子图”的落点合成节点。 */
+const CROSS_ID = '__cross__';
+const CROSS_IN = '__cross_in';
 const MAP_EDGE_STYLE = { stroke: '#7c8798', strokeDasharray: '4 3' };
 
 type Pos = { x: number; y: number };
@@ -56,6 +61,7 @@ function Canvas() {
   const nodesInitialized = useNodesInitialized();
   const didFit = useRef(false);
 
+  const [crossSource, setCrossSource] = useState<Endpoint | null>(null);
   const dragFrom = useRef<Record<string, Pos>>({});
   const dragAnchor = useRef<string | null>(null);
   // 受控 nodes 每次重渲染都会重新 adopt；React Flow 在 adopt 时用 userNode.measured 覆盖内部测量，
@@ -148,6 +154,27 @@ function Canvas() {
       });
       list.push(outer(OUTER_IN, 'in', minX - 280));
       list.push(outer(OUTER_OUT, 'out', maxX + 90));
+      if (path.length === 1 && !preview) {
+        list.push({
+          id: CROSS_ID,
+          type: 'unit',
+          position: { x: maxX + 360, y: midY },
+          draggable: false,
+          selectable: false,
+          deletable: false,
+          connectable: true,
+          data: {
+            node: {
+              id: CROSS_ID,
+              title: '连接到其它子图…',
+              props: {},
+              ports: [{ id: CROSS_IN, dir: 'in' as const, label: '拖到这里', capacity: 'one' as const }],
+              pos: { x: maxX + 360, y: midY },
+            },
+            cross: true,
+          },
+        });
+      }
     }
     return list;
   }, [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, impact, impactNodes, measuredVersion, parent, preview]);
@@ -223,6 +250,10 @@ function Canvas() {
       }
       if (c.target === OUTER_OUT) {
         setOuterMap(c.targetHandle, { node: c.source, port: c.sourceHandle });
+        return;
+      }
+      if (c.target === CROSS_ID) {
+        setCrossSource({ node: c.source, port: c.sourceHandle });
         return;
       }
       connect({ node: c.source, port: c.sourceHandle }, { node: c.target, port: c.targetHandle });
@@ -326,6 +357,7 @@ function Canvas() {
   );
 
   return (
+    <>
     <ReactFlow
       nodes={nodes}
       edges={edges}
@@ -374,6 +406,8 @@ function Canvas() {
         maskColor="rgba(9, 11, 14, 0.72)"
       />
     </ReactFlow>
+    <CrossLinkDialog source={crossSource} onClose={() => setCrossSource(null)} />
+    </>
   );
 }
 
