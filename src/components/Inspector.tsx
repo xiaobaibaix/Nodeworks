@@ -172,6 +172,7 @@ export default function Inspector() {
   const addResource = useGraph((s) => s.addResource);
   const setResource = useGraph((s) => s.setResource);
   const removeResource = useGraph((s) => s.removeResource);
+  const importResourceFile = useGraph((s) => s.importResourceFile);
   const addPort = useGraph((s) => s.addPort);
   const setPort = useGraph((s) => s.setPort);
   const requestRemovePort = useGraph((s) => s.requestRemovePort);
@@ -337,6 +338,17 @@ export default function Inspector() {
             </select>
             <TextCommit value={r.label} onCommit={(v) => setResource(node.id, r.id, { label: v })} />
             <TextCommit value={r.path} onCommit={(v) => setResource(node.id, r.id, { path: v })} />
+            <label className="icon file-pick" title="从文件导入（随目录项目落进节点文件夹）">
+              <input
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importResourceFile(node.id, r.id, file);
+                  e.currentTarget.value = '';
+                }}
+              />
+              ⇧
+            </label>
             <button className="icon" title="预览资源" onClick={() => setPreviewRes(r)}>◎</button>
             <button className="icon" title="删除资源项" onClick={() => removeResource(node.id, r.id)}>×</button>
           </div>
@@ -348,7 +360,7 @@ export default function Inspector() {
         <button onClick={() => addResource(node.id, 'model')}>+ 模型</button>
         <button onClick={() => addResource(node.id, 'other')}>+ 其它</button>
       </div>
-      <div className="hint">资源项只登记类型、名称与相对路径（如 assets/icon.png），文件本身不进图。</div>
+      <div className="hint">资源项登记类型、名称与相对路径（如 assets/icon.png）；「⇧」可从本地文件导入，存为目录项目时文件会落进该节点的 resources/。</div>
 
       <h3>端口</h3>
       <div className="port-list">

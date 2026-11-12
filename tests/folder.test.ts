@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFS } from '../src/fs/memory';
+import { joinPath } from '../src/fs/types';
 import { graphDirName, nodeDirName, readProject, writeProject } from '../src/model/folder';
 import { projectFromGraph } from '../src/model/project';
 import type { Graph, UnitNode } from '../src/model/types';
@@ -71,6 +72,34 @@ describe('目录项目：扫描与序列化', () => {
     expect(line.subgraphMap?.n_line_in).toEqual({ node: 'n_inner', port: 'n_inner_in' });
     expect(g.nodes.find((n) => n.id === 'n_ingot')!.resources?.[0].label).toBe('图标');
     expect(g.kinds.item.name).toBe('物品');
+  });
+
+  it('提供 readResource 时把资源字节写进节点 resources/ 并记录 file', async () => {
+    const fs = new MemoryFS();
+    const doc = project();
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    await writeProject(fs, doc, {
+      readResource: async (node, resource) =>
+        node.id === 'n_ingot' && resource.id === 'r1' ? bytes : null,
+    });
+
+    const back = await readProject(fs);
+    const res = back.graphs[0].graph.nodes.find((n) => n.id === 'n_ingot')!.resources![0];
+    expect(res.file).toMatch(/^resources\//);
+    expect(res.file!.endsWith('.png')).toBe(true);
+    const gdir = graphDirName('主图', doc.active);
+    const ndir = nodeDirName({ id: 'n_ingot', title: '钛锭' });
+    const saved = await fs.readBytes(joinPath('graphs', gdir, 'nodes', ndir, res.file!));
+    expect([...(saved ?? [])]).toEqual([1, 2, 3, 4]);
+  });
+
+  it('不提供 readResource 时只写 JSON，不创建 resources/', async () => {
+    const fs = new MemoryFS();
+    const doc = project();
+    await writeProject(fs, doc);
+    const gdir = graphDirName('主图', doc.active);
+    const ndir = nodeDirName({ id: 'n_ingot', title: '钛锭' });
+    expect(await fs.exists(joinPath('graphs', gdir, 'nodes', ndir, 'resources'))).toBe(false);
   });
 
   it('按 node.json / graph.json 落在人可读的文件夹里', async () => {

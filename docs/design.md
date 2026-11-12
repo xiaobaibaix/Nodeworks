@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.13 · 2026-11-12 · 状态：P0–P15a 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器、资产预览、模型通配清单、目录项目）
+> 版本 v0.14 · 2026-11-12 · 状态：P0–P15b 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器、资产预览、模型通配清单、目录项目）
 
 ## 1. 定位
 
@@ -493,6 +493,24 @@ graphs/<图名>__<图 id>/
 实现要点：`src/model/folder.ts` 的读写、目录名 slug 与孤儿目录清理；`src/fs/disk.ts` 把 `TypeMismatchError` / 缺失父目录都按「不存在」处理；store 的 `saveToFolder/openFolder/unbindFolder` 与模块级防抖同步。
 
 已知限制：资源文件尚未复制进 `resources/`（P15b）；目录句柄不持久化，重开应用要重新选择；MCP 仍按单文件 project.json 工作。
+
+### P15b：资源文件落盘（已完成，2026-11-12）
+
+范围：资源项除了登记 `path`（给引擎用的逻辑路径），目录项目还要把字节本身放进节点文件夹的 `resources/`，用 `file` 记录相对路径；之后打开目录仍能拿到文件。
+
+验收：
+
+- 检查器资源行「⇧」选本地文件 → 写入内存待落盘队列，`path` 变成 `assets/<原文件名>`；点「存为目录」（已绑定则直接同步）后文件出现在 `nodes/<标题>__<id>/resources/`，`node.json` 的 `resources[].file` 指向它；
+- 已绑定目录时再点「存为目录」不再弹选择器，直接回写并提示「已同步到…」；
+- 资源字节拿不到（路径不可访问）时保留已有文件与 JSON，不报错阻断；
+- 自动同步（300ms 防抖）只写 JSON，不重复抓取资源；显式保存才复制字节；
+- 未被引用的旧资源文件在带 `readResource` 的写入里被清理。
+
+验证：`folder.test.ts` 8 项、浏览器 `folder.mjs` 6 项通过；`pnpm test` 164 项通过（20 个文件）；`tsc` 干净；`vite build` 主包 JS gzip 163.70 kB、CSS gzip 8.22 kB。
+
+实现要点：`src/model/folder.ts` 的 `WriteOptions.readResource`、`resourceFileName`、resources 目录清理；store 的 `importResourceFile`（内存 `resourceFiles`）与 `saveToFolder` 的 fetch/File 读取；Inspector 的 `.file-pick`。
+
+已知限制：预览仍按 `path` 走站点 URL，不直接读目录里的 `file`；导出契约不看 `file`；资源复制只在显式保存时发生。
 
 ### 之后（未排期）
 

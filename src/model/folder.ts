@@ -1,7 +1,7 @@
 import type { ProjectDoc, ProjectGraph } from './project';
 import { parseProjectDoc } from './project';
-import type { Graph, UnitEdge, UnitNode } from './types';
-import { joinPath, type DirEntry, type ProjectFS } from '../fs/types';
+import type { Graph, ResourceItem, UnitEdge, UnitNode } from './types';
+import { baseName, extName, joinPath, type DirEntry, type ProjectFS } from '../fs/types';
 
 export const PROJECT_FILE = 'project.json';
 export const GRAPH_FILE = 'graph.json';
@@ -55,8 +55,24 @@ async function listDirs(fs: ProjectFS, path: string): Promise<DirEntry[]> {
   return (await fs.list(path)).filter((entry) => entry.kind === 'directory');
 }
 
+export interface WriteOptions {
+  /**
+   * 读取资源字节并落进节点文件夹的 resources/。
+   * 返回 null 表示这次拿不到，保留已有文件；不传则只写 JSON（快速自动同步）。
+   */
+  readResource?: (node: UnitNode, resource: ResourceItem) => Promise<Uint8Array | null>;
+}
+
+/** 节点文件夹内的资源文件名：id 前缀保证唯一，后缀保留扩展名。 */
+export function resourceFileName(resource: ResourceItem): string {
+  const source = resource.path || resource.label || 'file';
+  const ext = extName(source);
+  const stem = slugify(ext ? baseName(source).slice(0, -(ext.length + 1)) : baseName(source), 'file');
+  return `${resource.id}-${stem}${ext ? `.${ext}` : ''}`;
+}
+
 /** 把整份项目写进目录；会清掉旧索引里已不存在的图/节点文件夹。 */
-export async function writeProject(fs: ProjectFS, project: ProjectDoc): Promise<void> {
+export async function writeProject(fs: ProjectFS, project: ProjectDoc, options: WriteOptions = {}): Promise<void> {
   const previous = await readProjectFile(fs);
   const expectedGraphDirs = new Set<string>();
   const index: ProjectFile['graphs'] = [];
@@ -66,7 +82,7 @@ export async function writeProject(fs: ProjectFS, project: ProjectDoc): Promise<
     const dir = graphDirName(pg.name, pg.id);
     expectedGraphDirs.add(dir);
     index.push({ id: pg.id, name: pg.name, dir });
-    await writeGraphDir(fs, joinPath('graphs', dir), pg.graph, pg.id, pg.name);
+    await writeGraphDir(fs, joinPath('graphs', dir), pg.graph, pg.id, pg.name, options);
   }
 
   const file: ProjectFile = {
@@ -88,6 +104,7 @@ async function writeGraphDir(
   graph: Graph,
   id: string,
   name: string,
+  options: WriteOptions,
 ): Promise<void> {
   const file: GraphFile = {
     version: 1,
@@ -103,7 +120,7 @@ async function writeGraphDir(
   for (const node of graph.nodes) {
     const nodeDir = nodeDirName(node);
     expected.add(nodeDir);
-    await writeNodeDir(fs, joinPath(nodesDir, nodeDir), node);
+    await writeNodeDir(fs, joinPath(nodesDir, nodeDir), node, options);
   }
 
   for (const entry of await listDirs(fs, nodesDir)) {
@@ -111,12 +128,43 @@ async function writeGraphDir(
   }
 }
 
-async function writeNodeDir(fs: ProjectFS, dir: string, node: UnitNode): Promise<void> {
+async function writeNodeDir(
+  fs: ProjectFS,
+  dir: string,
+  node: UnitNode,
+  options: WriteOptions,
+): Promise<void> {
   const { subgraph, ...rest } = node;
-  const file = { version: 1 as const, ...rest };
+  const resources = node.resources?.map((resource) => ({ ...resource }));
+  const used = new Set<string>();
+
+  if (resources?.length) {
+    for (const resource of resources) {
+      const target = resource.file ?? joinPath(RESOURCES_DIR, resourceFileName(resource));
+      if (options.readResource) {
+        const bytes = await options.readResource(node, resource);
+        if (bytes) {
+          await fs.writeBytes(joinPath(dir, target), bytes);
+          resource.file = target;
+        }
+      }
+      if (resource.file) used.add(resource.file);
+    }
+
+    const resDir = joinPath(dir, RESOURCES_DIR);
+    if (options.readResource && (await fs.exists(resDir))) {
+      for (const entry of await fs.list(resDir)) {
+        if (entry.kind === 'file' && !used.has(joinPath(RESOURCES_DIR, entry.name))) {
+          await fs.remove(joinPath(resDir, entry.name));
+        }
+      }
+    }
+  }
+
+  const file = { version: 1 as const, ...rest, ...(resources ? { resources } : {}) };
   await fs.writeText(joinPath(dir, NODE_FILE), `${JSON.stringify(file, null, 2)}\n`);
   if (subgraph) {
-    await writeGraphDir(fs, joinPath(dir, SUBGRAPH_DIR), subgraph, node.id, node.title);
+    await writeGraphDir(fs, joinPath(dir, SUBGRAPH_DIR), subgraph, node.id, node.title, options);
   } else {
     await fs.remove(joinPath(dir, SUBGRAPH_DIR));
   }

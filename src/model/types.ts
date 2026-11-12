@@ -27,6 +27,8 @@ export interface ResourceItem {
   type: ResourceType;
   label: string;
   path: string;
+  /** 目录项目里相对节点文件夹的落盘路径，如 resources/icon.png（引擎路径仍看 path） */
+  file?: string;
   /** 通配槽位：mesh / basecolor / normal / orm / lod / collision（见 modelTemplate） */
   slot?: string;
   meta?: Record<string, string | number | boolean>;

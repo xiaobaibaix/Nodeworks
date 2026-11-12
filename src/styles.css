@@ -1101,3 +1101,6 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   font-size: 14px; line-height: 1; padding: 0 2px;
 }
 .folder-bound button:hover { color: #f0a25c; }
+
+.file-pick { position: relative; cursor: pointer; }
+.file-pick input { display: none; }

@@ -28,13 +28,14 @@ import {
 import { loadCached, loadProject, saveCached, saveProject } from './persistence';
 import { DiskFS } from './fs/disk';
 import { hasFolderProject, readProject, writeProject } from './model/folder';
-import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitPort } from './model/types';
+import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitNode, UnitPort } from './model/types';
 import type { SortDir } from './model/table';
 
 export type ViewMode = 'graph' | 'table';
 
 /** 目录项目绑定：句柄只在会话内保存，重新打开应用需再选一次目录。 */
 let folderHandle: FileSystemDirectoryHandle | null = null;
+const resourceFiles = new Map<string, File>();
 let folderSyncTimer: ReturnType<typeof setTimeout> | null = null;
 let folderSyncRunning = false;
 let folderSyncQueued = false;
@@ -138,6 +139,7 @@ interface Store {
   addResource(nodeId: string, type: ResourceType): void;
   setResource(nodeId: string, resourceId: string, patch: Partial<Omit<ResourceItem, 'id'>>): void;
   removeResource(nodeId: string, resourceId: string): void;
+  importResourceFile(nodeId: string, resourceId: string, file: File): Promise<void>;
   applyModelTemplate(nodeId: string, opts: { rig: boolean; scene: boolean }): void;
   setProp(nodeId: string, name: string, value: unknown): void;
   setPropMany(ids: string[], name: string, type: string, value: unknown): void;
@@ -529,6 +531,20 @@ export const useGraph = create<Store>((set, get) => ({
       run: (g) => removeResourceOp(g, nodeId, resourceId),
       revert: (g) => addResourceOp(g, nodeId, old),
     });
+  },
+
+  importResourceFile: async (nodeId, resourceId, file) => {
+    const node = findNode(graphOf(get()), nodeId);
+    const old = node?.resources?.find((r) => r.id === resourceId);
+    if (!node || !old) return;
+    resourceFiles.set(`${nodeId}:${resourceId}`, file);
+    const patch = { path: `assets/${file.name}`, file: undefined };
+    get().commit({
+      label: '导入资源文件',
+      run: (g) => setResourceOp(g, nodeId, resourceId, patch),
+      revert: (g) => setResourceOp(g, nodeId, resourceId, old),
+    });
+    get().toastOf(`已导入 ${file.name}`);
   },
 
   applyModelTemplate: (nodeId, opts) => {
@@ -1144,15 +1160,34 @@ export const useGraph = create<Store>((set, get) => ({
 
   saveToFolder: async () => {
     try {
-      if (typeof window === 'undefined' || !window.showDirectoryPicker) {
+      if (typeof window === 'undefined') return;
+      const readResource = async (node: UnitNode, resource: ResourceItem) => {
+        const cached = resourceFiles.get(`${node.id}:${resource.id}`);
+        if (cached) return new Uint8Array(await cached.arrayBuffer());
+        if (!resource.path) return null;
+        try {
+          const url = /^(data:|https?:)/i.test(resource.path)
+            ? resource.path
+            : new URL(resource.path, window.location.href).href;
+          const response = await fetch(url);
+          if (!response.ok) return null;
+          return new Uint8Array(await response.arrayBuffer());
+        } catch {
+          return null;
+        }
+      };
+
+      const bound = folderHandle;
+      const picker = window.showDirectoryPicker?.bind(window);
+      if (!bound && !picker) {
         get().toastOf('当前浏览器不支持目录访问，请用 Chrome / Edge');
         return;
       }
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
+      const handle = bound ?? (await picker!({ mode: 'readwrite', id: 'nodeworks-project' }));
       folderHandle = handle;
-      await writeProject(new DiskFS(handle), get().currentProject());
       set({ folderName: handle.name });
-      get().toastOf(`已保存到「${handle.name}」`);
+      await writeProject(new DiskFS(handle), get().currentProject(), { readResource });
+      get().toastOf(bound ? `已同步到「${handle.name}」` : `已保存到「${handle.name}」`);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       get().toastOf(`保存目录失败：${error instanceof Error ? error.message : String(error)}`);
