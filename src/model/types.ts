@@ -31,6 +31,8 @@ export interface ResourceItem {
   file?: string;
   /** 通配槽位：mesh / basecolor / normal / orm / lod / collision（见 modelTemplate） */
   slot?: string;
+  /** 生成描述词：描述这条资源画什么/长什么样，交给外部工具生成时与全局风格拼成提示词 */
+  prompt?: string;
   meta?: Record<string, string | number | boolean>;
 }
 

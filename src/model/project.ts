@@ -1,5 +1,6 @@
 import { emptyGraph } from './ops';
 import { GraphSchema } from './schema';
+import { EMPTY_STYLE, normalizeStyle, type ProjectStyle } from './style';
 import type { Graph, KindDef } from './types';
 
 export interface ProjectGraph {
@@ -13,6 +14,8 @@ export interface ProjectDoc {
   version: 1;
   active: string;
   graphs: ProjectGraph[];
+  /** 资源全局风格：所有图标/模型的生成描述词都挂在它下面 */
+  style?: ProjectStyle;
 }
 
 export const PROJECT_LIMIT = 24;
@@ -44,12 +47,17 @@ export function normalizeProject(project: ProjectDoc): ProjectDoc {
     graphs.push({ id: projectGraphId(), name: '主图', graph: emptyGraph() });
   }
   const active = graphs.some((pg) => pg.id === project.active) ? project.active : graphs[0].id;
-  return unifyKinds({ version: 1, active, graphs });
+  return unifyKinds({ version: 1, active, graphs, style: normalizeStyle(project.style) });
 }
 
 export function projectFromGraph(graph: Graph, name = '主图'): ProjectDoc {
   const id = projectGraphId();
-  return { version: 1, active: id, graphs: [{ id, name, graph }] };
+  return { version: 1, active: id, graphs: [{ id, name, graph }], style: { ...EMPTY_STYLE } };
+}
+
+/** 取项目风格；老项目没有这一段时给空风格。 */
+export function projectStyle(project: ProjectDoc): ProjectStyle {
+  return project.style ?? EMPTY_STYLE;
 }
 
 /** 把当前编辑中的图写回 project，并让共享 kinds 覆盖所有图。 */
@@ -116,5 +124,6 @@ export function parseProjectDoc(raw: unknown): ProjectDoc | null {
     version: 1,
     active: typeof doc.active === 'string' ? doc.active : graphs[0].id,
     graphs,
+    style: normalizeStyle(doc.style),
   });
 }

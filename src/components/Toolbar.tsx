@@ -77,6 +77,7 @@ export default function Toolbar() {
   const kinds = graph.kinds;
   const togglePalette = useGraph((s) => s.togglePalette);
   const setExportOpen = useGraph((s) => s.setExportOpen);
+  const openStyle = useGraph((s) => s.openStyle);
   const openSnapshots = useGraph((s) => s.openSnapshots);
   const autoLayout = useGraph((s) => s.autoLayout);
   const view = useGraph((s) => s.view);
@@ -179,6 +180,9 @@ export default function Toolbar() {
             },
           ]}
         />
+        <button onClick={() => openStyle(true)} title="资源全局风格：图标/模型描述词的公共前提">
+          资源风格…
+        </button>
         <button onClick={() => setExportOpen(true)} title="按映射导出为 project.json（先 dry-run）">
           导出…
         </button>

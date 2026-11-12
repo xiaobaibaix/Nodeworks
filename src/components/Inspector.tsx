@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useCurrentGraph, useGraph } from '../store';
 import type { ResourceItem, ResourceType, UnitNode } from '../model/types';
 import { hasSceneSlots, isRigged, modelChecklist } from '../model/modelTemplate';
+import { composePrompt, wantsPrompt } from '../model/style';
 import AssetPreview from './AssetPreview';
 
 const TYPES = ['string', 'number', 'boolean', 'json'];
@@ -25,6 +26,32 @@ function TextCommit({
       onBlur={() => draft !== value && onCommit(draft)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+    />
+  );
+}
+
+/** 多行文本：本地草稿，失焦时提交，避免每敲一个字就进一次历史。 */
+function TextAreaCommit({
+  value,
+  onCommit,
+  placeholder,
+}: {
+  value: string;
+  onCommit: (next: string) => void;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <textarea
+      rows={2}
+      value={draft}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => draft !== value && onCommit(draft)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) (e.target as HTMLTextAreaElement).blur();
       }}
     />
   );
@@ -186,6 +213,21 @@ export default function Inspector() {
   const enterSubgraph = useGraph((s) => s.enterSubgraph);
   const setSubgraphMap = useGraph((s) => s.setSubgraphMap);
   const [previewRes, setPreviewRes] = useState<ResourceItem | null>(null);
+  const toastOf = useGraph((s) => s.toastOf);
+
+  const copyPrompt = async (resource: ResourceItem, node: UnitNode) => {
+    // 取存储里的最新值：描述词是失焦提交的，点按钮前刚失焦的那一版要算进去
+    const state = useGraph.getState();
+    const liveNode = state.graph.nodes.find((n) => n.id === node.id) ?? node;
+    const live = liveNode.resources?.find((x) => x.id === resource.id) ?? resource;
+    const text = composePrompt(state.projectStyle, live, liveNode.title);
+    try {
+      await navigator.clipboard.writeText(text);
+      toastOf('已复制生成提示词');
+    } catch {
+      toastOf('复制失败，请手动选中文本框复制');
+    }
+  };
 
   const edge = edgeId ? graph.edges.find((e) => e.id === edgeId) : undefined;
   const node = selectedNodes.length === 1
@@ -351,6 +393,25 @@ export default function Inspector() {
             </label>
             <button className="icon" title="预览资源" onClick={() => setPreviewRes(r)}>◎</button>
             <button className="icon" title="删除资源项" onClick={() => removeResource(node.id, r.id)}>×</button>
+            {wantsPrompt(r.type) && (
+              <div className="res-prompt">
+                <TextAreaCommit
+                  value={r.prompt ?? ''}
+                  placeholder={r.type === 'model'
+                    ? `描述这个模型：主体、结构、比例、材质…（会拼上全局「资源风格」）`
+                    : `描述图标内容：主体、构图、配色…（会拼上全局「资源风格」）`}
+                  onCommit={(v) => setResource(node.id, r.id, { prompt: v })}
+                />
+                <button
+                  className="icon"
+                  title="复制完整生成提示词（全局风格 + 这条描述）"
+                  onPointerDown={() => (document.activeElement as HTMLElement | null)?.blur()}
+                  onClick={() => void copyPrompt(r, node)}
+                >
+                  ⎘
+                </button>
+              </div>
+            )}
           </div>
         ))}
         {(node.resources ?? []).length === 0 && <div className="hint">还没有资源项</div>}
@@ -360,7 +421,10 @@ export default function Inspector() {
         <button onClick={() => addResource(node.id, 'model')}>+ 模型</button>
         <button onClick={() => addResource(node.id, 'other')}>+ 其它</button>
       </div>
-      <div className="hint">资源项登记类型、名称与相对路径（如 assets/icon.png）；「⇧」可从本地文件导入，存为目录项目时文件会落进该节点的 resources/。</div>
+      <div className="hint">
+        资源项登记类型、名称与相对路径（如 assets/icon.png）；「⇧」可从本地文件导入，存为目录项目时文件会落进该节点的 resources/。
+        图片和模型可写「描述词」，「⎘」把全局资源风格和这条描述拼成提示词复制走。
+      </div>
 
       <h3>端口</h3>
       <div className="port-list">

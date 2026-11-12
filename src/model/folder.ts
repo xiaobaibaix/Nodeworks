@@ -1,5 +1,6 @@
 import type { ProjectDoc, ProjectGraph } from './project';
 import { parseProjectDoc } from './project';
+import { EMPTY_STYLE, normalizeStyle, type ProjectStyle } from './style';
 import type { Graph, ResourceItem, UnitEdge, UnitNode } from './types';
 import { baseName, extName, joinPath, type DirEntry, type ProjectFS } from '../fs/types';
 
@@ -15,6 +16,8 @@ interface ProjectFile {
   active: string;
   kinds: Graph['kinds'];
   graphs: { id: string; name: string; dir: string }[];
+  /** 资源全局风格（图标/模型描述词的公共部分） */
+  style?: ProjectStyle;
 }
 
 interface GraphFile {
@@ -90,6 +93,7 @@ export async function writeProject(fs: ProjectFS, project: ProjectDoc, options: 
     active: project.active,
     kinds,
     graphs: index,
+    style: project.style ?? EMPTY_STYLE,
   };
   await fs.writeText(PROJECT_FILE, `${JSON.stringify(file, null, 2)}\n`);
 
@@ -204,7 +208,7 @@ export async function readProject(fs: ProjectFS): Promise<ProjectDoc> {
   if (!graphs.length) throw new Error('目录项目里没有可读取的图');
 
   const active = graphs.some((pg) => pg.id === project.active) ? project.active : graphs[0].id;
-  const parsed = parseProjectDoc({ version: 1, active, graphs });
+  const parsed = parseProjectDoc({ version: 1, active, graphs, style: project.style });
   if (!parsed) {
     throw new Error(`目录项目校验失败：检查 ${NODE_FILE} / ${GRAPH_FILE} 里的端口与连线引用`);
   }
@@ -221,6 +225,7 @@ async function readProjectFile(fs: ProjectFS): Promise<ProjectFile | null> {
       version: 1,
       active: typeof raw.active === 'string' ? raw.active : '',
       kinds: raw.kinds && typeof raw.kinds === 'object' ? raw.kinds : {},
+      style: normalizeStyle(raw.style),
       graphs: raw.graphs.filter(
         (entry): entry is ProjectFile['graphs'][number] =>
           !!entry && typeof entry.dir === 'string' && typeof entry.id === 'string',

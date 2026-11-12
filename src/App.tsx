@@ -11,6 +11,7 @@ import AssetFolderPrompt from './components/AssetFolderPrompt';
 import ExportDialog from './components/ExportDialog';
 import FolderErrorDialog from './components/FolderErrorDialog';
 import NewProjectDialog from './components/NewProjectDialog';
+import StyleDialog from './components/StyleDialog';
 import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
 import MultiBar from './components/MultiBar';
@@ -648,6 +649,7 @@ export default function App() {
         <AssetFolderPrompt />
         <FolderErrorDialog />
         <NewProjectDialog />
+        <StyleDialog />
       </div>
     </ReactFlowProvider>
   );

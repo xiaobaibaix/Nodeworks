@@ -40,6 +40,7 @@ const NodeBase = z.object({
         path: z.string(),
         file: z.string().optional(),
         slot: z.string().optional(),
+        prompt: z.string().optional(),
         meta: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
       }),
     )

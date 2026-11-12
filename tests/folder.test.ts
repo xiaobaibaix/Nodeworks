@@ -164,6 +164,19 @@ describe('目录项目：扫描与序列化', () => {
     expect(back.graphs[0].graph.nodes.map((n) => n.id)).toContain('n_ore');
   });
 
+  it('项目资源风格随 project.json 写出并读回，缺省时给空风格', async () => {
+    const fs = new MemoryFS();
+    const style = { name: '低多边形工业风', description: '冷灰金属', rules: '俯视 45°，纯色背景', avoid: '写实照片' };
+    await writeProject(fs, { ...project(), style });
+    const raw = JSON.parse((await fs.readText('project.json')) ?? '{}');
+    expect(raw.style).toEqual(style);
+    expect((await readProject(fs)).style).toEqual(style);
+
+    const plain = new MemoryFS();
+    await writeProject(plain, project());
+    expect((await readProject(plain)).style).toEqual({ name: '', description: '', rules: '', avoid: '' });
+  });
+
   it('不是目录项目时给出明确错误', async () => {
     const empty = new MemoryFS();
     await expect(readProject(empty)).rejects.toThrow('缺少 project.json');
