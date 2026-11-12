@@ -413,7 +413,9 @@ export default function AssetPreview({ resource, nodeId, onClose }: { resource: 
         return;
       }
       setMissPath(null);
-      url = URL.createObjectURL(blob);
+      // 目录里读出的 Blob 没有 MIME，<img> 不认无类型的 SVG
+      const typed = /\.svg$/i.test(resource.file ?? resource.path) ? new Blob([blob], { type: 'image/svg+xml' }) : blob;
+      url = URL.createObjectURL(typed);
       setFolderUrl(url);
     })();
     return () => {

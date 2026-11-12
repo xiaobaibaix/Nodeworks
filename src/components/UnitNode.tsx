@@ -1,8 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import { miniPreview } from '../model/preview';
-import type { UnitNode as UnitNodeModel } from '../model/types';
+import type { ResourceItem, UnitNode as UnitNodeModel } from '../model/types';
 import { useGraph } from '../store';
+
+/** 卡片图标：标成 icon 槽或名称/路径含「图标/icon」的图片资源。 */
+function iconOf(node: UnitNodeModel): ResourceItem | null {
+  return (node.resources ?? []).find((r) => r.type === 'image'
+    && (r.slot === 'icon' || /icon|图标/i.test(`${r.label} ${r.path} ${r.file ?? ''}`))) ?? null;
+}
+
+/** 图标地址：路径本身可直接用（http/data/blob）就用路径，否则从已绑定的项目目录读文件。 */
+function useIconUrl(nodeId: string, icon: ResourceItem | null): string | null {
+  const folderName = useGraph((s) => s.folderName);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!icon) {
+      setUrl(null);
+      return;
+    }
+    if (/^(https?:|data:|blob:)/.test(icon.path)) {
+      setUrl(icon.path);
+      return;
+    }
+    let alive = true;
+    let objectUrl: string | null = null;
+    void useGraph.getState().readFolderAsset(nodeId, icon).catch(() => null).then((blob) => {
+      if (!alive) return;
+      // 目录里读出的 Blob 没有 MIME，<img> 不认无类型的 SVG
+      const typed = blob && /\.svg$/i.test(icon.file ?? icon.path) ? new Blob([blob], { type: 'image/svg+xml' }) : blob;
+      objectUrl = typed ? URL.createObjectURL(typed) : null;
+      setUrl(objectUrl);
+    });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [nodeId, icon, folderName]);
+  return url;
+}
 
 function short(value: unknown): string {
   if (typeof value === 'string') return value;
@@ -22,6 +58,8 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   const props = Object.entries(node.props);
   const subgraph = node.subgraph;
   const preview = useMemo(() => (subgraph ? miniPreview(subgraph) : null), [subgraph]);
+  const icon = useMemo(() => iconOf(node), [node.resources]);
+  const iconUrl = useIconUrl(id, icon);
   const enterSubgraph = useGraph((s) => s.enterSubgraph);
   const select = useGraph((s) => s.select);
   const [view, setView] = useState({ tx: 0, ty: 0, k: 1 });
@@ -82,6 +120,7 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
       className={`unit-node${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}${matched ? ' is-match' : ''}${impact ? ' is-impact' : ''}`}
     >
       <div className="unit-head">
+        {iconUrl && <img className="unit-icon" src={iconUrl} alt="" draggable={false} />}
         <span className="unit-kind">{node.kind || 'unit'}</span>
         <span className="unit-title">{node.title}</span>
       </div>
