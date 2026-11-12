@@ -1233,11 +1233,32 @@ export const useGraph = create<Store>((set, get) => ({
         get().toastOf('当前浏览器不支持目录访问，请用 Chrome / Edge');
         return;
       }
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
-      const fs = new DiskFS(handle);
+      let handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
+      let fs = new DiskFS(handle);
+      let via = '';
       if (!(await hasFolderProject(fs))) {
-        get().toastOf('这个文件夹里没有 project.json');
-        return;
+        // 允许用户选到项目文件夹的上一层：若唯一子目录里有 project.json，就自动下探。
+        const candidates: { name: string; handle: FileSystemDirectoryHandle; fs: DiskFS }[] = [];
+        for (const entry of (await fs.list('')).filter((e) => e.kind === 'directory').slice(0, 40)) {
+          try {
+            const sub = await handle.getDirectoryHandle(entry.name);
+            const subFs = new DiskFS(sub);
+            if (await hasFolderProject(subFs)) candidates.push({ name: entry.name, handle: sub, fs: subFs });
+          } catch {
+            /* 忽略无权限或已消失的目录 */
+          }
+        }
+        if (candidates.length === 0) {
+          get().toastOf(`「${handle.name}」里没有 project.json；请直接选择包含 project.json 的那一层`);
+          return;
+        }
+        if (candidates.length > 1) {
+          get().toastOf(`这里多个项目文件夹：${candidates.map((c) => c.name).join('、')}；请选择其中一个`);
+          return;
+        }
+        handle = candidates[0].handle;
+        fs = candidates[0].fs;
+        via = `（子目录「${candidates[0].name}」）`;
       }
       const project = await readProject(fs);
       get().load(projectActiveGraph(project).graph);
@@ -1247,7 +1268,7 @@ export const useGraph = create<Store>((set, get) => ({
         activeGraphId: project.active,
         folderName: handle.name,
         assetPrompt: 0,
-        toast: `已打开目录项目「${handle.name}」· 共 ${project.graphs.length} 张图`,
+        toast: `已打开目录项目「${handle.name}」${via} · 共 ${project.graphs.length} 张图`,
       });
       folderHandle = handle;
     } catch (error) {
