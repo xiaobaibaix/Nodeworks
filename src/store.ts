@@ -115,6 +115,8 @@ interface Store {
   /** 打开的单个文件引用了目录资源时，提示去绑定项目文件夹（值为资源数量，0 表示关闭）。 */
   assetPrompt: number;
   dismissAssetPrompt(): void;
+  folderError: string | null;
+  clearFolderError(): void;
   /** 多图容器：一个 project 下的所有根图（当前图另外存在 graph 里） */
   projectGraphs: ProjectGraph[];
   activeGraphId: string;
@@ -188,8 +190,12 @@ interface Store {
   saveToFolder(): Promise<void>;
   /** 有绑定目录就写目录，否则下载项目文件。 */
   saveCurrentProject(): void;
+  /** 清空当前编辑，开一个只有一张空白图的本地项目（不落盘）。 */
+  newProject(): void;
   openFolder(): Promise<void>;
   unbindFolder(): void;
+  /** 直接用一个已拿到的目录句柄打开项目（拖拽/选择器共用）。 */
+  openDirectory(handle: FileSystemDirectoryHandle): Promise<void>;
   reloadFolder(): Promise<void>;
   readFolderAsset(nodeId: string, resource: ResourceItem): Promise<Blob | null>;
   enterSubgraph(id: string): void;
@@ -252,6 +258,7 @@ export const useGraph = create<Store>((set, get) => ({
   snapshotOpen: false,
   folderName: null,
   assetPrompt: 0,
+  folderError: null,
   projectGraphs: [],
   activeGraphId: '',
 
@@ -1015,6 +1022,7 @@ export const useGraph = create<Store>((set, get) => ({
       snapshotOpen: false,
       folderName: null,
       assetPrompt: 0,
+      folderError: null,
       ...(() => {
         const seeded = projectFromGraph(g);
         return { projectGraphs: seeded.graphs, activeGraphId: seeded.active };
@@ -1181,6 +1189,43 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   dismissAssetPrompt: () => set({ assetPrompt: 0 }),
+  clearFolderError: () => set({ folderError: null }),
+
+  newProject: () => {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm('新建项目会清空当前编辑（未保存的修改会丢失），继续？')
+    ) {
+      return;
+    }
+    folderHandle = null;
+    const blank = { ...sampleGraph(), nodes: [], edges: [] };
+    const seeded = projectFromGraph(blank, '主图');
+    set({
+      graph: seeded.graphs[0].graph,
+      projectGraphs: seeded.graphs,
+      activeGraphId: seeded.active,
+      folderName: null,
+      assetPrompt: 0,
+      folderError: null,
+      path: [],
+      preview: false,
+      selectedNodes: [],
+      selectedEdge: null,
+      filter: EMPTY_FILTER,
+      past: [],
+      future: [],
+      clipboard: null,
+      pasteCount: 0,
+      pendingPort: null,
+      impactOn: false,
+      tableSort: null,
+      hiddenColumns: [],
+      focus: null,
+      toast: '已新建空白项目；用「保存 ▾ → 另存为目录项目」落盘',
+    });
+  },
+
 
   saveCurrentProject: () => {
     const state = get();
@@ -1213,7 +1258,7 @@ export const useGraph = create<Store>((set, get) => ({
       const bound = folderHandle;
       const picker = window.showDirectoryPicker?.bind(window);
       if (!bound && !picker) {
-        get().toastOf('当前浏览器不支持目录访问，请用 Chrome / Edge');
+        set({ folderError: '当前浏览器不支持目录访问。请用 Chrome / Edge，或直接把项目文件夹拖进窗口。' });
         return;
       }
       const handle = bound ?? (await picker!({ mode: 'readwrite', id: 'nodeworks-project' }));
@@ -1228,12 +1273,24 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   openFolder: async () => {
+    if (typeof window === 'undefined' || !window.showDirectoryPicker) {
+      set({ folderError: '当前浏览器不支持目录访问。请用 Chrome / Edge，或直接把项目文件夹拖进窗口。' });
+      return;
+    }
     try {
-      if (typeof window === 'undefined' || !window.showDirectoryPicker) {
-        get().toastOf('当前浏览器不支持目录访问，请用 Chrome / Edge');
-        return;
-      }
-      let handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
+      const picked = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
+      await get().openDirectory(picked);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      console.error('openFolder failed', error);
+      set({ folderError: `打开文件夹失败：${detail}` });
+    }
+  },
+
+  openDirectory: async (picked) => {
+    try {
+      let handle = picked;
       let fs = new DiskFS(handle);
       let via = '';
       if (!(await hasFolderProject(fs))) {
@@ -1249,11 +1306,11 @@ export const useGraph = create<Store>((set, get) => ({
           }
         }
         if (candidates.length === 0) {
-          get().toastOf(`「${handle.name}」里没有 project.json；请直接选择包含 project.json 的那一层`);
+          set({ folderError: `「${handle.name}」里没有 project.json，直接子目录里也没找到。请选择包含 project.json 的那一层。` });
           return;
         }
         if (candidates.length > 1) {
-          get().toastOf(`这里多个项目文件夹：${candidates.map((c) => c.name).join('、')}；请选择其中一个`);
+          set({ folderError: `这个文件夹下有多个项目：${candidates.map((c) => c.name).join('、')}。请选择其中一个。` });
           return;
         }
         handle = candidates[0].handle;
@@ -1268,12 +1325,14 @@ export const useGraph = create<Store>((set, get) => ({
         activeGraphId: project.active,
         folderName: handle.name,
         assetPrompt: 0,
+        folderError: null,
         toast: `已打开目录项目「${handle.name}」${via} · 共 ${project.graphs.length} 张图`,
       });
       folderHandle = handle;
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      get().toastOf(`打开目录失败：${error instanceof Error ? error.message : String(error)}`);
+      const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      console.error('openDirectory failed', error);
+      set({ folderError: `打开文件夹失败：${detail}` });
     }
   },
 

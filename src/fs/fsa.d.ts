@@ -10,3 +10,7 @@ interface Window {
     startIn?: string;
   }) => Promise<FileSystemDirectoryHandle>;
 }
+
+interface DataTransferItem {
+  getAsFileSystemHandle(): Promise<FileSystemHandle | null>;
+}

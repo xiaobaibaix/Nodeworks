@@ -9,6 +9,7 @@ import CommandPalette from './components/CommandPalette';
 import CrossLinkDialog from './components/CrossLinkDialog';
 import AssetFolderPrompt from './components/AssetFolderPrompt';
 import ExportDialog from './components/ExportDialog';
+import FolderErrorDialog from './components/FolderErrorDialog';
 import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
 import MultiBar from './components/MultiBar';
@@ -446,6 +447,31 @@ function Canvas() {
 
 export default function App() {
   const [ready, setReady] = useState(false);
+
+  async function onDropProject(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const item = Array.from(e.dataTransfer.items).find((i) => i.kind === 'file');
+    const state = useGraph.getState();
+    try {
+      const handle = item ? await item.getAsFileSystemHandle() : null;
+      if (handle?.kind === 'directory') {
+        await state.openDirectory(handle as FileSystemDirectoryHandle);
+        return;
+      }
+      if (handle?.kind === 'file') {
+        const file = await (handle as FileSystemFileHandle).getFile();
+        if (file.name.endsWith('.json')) {
+          state.loadFile(JSON.parse(await file.text()));
+          return;
+        }
+      }
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.json')) state.loadFile(JSON.parse(await file.text()));
+      else state.toastOf('拖入项目文件夹，或 .json 项目文件');
+    } catch (error) {
+      state.toastOf(`拖入失败：${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
   const graph = useGraph((s) => s.graph);
   const view = useGraph((s) => s.view);
 
@@ -491,6 +517,8 @@ export default function App() {
           state.openSnapshots(false);
         } else if (state.exportOpen) {
           state.setExportOpen(false);
+        } else if (state.folderError) {
+          state.clearFolderError();
         } else if (state.assetPrompt) {
           state.dismissAssetPrompt();
         } else if (state.pendingPort) {
@@ -524,7 +552,7 @@ export default function App() {
 
   return (
     <ReactFlowProvider>
-      <div className="app">
+      <div className="app" onDragOver={(e) => e.preventDefault()} onDrop={onDropProject}>
         <Toolbar />
         <div className="body">
           <Sidebar />
@@ -542,6 +570,7 @@ export default function App() {
         <ExportDialog />
         <SnapshotDialog />
         <AssetFolderPrompt />
+        <FolderErrorDialog />
       </div>
     </ReactFlowProvider>
   );

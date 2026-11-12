@@ -51,6 +51,26 @@ export default function CommandPalette() {
       });
     }
     list.push({
+      id: 'new-project',
+      label: '新建项目',
+      hint: '清空当前编辑，开一张空白图',
+      group: '命令',
+      mutates: true,
+      run: () => useGraph.getState().newProject(),
+    });
+    list.push({
+      id: 'new-project-folder',
+      label: '新建项目并选择文件夹…',
+      hint: '新建空白项目后立刻存成目录项目',
+      group: '命令',
+      mutates: true,
+      run: () => {
+        const store = useGraph.getState();
+        store.newProject();
+        if (useGraph.getState().graph) void useGraph.getState().saveToFolder();
+      },
+    });
+    list.push({
       id: 'save',
       label: '保存项目',
       hint: useGraph.getState().folderName ? '写回绑定目录' : '下载 nodeworks.project.json',

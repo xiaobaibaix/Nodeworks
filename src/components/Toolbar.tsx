@@ -166,6 +166,7 @@ export default function Toolbar() {
             },
           ]}
         />
+        <button onClick={() => useGraph.getState().newProject()} title="新建空白项目（会清空当前编辑）">新建</button>
         <SplitButton
           label="打开"
           title="打开项目文件夹（推荐：资源随目录读取）"
