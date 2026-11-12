@@ -31,6 +31,19 @@ describe('图序列化', () => {
     expect(() => parseGraph(broken)).toThrow(/nodes\.0\.subgraph\.nodes\.0\.title/);
   });
 
+  it('资源项的视图（图片容器）递归校验', () => {
+    const res = { id: 'r1', type: 'model' as const, label: '模型', path: 'assets/m.glb' };
+    const view = { id: 'v1', type: 'image' as const, label: '正面', path: 'assets/front.png' };
+    const good = { ...emptyGraph(), nodes: [{ ...createNode('带视图'), resources: [{ ...res, views: [view] }] }] };
+    expect(parseGraph(JSON.parse(JSON.stringify(good)))).toEqual(good);
+
+    const broken = {
+      ...emptyGraph(),
+      nodes: [{ ...createNode('坏视图'), resources: [{ ...res, views: [{ ...view, type: 'video' }] }] }],
+    };
+    expect(() => parseGraph(broken)).toThrow(/图数据不合法/);
+  });
+
   it('子图端口映射必须指向存在的内部端点', () => {
     const innerPort = createPort('out', '产出');
     const inPort = createPort('in', '入口');

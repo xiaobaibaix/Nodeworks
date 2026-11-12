@@ -4,6 +4,7 @@ import type { ResourceItem, ResourceType, UnitNode } from '../model/types';
 import { hasSceneSlots, isRigged, modelChecklist } from '../model/modelTemplate';
 import { composePrompt, wantsPrompt } from '../model/style';
 import AssetPreview from './AssetPreview';
+import ResourceViews from './ResourceViews';
 
 const TYPES = ['string', 'number', 'boolean', 'json'];
 
@@ -214,6 +215,7 @@ export default function Inspector() {
   const setSubgraphMap = useGraph((s) => s.setSubgraphMap);
   const [previewRes, setPreviewRes] = useState<ResourceItem | null>(null);
   const toastOf = useGraph((s) => s.toastOf);
+  const openGenerate = useGraph((s) => s.openGenerate);
 
   const copyPrompt = async (resource: ResourceItem, node: UnitNode) => {
     // 取存储里的最新值：描述词是失焦提交的，点按钮前刚失焦的那一版要算进去
@@ -392,6 +394,15 @@ export default function Inspector() {
               ⇧
             </label>
             <button className="icon" title="预览资源" onClick={() => setPreviewRes(r)}>◎</button>
+            {wantsPrompt(r.type) && (
+              <button
+                className="icon res-gen"
+                title="生成资源…（用全局服务与这条描述词）"
+                onClick={() => openGenerate(node.id, r.id)}
+              >
+                ✦
+              </button>
+            )}
             <button className="icon" title="删除资源项" onClick={() => removeResource(node.id, r.id)}>×</button>
             {wantsPrompt(r.type) && (
               <div className="res-prompt">
@@ -412,6 +423,9 @@ export default function Inspector() {
                 </button>
               </div>
             )}
+            {(r.type === 'model' || (r.views?.length ?? 0) > 0) && (
+              <ResourceViews node={node} resource={r} onPreview={setPreviewRes} />
+            )}
           </div>
         ))}
         {(node.resources ?? []).length === 0 && <div className="hint">还没有资源项</div>}
@@ -423,7 +437,8 @@ export default function Inspector() {
       </div>
       <div className="hint">
         资源项登记类型、名称与相对路径（如 assets/icon.png）；「⇧」可从本地文件导入，存为目录项目时文件会落进该节点的 resources/。
-        图片和模型可写「描述词」，「⎘」把全局资源风格和这条描述拼成提示词复制走。
+        图片和模型可写「描述词」，「⎘」把全局资源风格和这条描述拼成提示词复制走；「✦」用工具栏「生成设置…」里的全局服务直接生成。
+        模型资源还能挂「视图」子项（正面、侧面…），视图同样可导入或生成。
       </div>
 
       <h3>端口</h3>

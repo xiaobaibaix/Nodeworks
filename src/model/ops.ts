@@ -379,3 +379,60 @@ export function removeResourceOp(g: Graph, nodeId: string, resourceId: string): 
     }),
   };
 }
+
+/** 只改某个节点下的某条资源项，其它节点/资源原样保留。 */
+function mapResource(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  fn: (r: ResourceItem) => ResourceItem,
+): Graph {
+  return {
+    ...g,
+    nodes: g.nodes.map((n) => {
+      if (n.id !== nodeId || !n.resources) return n;
+      return {
+        ...n,
+        resources: n.resources.map((r) => (r.id === resourceId ? fn(r) : r)),
+      };
+    }),
+  };
+}
+
+/** 给资源项挂一个子资源（图片容器里的一条视图）。 */
+export function addResourceViewOp(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  view: ResourceItem,
+): Graph {
+  return mapResource(g, nodeId, resourceId, (r) => ({ ...r, views: [...(r.views ?? []), view] }));
+}
+
+export function setResourceViewOp(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  viewId: string,
+  patch: Partial<Omit<ResourceItem, 'id'>>,
+): Graph {
+  return mapResource(g, nodeId, resourceId, (r) => ({
+    ...r,
+    views: (r.views ?? []).map((v) => (v.id === viewId ? { ...v, ...patch, id: viewId } : v)),
+  }));
+}
+
+export function removeResourceViewOp(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  viewId: string,
+): Graph {
+  return mapResource(g, nodeId, resourceId, (r) => {
+    const views = (r.views ?? []).filter((v) => v.id !== viewId);
+    const copy = { ...r };
+    if (views.length) copy.views = views;
+    else delete copy.views;
+    return copy;
+  });
+}

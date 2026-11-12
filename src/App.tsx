@@ -12,6 +12,8 @@ import ExportDialog from './components/ExportDialog';
 import FolderErrorDialog from './components/FolderErrorDialog';
 import NewProjectDialog from './components/NewProjectDialog';
 import StyleDialog from './components/StyleDialog';
+import ProvidersDialog from './components/ProvidersDialog';
+import GenerateDialog from './components/GenerateDialog';
 import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
 import MultiBar from './components/MultiBar';
@@ -650,6 +652,8 @@ export default function App() {
         <FolderErrorDialog />
         <NewProjectDialog />
         <StyleDialog />
+        <ProvidersDialog />
+        <GenerateDialog />
       </div>
     </ReactFlowProvider>
   );

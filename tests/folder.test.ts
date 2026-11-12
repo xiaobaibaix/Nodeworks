@@ -164,6 +164,29 @@ describe('目录项目：扫描与序列化', () => {
     expect(back.graphs[0].graph.nodes.map((n) => n.id)).toContain('n_ore');
   });
 
+  it('资源项的视图文件也落进 resources/ 并能读回', async () => {
+    const fs = new MemoryFS();
+    const doc = project();
+    const ingot = doc.graphs[0].graph.nodes.find((n) => n.id === 'n_ingot')!;
+    ingot.resources![0].views = [
+      { id: 'v1', type: 'image', label: '正面', path: 'assets/front.png' },
+    ];
+    await writeProject(fs, doc, {
+      readResource: async (node, resource) =>
+        node.id === 'n_ingot' && resource.id === 'v1' ? new Uint8Array([9, 8, 7]) : null,
+    });
+
+    const back = await readProject(fs);
+    const res = back.graphs[0].graph.nodes.find((n) => n.id === 'n_ingot')!.resources![0];
+    expect(res.views?.[0].label).toBe('正面');
+    expect(res.views?.[0].file).toMatch(/^resources\//);
+
+    const gdir = graphDirName('主图', doc.active);
+    const ndir = nodeDirName({ id: 'n_ingot', title: '钛锭' });
+    const saved = await fs.readBytes(joinPath('graphs', gdir, 'nodes', ndir, res.views![0].file!));
+    expect([...(saved ?? [])]).toEqual([9, 8, 7]);
+  });
+
   it('项目资源风格随 project.json 写出并读回，缺省时给空风格', async () => {
     const fs = new MemoryFS();
     const style = { name: '低多边形工业风', description: '冷灰金属', rules: '俯视 45°，纯色背景', avoid: '写实照片' };

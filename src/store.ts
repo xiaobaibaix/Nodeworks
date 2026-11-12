@@ -9,8 +9,9 @@ import { slotOf, templateResources, isRigged } from './model/modelTemplate';
 import { EMPTY_FILTER, type GraphFilter } from './model/query';
 import { emptySubgraph, parseGraph } from './model/schema';
 import {
-  addEdgeOp, addNodeOp, addPortOp, addResourceOp, createEdge, createNode, createNodeFromKind,
-  createPort, createResource, removeResourceOp, setResourceOp,
+  addEdgeOp, addNodeOp, addPortOp, addResourceOp, addResourceViewOp, createEdge, createNode,
+  createNodeFromKind, createPort, createResource, removeResourceOp, removeResourceViewOp,
+  setResourceOp, setResourceViewOp,
   findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp,
   removePortEdgesOp, removePortOp, removePropOp, renameNodeOp, replaceNodeOp,
   replacePortInEdgesOp, setEdgeLabelOp, setKindOp, setNodePosOp, setPortOp,
@@ -26,6 +27,10 @@ import {
   parseProjectDoc, syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
 } from './model/project';
 import { EMPTY_STYLE, type ProjectStyle } from './model/style';
+import {
+  activateProvider as activateProviderIn, loadProviders, newProvider, saveProviders,
+  type Capability, type ProviderConfig,
+} from './model/providers';
 import { loadCached, loadProject, pickGraphFile, saveCached, saveProject as saveProjectDoc } from './persistence';
 import { DiskFS } from './fs/disk';
 import { graphDirName, hasFolderProject, nodeDirName, readProject, resourceFileName, writeProject } from './model/folder';
@@ -114,6 +119,18 @@ interface Store {
   /** 资源风格对话框 */
   styleOpen: boolean;
   openStyle(open?: boolean): void;
+  /** 全局生成服务（图片/3D）：存 localStorage，不属于项目文件 */
+  providers: ProviderConfig[];
+  providersOpen: boolean;
+  openProviders(open?: boolean): void;
+  addProvider(capability?: Capability): void;
+  updateProvider(id: string, patch: Partial<Omit<ProviderConfig, 'id'>>): void;
+  removeProvider(id: string): void;
+  activateProvider(id: string): void;
+  /** 正在为哪条资源打开生成对话框 */
+  generateTarget: { nodeId: string; resourceId: string } | null;
+  openGenerate(nodeId: string, resourceId: string): void;
+  closeGenerate(): void;
   /** 本地版本快照（最新在前，最多 SNAPSHOT_LIMIT 份） */
   snapshots: Snapshot[];
   snapshotOpen: boolean;
@@ -156,6 +173,13 @@ interface Store {
   setResource(nodeId: string, resourceId: string, patch: Partial<Omit<ResourceItem, 'id'>>): void;
   removeResource(nodeId: string, resourceId: string): void;
   importResourceFile(nodeId: string, resourceId: string, file: File): Promise<void>;
+  /** 资源项的子资源（图片容器里的视图） */
+  addResourceView(nodeId: string, resourceId: string): void;
+  setResourceView(nodeId: string, resourceId: string, viewId: string, patch: Partial<Omit<ResourceItem, 'id'>>): void;
+  removeResourceView(nodeId: string, resourceId: string, viewId: string): void;
+  importResourceViewFile(nodeId: string, resourceId: string, viewId: string, file: File): void;
+  /** 把生成结果直接加为这条资源的视图（一次提交） */
+  applyGeneratedView(nodeId: string, resourceId: string, file: File, label?: string): void;
   applyModelTemplate(nodeId: string, opts: { rig: boolean; scene: boolean }): void;
   setProp(nodeId: string, name: string, value: unknown): void;
   setPropMany(ids: string[], name: string, type: string, value: unknown): void;
@@ -291,6 +315,9 @@ export const useGraph = create<Store>((set, get) => ({
   focus: null,
   exportOpen: false,
   styleOpen: false,
+  providers: loadProviders(),
+  providersOpen: false,
+  generateTarget: null,
   mapping: loadMapping(),
   snapshots: [],
   snapshotOpen: false,
@@ -608,6 +635,71 @@ export const useGraph = create<Store>((set, get) => ({
     get().toastOf(`已导入 ${file.name}`);
   },
 
+  addResourceView: (nodeId, resourceId) => {
+    const node = findNode(graphOf(get()), nodeId);
+    const resource = node?.resources?.find((r) => r.id === resourceId);
+    if (!resource) return;
+    const view = createResource('image', `视图 ${(resource.views?.length ?? 0) + 1}`);
+    get().commit({
+      label: '添加视图',
+      run: (g) => addResourceViewOp(g, nodeId, resourceId, view),
+      revert: (g) => removeResourceViewOp(g, nodeId, resourceId, view.id),
+    });
+  },
+
+  setResourceView: (nodeId, resourceId, viewId, patch) => {
+    const node = findNode(graphOf(get()), nodeId);
+    const old = node?.resources?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === viewId);
+    if (!old) return;
+    const field = Object.keys(patch).join(',');
+    get().commit({
+      label: '改视图',
+      mergeKey: `view:${nodeId}:${resourceId}:${viewId}:${field}`,
+      run: (g) => setResourceViewOp(g, nodeId, resourceId, viewId, patch),
+      revert: (g) => setResourceViewOp(g, nodeId, resourceId, viewId, old),
+    });
+  },
+
+  removeResourceView: (nodeId, resourceId, viewId) => {
+    const node = findNode(graphOf(get()), nodeId);
+    const old = node?.resources?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === viewId);
+    if (!old) return;
+    get().commit({
+      label: '删除视图',
+      run: (g) => removeResourceViewOp(g, nodeId, resourceId, viewId),
+      revert: (g) => addResourceViewOp(g, nodeId, resourceId, old),
+    });
+  },
+
+  importResourceViewFile: (nodeId, resourceId, viewId, file) => {
+    const node = findNode(graphOf(get()), nodeId);
+    const old = node?.resources?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === viewId);
+    if (!old) return;
+    resourceFiles.set(`${nodeId}:${viewId}`, file);
+    const patch = { path: `assets/${file.name}`, file: undefined };
+    get().commit({
+      label: '导入视图文件',
+      run: (g) => setResourceViewOp(g, nodeId, resourceId, viewId, patch),
+      revert: (g) => setResourceViewOp(g, nodeId, resourceId, viewId, old),
+    });
+    get().toastOf(`已导入 ${file.name}`);
+  },
+
+  applyGeneratedView: (nodeId, resourceId, file, label) => {
+    const node = findNode(graphOf(get()), nodeId);
+    const resource = node?.resources?.find((r) => r.id === resourceId);
+    if (!resource) return;
+    const view = createResource('image', label || `视图 ${(resource.views?.length ?? 0) + 1}`);
+    view.path = `assets/${file.name}`;
+    // 生成结果的字节先进会话缓存，保存目录项目时由 readResource 落盘
+    resourceFiles.set(`${nodeId}:${view.id}`, file);
+    get().commit({
+      label: '添加生成视图',
+      run: (g) => addResourceViewOp(g, nodeId, resourceId, view),
+      revert: (g) => removeResourceViewOp(g, nodeId, resourceId, view.id),
+    });
+  },
+
   applyModelTemplate: (nodeId, opts) => {
     const node = findNode(graphOf(get()), nodeId);
     if (!node) return;
@@ -722,6 +814,46 @@ export const useGraph = create<Store>((set, get) => ({
   setExportOpen: (open) => set({ exportOpen: open }),
 
   openStyle: (open) => set({ styleOpen: open ?? !get().styleOpen }),
+
+  openProviders: (open) => set({ providersOpen: open ?? !get().providersOpen }),
+
+  addProvider: (capability = 'image') => {
+    const provider = newProvider(capability);
+    let list = [...get().providers, provider];
+    // 该能力还没有启用的服务时，新加的这条直接启用
+    if (!list.some((p) => p.capability === capability && p.active)) {
+      list = list.map((p) => (p.id === provider.id ? { ...p, active: true } : p));
+    }
+    set({ providers: list });
+    saveProviders(list);
+  },
+
+  updateProvider: (id, patch) => {
+    const list = get().providers.map((p) => (p.id === id ? { ...p, ...patch } : p));
+    set({ providers: list });
+    saveProviders(list);
+  },
+
+  removeProvider: (id) => {
+    const before = get().providers;
+    const removed = before.find((p) => p.id === id);
+    let list = before.filter((p) => p.id !== id);
+    if (removed?.active) {
+      const fallback = list.find((p) => p.capability === removed.capability);
+      if (fallback) list = list.map((p) => (p.id === fallback.id ? { ...p, active: true } : p));
+    }
+    set({ providers: list });
+    saveProviders(list);
+  },
+
+  activateProvider: (id) => {
+    const list = activateProviderIn(get().providers, id);
+    set({ providers: list });
+    saveProviders(list);
+  },
+
+  openGenerate: (nodeId, resourceId) => set({ generateTarget: { nodeId, resourceId } }),
+  closeGenerate: () => set({ generateTarget: null }),
 
   setProjectStyle: (patch) => {
     set({ projectStyle: { ...get().projectStyle, ...patch } });
@@ -1074,6 +1206,8 @@ export const useGraph = create<Store>((set, get) => ({
       focus: null,
       exportOpen: false,
       snapshotOpen: false,
+      providersOpen: false,
+      generateTarget: null,
       folderName: null,
       fileName: null,
       assetPrompt: 0,
@@ -1269,6 +1403,8 @@ export const useGraph = create<Store>((set, get) => ({
       assetPrompt: 0,
       folderError: null,
       newProjectOpen: false,
+      providersOpen: false,
+      generateTarget: null,
       path: [],
       preview: false,
       selectedNodes: [],

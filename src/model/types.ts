@@ -33,6 +33,8 @@ export interface ResourceItem {
   slot?: string;
   /** 生成描述词：描述这条资源画什么/长什么样，交给外部工具生成时与全局风格拼成提示词 */
   prompt?: string;
+  /** 子资源（图片容器）：模型的各角度视图等，结构同资源项，文件随父资源一起落盘 */
+  views?: ResourceItem[];
   meta?: Record<string, string | number | boolean>;
 }
 

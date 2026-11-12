@@ -139,11 +139,16 @@ async function writeNodeDir(
   options: WriteOptions,
 ): Promise<void> {
   const { subgraph, ...rest } = node;
-  const resources = node.resources?.map((resource) => ({ ...resource }));
+  const resources = node.resources?.map((resource) => structuredClone(resource));
   const used = new Set<string>();
 
   if (resources?.length) {
+    // 顶层资源与它挂的视图都要写文件，清理时也都要算作「在用」
+    const flattened: ResourceItem[] = [];
     for (const resource of resources) {
+      flattened.push(resource, ...(resource.views ?? []));
+    }
+    for (const resource of flattened) {
       const target = resource.file ?? joinPath(RESOURCES_DIR, resourceFileName(resource));
       if (options.readResource) {
         const bytes = await options.readResource(node, resource);

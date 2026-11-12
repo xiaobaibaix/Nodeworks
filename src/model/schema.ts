@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Graph, UnitNode } from './types';
+import type { Graph, ResourceItem, UnitNode } from './types';
 
 export const PropSchema = z.object({
   value: z.unknown(),
@@ -22,6 +22,21 @@ export const EndpointSchema = z.object({
   port: z.string().min(1),
 });
 
+/** 资源项可嵌套视图（图片容器），所以用 lazy 递归校验。 */
+export const ResourceSchema: z.ZodType<ResourceItem> = z.lazy(() =>
+  z.object({
+    id: z.string().min(1),
+    type: z.enum(['image', 'model', 'audio', 'other']),
+    label: z.string(),
+    path: z.string(),
+    file: z.string().optional(),
+    slot: z.string().optional(),
+    prompt: z.string().optional(),
+    views: z.array(ResourceSchema).optional(),
+    meta: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  }),
+) as unknown as z.ZodType<ResourceItem>;
+
 const NodeBase = z.object({
   id: z.string().min(1),
   kind: z.string().optional(),
@@ -31,20 +46,7 @@ const NodeBase = z.object({
   pos: z.object({ x: z.number(), y: z.number() }),
   subgraph: z.lazy(() => GraphSchema).optional(),
   subgraphMap: z.record(z.string(), EndpointSchema).optional(),
-  resources: z
-    .array(
-      z.object({
-        id: z.string().min(1),
-        type: z.enum(['image', 'model', 'audio', 'other']),
-        label: z.string(),
-        path: z.string(),
-        file: z.string().optional(),
-        slot: z.string().optional(),
-        prompt: z.string().optional(),
-        meta: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-      }),
-    )
-    .optional(),
+  resources: z.array(ResourceSchema).optional(),
   boundaryPos: z
     .object({
       in: z.object({ x: z.number(), y: z.number() }).optional(),
