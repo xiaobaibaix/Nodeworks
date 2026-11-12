@@ -37,12 +37,12 @@ pnpm dev
 - 自动布局：工具栏「自动布局」或 `⌘⇧L`，按依赖分层重排当前层（回边、孤儿边、孤立节点都有处理），整次布局一条历史可撤销
 - 版本快照：工具栏「快照…」把整图存成本地副本（最多 20 份），可查看与当前的差异明细、一键回滚；回滚是一条历史，⌘Z 可撤销
 - 多图容器：一个 project 管多张根图、共享 `kinds`；侧栏切换/重命名/删除，整份数据存 `nodeworks.project.v1`
-- 目录项目：工具栏「存为目录 / 打开目录」把整份项目写成 `project.json` + `graphs/<图名>__<id>/graph.json` + `nodes/<标题>__<id>/node.json`，每次修改防抖回写；文件夹即数据源，可直接进 git（需 Chrome / Edge）。资源项可用「⇧」导入本地文件，存目录时落进该节点的 `resources/`，`node.json` 里用 `file` 记录
+- 目录项目：统一入口「保存 / 打开」——主按钮默认操作项目文件夹（未绑定目录时「保存」下载文件，绑定后写回），下拉菜单可显式选择「下载项目文件」或「打开单文件」；目录模式把整份项目写成 `project.json` + `graphs/<图名>__<id>/graph.json` + `nodes/<标题>__<id>/node.json`，每次修改防抖回写；文件夹即数据源，可直接进 git（需 Chrome / Edge）。资源项可用「⇧」导入本地文件，存目录时落进该节点的 `resources/`，`node.json` 里用 `file` 记录
 - 子图可视化：子图卡片内是可交互缩略图（滚轮缩放、拖动平移、点小方块进入并选中）；进入子图后左右出现「外层输入/输出」代理，直接拖线就把父端口映射到本层端点
 - 映射外置：`src/mappings/forgeworks.mapping.json`，导出对话框可下载映射、载入自定义 `export.mapping.json`、恢复默认
 - 跨子图直连：子图层把输出端口拖到「连接到其它子图…」，选另一子图内部的输入端口；自动建外层端口、写映射、连根层边，一条历史可撤销
 - MCP：`mcp/server.ts` 提供 stdio MCP，AI 可读图、建模板、增删单元/连线、自动布局、导出与校验、文件级快照（见下）
-- 持久化：编辑防抖写入 localStorage；工具栏「保存」下载整份 `nodeworks.project.json`（多张根图 + 共享 kinds + active），「打开」支持单图或 project 多图文件并做 zod 校验
+- 持久化：编辑防抖写入 localStorage；「保存」未绑定目录时下载整份 `nodeworks.project.json`（多张根图 + 共享 kinds + active），「打开」支持项目文件夹、project 多图文件或旧单图，均做 zod 校验
 - 示例图：钛矿 → 钛锭 → 钛板
 
 ## 数据模型

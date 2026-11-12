@@ -23,7 +23,6 @@ import { impactOf } from './model/impact';
 import { graphAtPath } from './model/path';
 import type { Endpoint } from './model/types';
 import { orientEdge } from './model/ops';
-import { downloadProject } from './persistence';
 import { graphOf, useCurrentGraph, useGraph } from './store';
 
 const nodeTypes = { unit: UnitNode, boundary: BoundaryNode };
@@ -476,7 +475,7 @@ export default function App() {
       }
       if (mod && key === 's') {
         e.preventDefault();
-        downloadProject(state.currentProject());
+        state.saveCurrentProject();
         return;
       }
       if (mod && e.shiftKey && key === 'l') {

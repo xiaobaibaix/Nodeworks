@@ -50,10 +50,23 @@ export default function CommandPalette() {
         run: () => store.addNode(undefined, key),
       });
     }
-    list.push({ id: 'save', label: '保存到文件', hint: 'nodeworks.project.json', group: '命令', run: () => downloadProject(useGraph.getState().currentProject()) });
+    list.push({
+      id: 'save',
+      label: '保存项目',
+      hint: useGraph.getState().folderName ? '写回绑定目录' : '下载 nodeworks.project.json',
+      group: '命令',
+      run: () => useGraph.getState().saveCurrentProject(),
+    });
+    list.push({
+      id: 'save-file',
+      label: '下载项目文件…',
+      hint: 'nodeworks.project.json',
+      group: '命令',
+      run: () => downloadProject(useGraph.getState().currentProject()),
+    });
     list.push({
       id: 'open',
-      label: '打开文件…',
+      label: '打开单文件项目…',
       group: '命令',
       mutates: true,
       run: () => {
@@ -66,7 +79,7 @@ export default function CommandPalette() {
     });
     list.push({
       id: 'open-folder',
-      label: '打开目录项目…',
+      label: '打开项目文件夹…',
       hint: '选择含 project.json 的文件夹',
       group: '命令',
       mutates: true,

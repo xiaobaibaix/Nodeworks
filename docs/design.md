@@ -114,7 +114,7 @@ Nodeworks 的取舍是**分工**：
 - **id**：`n_` / `p_` / `e_` 前缀 + 随机串；只要求图内唯一，不承载语义。
 - **子图**：节点可带 `subgraph`（结构与根图完全相同的嵌套 `Graph`）与 `subgraphMap`（父端口 id → `{node, port}` 内部端点）。子图与父图存在同一份文件里，`version` 只在根图出现；进入子图的路径是节点 id 链，历史里记录的操作在提交时抬升到根图。
 - **校验**：载入时用 zod 校验 `version`、端口方向、引用存在性；错误信息带路径（`图数据不合法：nodes[3].ports[0].dir`）。
-- **持久化**：编辑防抖 250ms 写 `localStorage`；显式「保存」下载 `nodeworks.project.json`（`{ version, active, graphs }` 整份项目）；「打开」读文件并校验后替换项目（兼容旧单图 `Graph` 文件，清空历史）。
+- **持久化**：编辑防抖 250ms 写 `localStorage`；「保存」默认在绑定目录时整份写回、未绑定时下载 `nodeworks.project.json`（`{ version, active, graphs }`）；「打开」默认选项目文件夹，下拉菜单可改选单文件并校验后替换项目（兼容旧单图 `Graph` 文件，清空历史）。
 - **资源项**（`node.resources`）：节点上可动态增删的资产登记，每项是 `{ id, type: image|model|audio|other, label, path, meta? }`。图标加一个 `image` 项，模型加一个 `model` 项；文件放 `assets/`，json 里只存相对路径，不内嵌 base64。它和 `props` 分开，因为资源是"外部文件引用"，需要按类型渲染、可挂多个，而 props 是标量/短文本。
 - **为什么单文件**：便于 git diff、便于发给别人、便于导出契约做整体校验。资产（图片/模型）放 `assets/` 并以相对路径引用，不进 json。
 

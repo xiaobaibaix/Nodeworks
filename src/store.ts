@@ -25,7 +25,7 @@ import {
   projectFromGraph, removeGraph as projectRemoveGraph, renameGraph as projectRenameGraph,
   parseProjectDoc, syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
 } from './model/project';
-import { loadCached, loadProject, saveCached, saveProject } from './persistence';
+import { downloadProject, loadCached, loadProject, saveCached, saveProject as saveProjectDoc } from './persistence';
 import { DiskFS } from './fs/disk';
 import { graphDirName, hasFolderProject, nodeDirName, readProject, resourceFileName, writeProject } from './model/folder';
 import { joinPath } from './fs/types';
@@ -183,6 +183,8 @@ interface Store {
   saveToCache(): void;
   currentProject(): import('./model/project').ProjectDoc;
   saveToFolder(): Promise<void>;
+  /** 有绑定目录就写目录，否则下载项目文件。 */
+  saveCurrentProject(): void;
   openFolder(): Promise<void>;
   unbindFolder(): void;
   reloadFolder(): Promise<void>;
@@ -1102,7 +1104,7 @@ export const useGraph = create<Store>((set, get) => ({
       hiddenColumns: [],
       toast: `已新建「${active.name}」`,
     });
-    saveProject(created.project);
+    saveProjectDoc(created.project);
   },
 
   renameGraph: (name) => {
@@ -1115,7 +1117,7 @@ export const useGraph = create<Store>((set, get) => ({
       name,
     );
     set({ projectGraphs: project.graphs, toast: `已重命名为「${name.trim() || before.name}」` });
-    saveProject(project);
+    saveProjectDoc(project);
   },
 
   removeGraph: () => {
@@ -1152,7 +1154,7 @@ export const useGraph = create<Store>((set, get) => ({
       hiddenColumns: [],
       toast: `已删除，切换到「${active.name}」`,
     });
-    saveProject(next);
+    saveProjectDoc(next);
   },
 
   saveToCache: () => {
@@ -1165,7 +1167,16 @@ export const useGraph = create<Store>((set, get) => ({
       activeGraphId,
     );
     set({ projectGraphs: project.graphs });
-    saveProject(project);
+    saveProjectDoc(project);
+  },
+
+  saveCurrentProject: () => {
+    const state = get();
+    if (state.folderName && folderHandle) {
+      void state.saveToFolder();
+      return;
+    }
+    downloadProject(state.currentProject());
   },
 
   saveToFolder: async () => {

@@ -1,6 +1,67 @@
 import { useReactFlow } from '@xyflow/react';
+import { useEffect, useRef, useState } from 'react';
 import { downloadProject, pickJsonFile } from '../persistence';
 import { useCurrentGraph, useGraph } from '../store';
+
+function SplitButton({
+  label,
+  title,
+  onPrimary,
+  items,
+}: {
+  label: string;
+  title: string;
+  onPrimary: () => void;
+  items: { label: string; hint?: string; run: () => void }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  return (
+    <div className="split" ref={ref}>
+      <button onClick={onPrimary} title={title}>{label}</button>
+      <button
+        className="caret"
+        aria-label={`${label}的其他方式`}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        ▾
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          {items.map((item) => (
+            <button
+              key={item.label}
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                item.run();
+              }}
+            >
+              <span>{item.label}</span>
+              {item.hint && <small>{item.hint}</small>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Toolbar() {
   const addNode = useGraph((s) => s.addNode);
@@ -23,6 +84,8 @@ export default function Toolbar() {
   const impactOn = useGraph((s) => s.impactOn);
   const setImpactOn = useGraph((s) => s.setImpactOn);
   const loadFile = useGraph((s) => s.loadFile);
+  const saveCurrentProject = useGraph((s) => s.saveCurrentProject);
+  const folderName = useGraph((s) => s.folderName);
   const { fitView } = useReactFlow();
 
   function toggleImpact() {
@@ -86,10 +149,40 @@ export default function Toolbar() {
         <button onClick={undo} disabled={!canUndo || preview}>撤销</button>
         <button onClick={redo} disabled={!canRedo || preview}>重做</button>
         <span className="sep" />
-        <button onClick={() => downloadProject(useGraph.getState().currentProject())}>保存</button>
-        <button onClick={open}>打开</button>
-        <button onClick={() => void useGraph.getState().openFolder()} title="打开一个目录项目（Chrome / Edge）">打开目录</button>
-        <button onClick={() => void useGraph.getState().saveToFolder()} title="把整份项目写入一个目录（Chrome / Edge）">存为目录</button>
+        <SplitButton
+          label="保存"
+          title={folderName ? `写回目录「${folderName}」（⌘S）` : '下载项目文件（⌘S）'}
+          onPrimary={saveCurrentProject}
+          items={[
+            {
+              label: '下载项目文件…',
+              hint: 'nodeworks.project.json，可用于备份/邮件',
+              run: () => downloadProject(useGraph.getState().currentProject()),
+            },
+            {
+              label: '另存为目录项目…',
+              hint: 'project.json + graphs/ + nodes/，资源随目录读取',
+              run: () => void useGraph.getState().saveToFolder(),
+            },
+          ]}
+        />
+        <SplitButton
+          label="打开"
+          title="打开项目文件夹（推荐：资源随目录读取）"
+          onPrimary={() => void useGraph.getState().openFolder()}
+          items={[
+            {
+              label: '打开项目文件夹…',
+              hint: '推荐 · 资源文件随目录读取',
+              run: () => void useGraph.getState().openFolder(),
+            },
+            {
+              label: '打开单文件 .json…',
+              hint: '只有数据，不含资源文件',
+              run: open,
+            },
+          ]}
+        />
         <button onClick={() => setExportOpen(true)} title="按映射导出为 project.json（先 dry-run）">
           导出…
         </button>
