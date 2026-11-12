@@ -1,5 +1,5 @@
 import { useReactFlow } from '@xyflow/react';
-import { downloadGraph, pickJsonFile } from '../persistence';
+import { downloadProject, pickJsonFile } from '../persistence';
 import { useCurrentGraph, useGraph } from '../store';
 
 export default function Toolbar() {
@@ -86,7 +86,7 @@ export default function Toolbar() {
         <button onClick={undo} disabled={!canUndo || preview}>撤销</button>
         <button onClick={redo} disabled={!canRedo || preview}>重做</button>
         <span className="sep" />
-        <button onClick={() => downloadGraph(useGraph.getState().graph)}>保存</button>
+        <button onClick={() => downloadProject(useGraph.getState().currentProject())}>保存</button>
         <button onClick={open}>打开</button>
         <button onClick={() => setExportOpen(true)} title="按映射导出为 project.json（先 dry-run）">
           导出…

@@ -453,6 +453,17 @@ describe('多图容器', () => {
     expect(state.activeGraphId).toBe('b');
     expect(state.graph.nodes[0].title).toBe('B');
   });
+
+  it('currentProject 同步当前图并保留其他图', () => {
+    seedProject();
+    useGraph.getState().addNode({ x: 5, y: 5 });
+    const doc = useGraph.getState().currentProject();
+    expect(doc.version).toBe(1);
+    expect(doc.active).toBe('a');
+    expect(doc.graphs).toHaveLength(2);
+    expect(doc.graphs.find((pg) => pg.id === 'a')!.graph.nodes).toHaveLength(2);
+    expect(doc.graphs.find((pg) => pg.id === 'b')!.graph.nodes).toHaveLength(1);
+  });
 });
 
 describe('子图外层端口映射', () => {

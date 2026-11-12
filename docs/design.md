@@ -114,24 +114,25 @@ Nodeworks 的取舍是**分工**：
 - **id**：`n_` / `p_` / `e_` 前缀 + 随机串；只要求图内唯一，不承载语义。
 - **子图**：节点可带 `subgraph`（结构与根图完全相同的嵌套 `Graph`）与 `subgraphMap`（父端口 id → `{node, port}` 内部端点）。子图与父图存在同一份文件里，`version` 只在根图出现；进入子图的路径是节点 id 链，历史里记录的操作在提交时抬升到根图。
 - **校验**：载入时用 zod 校验 `version`、端口方向、引用存在性；错误信息带路径（`图数据不合法：nodes[3].ports[0].dir`）。
-- **持久化**：编辑防抖 250ms 写 `localStorage`；显式「保存」下载 `project.graph.json`；「打开」读文件并校验后替换当前图（清空历史）。
+- **持久化**：编辑防抖 250ms 写 `localStorage`；显式「保存」下载 `nodeworks.project.json`（`{ version, active, graphs }` 整份项目）；「打开」读文件并校验后替换项目（兼容旧单图 `Graph` 文件，清空历史）。
 - **资源项**（`node.resources`）：节点上可动态增删的资产登记，每项是 `{ id, type: image|model|audio|other, label, path, meta? }`。图标加一个 `image` 项，模型加一个 `model` 项；文件放 `assets/`，json 里只存相对路径，不内嵌 base64。它和 `props` 分开，因为资源是"外部文件引用"，需要按类型渲染、可挂多个，而 props 是标量/短文本。
 - **为什么单文件**：便于 git diff、便于发给别人、便于导出契约做整体校验。资产（图片/模型）放 `assets/` 并以相对路径引用，不进 json。
 
 ### 4.1 文件与项目结构
 
-P0 是**单图单文件**：
+P0 是单图单文件；P7 起是**一个项目一个文件**：
 
 ```
-project.graph.json      # 图本身
-assets/                 # 图标、模型等外部资产（P4 起用）
-export.mapping.json     # 导出契约（P4，当前以 src/model/mapping.ts 的常量表达）
+nodeworks.project.json  # { version, active, graphs: [{ id, name, graph }] }
+assets/                 # 图标、模型等外部资产
+export.mapping.json     # 导出契约（P9 起默认读 src/mappings/，可载入自定义）
 ```
 
-- 图文件里只存相对路径（`assets/icon_ti.png`），不存 base64，避免 json 膨胀；
-- 一个文件 = 一张图，方便 git diff 和发给别人；
-- 子图从 P2 起直接嵌套在 `node.subgraph` 里，仍然是一个文件，不引入额外目录；
-- "项目 / 多图"（主图 + 若干子图 + 共享资产）是 P2 之后的事，见开放问题。
+- 项目文件里只存相对路径（`assets/icon_ti.png`），不存 base64，避免 json 膨胀；
+- 一个文件 = 一个项目（多张根图 + 共享 kinds），方便 git diff 和发给别人；
+- 子图嵌在 `node.subgraph` 里，仍是一个文件，不引入额外目录；子图内资源与根图共用 `assets/`；
+- 「打开」仍接受旧的单图 `Graph` 文件，会当作只有一张图的项目载入；
+- 导出的 Forgeworks `project.json` 是另一种契约文件，只含引擎表（items/machines/recipes/techs/elements），不含编辑器节点与坐标。
 
 ### 4.2 数值、单位与派生值
 

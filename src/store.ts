@@ -140,6 +140,7 @@ interface Store {
   /** 载入任意 JSON：project 文档（多图）或单图；返回是否为多图。 */
   loadFile(raw: unknown): boolean;
   saveToCache(): void;
+  currentProject(): import('./model/project').ProjectDoc;
   enterSubgraph(id: string): void;
   goToPath(depth: number): void;
   setPreview(on: boolean): void;
@@ -1092,6 +1093,12 @@ export const useGraph = create<Store>((set, get) => ({
     );
     set({ projectGraphs: project.graphs });
     saveProject(project);
+  },
+
+  currentProject: () => {
+    const { graph, projectGraphs, activeGraphId } = get();
+    if (!projectGraphs.length) return projectFromGraph(graph);
+    return syncActive({ version: 1, active: activeGraphId, graphs: projectGraphs }, graph, activeGraphId);
   },
 
   enterSubgraph: (id) => {

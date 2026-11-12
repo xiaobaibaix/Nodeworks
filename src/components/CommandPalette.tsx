@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } fr
 import { useReactFlow } from '@xyflow/react';
 import { kindLabel } from '../model/query';
 import { importProject } from '../model/mapping';
-import { downloadGraph, pickJsonFile } from '../persistence';
+import { downloadProject, pickJsonFile } from '../persistence';
 import { useCurrentGraph, useGraph } from '../store';
 
 interface Item {
@@ -50,7 +50,7 @@ export default function CommandPalette() {
         run: () => store.addNode(undefined, key),
       });
     }
-    list.push({ id: 'save', label: '保存到文件', hint: 'project.graph.json', group: '命令', run: () => downloadGraph(useGraph.getState().graph) });
+    list.push({ id: 'save', label: '保存到文件', hint: 'nodeworks.project.json', group: '命令', run: () => downloadProject(useGraph.getState().currentProject()) });
     list.push({
       id: 'open',
       label: '打开文件…',

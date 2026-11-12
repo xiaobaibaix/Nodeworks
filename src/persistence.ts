@@ -56,6 +56,11 @@ export function downloadGraph(g: Graph): void {
   downloadJson(g, 'project.graph.json');
 }
 
+/** 下载整份项目（多张根图 + 共享 kinds + active）。 */
+export function downloadProject(doc: ProjectDoc): void {
+  downloadJson(doc, 'nodeworks.project.json');
+}
+
 function readJsonFile(): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
