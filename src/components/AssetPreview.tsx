@@ -413,13 +413,14 @@ export default function AssetPreview({ resource, nodeId, onClose }: { resource: 
       alive = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [nodeId, resource.id, resource.file, resource.path]);
+  }, [nodeId, resource.id, resource.file, resource.path, folderName]);
 
   const direct = folderUrl ?? assetUrl(resource.path);
 
+  // 换来源（目录文件 / 本地文件 / 换资源）后要重新尝试，否则首次 404 的 imgBroken 会把后续来源永久挡掉。
   useEffect(() => {
     setImgBroken(false);
-  }, [direct]);
+  }, [direct, objectUrl]);
 
   const pick = async (file: File) => {
     setFileName(file.name);
@@ -464,14 +465,32 @@ export default function AssetPreview({ resource, nodeId, onClose }: { resource: 
           ) : isImage ? (
             <div className="image-pane">
               {(objectUrl || direct) && !imgBroken ? (
-                <img src={objectUrl ?? direct} alt={resource.label} onError={() => setImgBroken(true)} />
+                <img
+                  src={objectUrl ?? direct}
+                  alt={resource.label}
+                  onError={() => {
+                    // 本地文件坏了就退回目录/路径；目录/路径也坏了才显示提示。
+                    if (objectUrl) setObjectUrl(null);
+                    else setImgBroken(true);
+                  }}
+                />
               ) : (
                 <div className="hint">
                   {direct ? (
                     <>
                       无法读取 <code>{resource.path}</code>。
-                      {!folderName && ' 单文件项目不携带资源文件，用「打开目录」打开项目文件夹后再预览，'}
+                      {!folderName && ' 单文件项目不携带资源文件，先绑定项目文件夹再预览，'}
                       或选一张本地图片预览。
+                      <div style={{ marginTop: 10 }}>
+                        <button
+                          onClick={async () => {
+                            await useGraph.getState().openFolder();
+                            if (useGraph.getState().folderName) useGraph.getState().toastOf('已绑定目录，请重新点「预览资源」');
+                          }}
+                        >
+                          {folderName ? '重新选择项目文件夹…' : '选择项目文件夹…'}
+                        </button>
+                      </div>
                     </>
                   ) : '没有路径，选一张本地图片预览。'}
                 </div>
