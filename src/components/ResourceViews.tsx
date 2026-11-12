@@ -79,14 +79,43 @@ export default function ResourceViews({
   const addResourceView = useGraph((s) => s.addResourceView);
   const setResourceView = useGraph((s) => s.setResourceView);
   const removeResourceView = useGraph((s) => s.removeResourceView);
-  const importResourceViewFile = useGraph((s) => s.importResourceViewFile);
   const openGenerate = useGraph((s) => s.openGenerate);
   const views = resource.views ?? [];
 
   return (
     <details className="res-views" open={views.length > 0}>
       <summary>
-        视图 / 图片容器 <span className="dim">{views.length}</span>
+        <span className="res-views-title">
+          <span className="res-views-caret">▸</span>
+          视图 / 图片容器 <span className="dim">{views.length}</span>
+        </span>
+        <span
+          className="res-views-actions"
+          onClick={(e) => {
+            // 按钮在 summary 里：别让点击顺带展开/收起
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <button
+            type="button"
+            className="icon tip"
+            data-tip="添加视图"
+            aria-label="添加视图"
+            onClick={() => addResourceView(node.id, resource.id)}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="icon tip gen"
+            data-tip="生成视图…（用全局服务产出图片）"
+            aria-label="生成视图"
+            onClick={() => openGenerate(node.id, resource.id)}
+          >
+            ✦
+          </button>
+        </span>
       </summary>
       {views.length > 0 && (
         <div className="view-grid">
@@ -105,25 +134,7 @@ export default function ResourceViews({
                 placeholder="如：正面 / 45° / 背面"
                 onCommit={(label) => setResourceView(node.id, resource.id, view.id, { label })}
               />
-              <CommitInput
-                className="view-path"
-                value={view.path}
-                placeholder="assets/view.png"
-                onCommit={(path) => setResourceView(node.id, resource.id, view.id, { path })}
-              />
               <div className="view-actions">
-                <label className="icon file-pick" title="导入视图文件">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) importResourceViewFile(node.id, resource.id, view.id, file);
-                      e.currentTarget.value = '';
-                    }}
-                  />
-                  ⇧
-                </label>
                 <button className="icon" title="预览视图" onClick={() => onPreview(view)}>◎</button>
                 <button
                   className="icon"
@@ -137,15 +148,6 @@ export default function ResourceViews({
           ))}
         </div>
       )}
-      <div className="btn-row">
-        <button onClick={() => addResourceView(node.id, resource.id)}>+ 视图</button>
-        <button
-          onClick={() => openGenerate(node.id, resource.id)}
-          title="用全局生成服务产出图片，存为这条资源的视图"
-        >
-          ✦ 生成视图…
-        </button>
-      </div>
     </details>
   );
 }

@@ -169,7 +169,7 @@ interface Store {
   moveNodes(moves: Record<string, Pos>, label: string): void;
   autoLayout(): void;
   addProp(nodeId: string, name: string, type: string, value: unknown): void;
-  addResource(nodeId: string, type: ResourceType): void;
+  addResource(nodeId: string, type: ResourceType, init?: Partial<Pick<ResourceItem, 'label' | 'path'>>): void;
   setResource(nodeId: string, resourceId: string, patch: Partial<Omit<ResourceItem, 'id'>>): void;
   removeResource(nodeId: string, resourceId: string): void;
   importResourceFile(nodeId: string, resourceId: string, file: File): Promise<void>;
@@ -588,8 +588,11 @@ export const useGraph = create<Store>((set, get) => ({
     });
   },
 
-  addResource: (nodeId, type) => {
-    const item = createResource(type);
+  addResource: (nodeId, type, init) => {
+    const label = init?.label?.trim();
+    const item = createResource(type, label || undefined);
+    const path = init?.path?.trim();
+    if (path) item.path = path;
     get().commit({
       label: '添加资源项',
       run: (g) => addResourceOp(g, nodeId, item),
