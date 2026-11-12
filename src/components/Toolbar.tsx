@@ -1,7 +1,6 @@
 import { useReactFlow } from '@xyflow/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { downloadProject } from '../persistence';
-import { beginTemplateDrag } from './dragCreate';
 import { useCurrentGraph, useGraph } from '../store';
 
 function TIcon({ children }: { children: ReactNode }) {
@@ -250,8 +249,6 @@ export default function Toolbar() {
         </div>
       </div>
       <div className="bar-actions">
-        <button onPointerDown={(e) => beginTemplateDrag(e, '', '单元', toastOf)} disabled={preview}>+ 单元</button>
-        <button onPointerDown={(e) => beginTemplateDrag(e, '__subgraph', '子图', toastOf)} disabled={preview} title="按住拖到画布放置；单击则落在中央">+ 子图</button>
         <select
           className="template-pick"
           value=""
