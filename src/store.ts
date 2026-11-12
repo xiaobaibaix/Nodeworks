@@ -1295,11 +1295,18 @@ export const useGraph = create<Store>((set, get) => ({
       folderHandle = handle;
       void saveFolderHandle(handle);
       set({ folderName: handle.name });
-      await writeProject(new DiskFS(handle), get().currentProject(), { readResource });
-      get().toastOf(bound ? `已同步到「${handle.name}」` : `已保存到「${handle.name}」`);
+      const fsOut = new DiskFS(handle);
+      await writeProject(fsOut, get().currentProject(), { readResource });
+      if (!(await fsOut.exists('project.json'))) {
+        throw new Error('写入完成但目录里没有 project.json（可能只读，或文件被系统拦截）');
+      }
+      set({ folderError: null });
+      get().toastOf(bound ? `已同步到「${handle.name}」` : `已保存到「${handle.name}」· project.json`);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      get().toastOf(`保存目录失败：${error instanceof Error ? error.message : String(error)}`);
+      const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      console.error('saveToFolder failed', error);
+      set({ folderError: `保存到项目文件夹失败：${detail}` });
     }
   },
 
