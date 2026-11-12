@@ -56,7 +56,7 @@ export default function CommandPalette() {
       hint: '清空当前编辑，开一张空白图',
       group: '命令',
       mutates: true,
-      run: () => useGraph.getState().newProject(),
+      run: () => useGraph.getState().openNewProject(),
     });
     list.push({
       id: 'new-project-folder',

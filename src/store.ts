@@ -192,6 +192,9 @@ interface Store {
   saveCurrentProject(): void;
   /** 清空当前编辑，开一个只有一张空白图的本地项目（不落盘）。 */
   newProject(): void;
+  newProjectOpen: boolean;
+  openNewProject(): void;
+  closeNewProject(): void;
   openFolder(): Promise<void>;
   unbindFolder(): void;
   /** 直接用一个已拿到的目录句柄打开项目（拖拽/选择器共用）。 */
@@ -260,6 +263,7 @@ export const useGraph = create<Store>((set, get) => ({
   folderName: null,
   assetPrompt: 0,
   folderError: null,
+  newProjectOpen: false,
   projectGraphs: [],
   activeGraphId: '',
 
@@ -1191,14 +1195,10 @@ export const useGraph = create<Store>((set, get) => ({
 
   dismissAssetPrompt: () => set({ assetPrompt: 0 }),
   clearFolderError: () => set({ folderError: null }),
+  openNewProject: () => set({ newProjectOpen: true }),
+  closeNewProject: () => set({ newProjectOpen: false }),
 
   newProject: () => {
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm('新建项目会清空当前编辑（未保存的修改会丢失），继续？')
-    ) {
-      return;
-    }
     folderHandle = null;
     const blank = { ...sampleGraph(), nodes: [], edges: [] };
     const seeded = projectFromGraph(blank, '主图');
@@ -1209,6 +1209,7 @@ export const useGraph = create<Store>((set, get) => ({
       folderName: null,
       assetPrompt: 0,
       folderError: null,
+      newProjectOpen: false,
       path: [],
       preview: false,
       selectedNodes: [],

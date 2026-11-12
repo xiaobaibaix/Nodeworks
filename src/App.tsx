@@ -10,6 +10,7 @@ import CrossLinkDialog from './components/CrossLinkDialog';
 import AssetFolderPrompt from './components/AssetFolderPrompt';
 import ExportDialog from './components/ExportDialog';
 import FolderErrorDialog from './components/FolderErrorDialog';
+import NewProjectDialog from './components/NewProjectDialog';
 import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
 import MultiBar from './components/MultiBar';
@@ -517,6 +518,8 @@ export default function App() {
           state.openSnapshots(false);
         } else if (state.exportOpen) {
           state.setExportOpen(false);
+        } else if (state.newProjectOpen) {
+          state.closeNewProject();
         } else if (state.folderError) {
           state.clearFolderError();
         } else if (state.assetPrompt) {
@@ -571,6 +574,7 @@ export default function App() {
         <SnapshotDialog />
         <AssetFolderPrompt />
         <FolderErrorDialog />
+        <NewProjectDialog />
       </div>
     </ReactFlowProvider>
   );
