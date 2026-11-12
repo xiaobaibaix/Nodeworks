@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ResourceItem } from '../model/types';
+import { useGraph } from '../store';
 
 /** 相对路径按站点根解析；绝对 URL / data: 原样使用。 */
 export function assetUrl(path: string): string {
@@ -370,7 +371,7 @@ function ModelPane({ url, buffer, fileName }: { url?: string; buffer?: ArrayBuff
   );
 }
 
-export default function AssetPreview({ resource, onClose }: { resource: ResourceItem; onClose: () => void }) {
+export default function AssetPreview({ resource, nodeId, onClose }: { resource: ResourceItem; nodeId?: string; onClose: () => void }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
   const [fileName, setFileName] = useState('');
@@ -395,7 +396,29 @@ export default function AssetPreview({ resource, onClose }: { resource: Resource
   const isModel = resource.type === 'model';
   const isImage = resource.type === 'image';
   const isAudio = resource.type === 'audio';
-  const direct = assetUrl(resource.path);
+  const [folderUrl, setFolderUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!nodeId) return;
+    let alive = true;
+    let url: string | null = null;
+    void (async () => {
+      const blob = await useGraph.getState().readFolderAsset(nodeId, resource).catch(() => null);
+      if (!alive || !blob) return;
+      url = URL.createObjectURL(blob);
+      setFolderUrl(url);
+    })();
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [nodeId, resource.id, resource.file, resource.path]);
+
+  const direct = folderUrl ?? assetUrl(resource.path);
+
+  useEffect(() => {
+    setImgBroken(false);
+  }, [direct]);
 
   const pick = async (file: File) => {
     setFileName(file.name);

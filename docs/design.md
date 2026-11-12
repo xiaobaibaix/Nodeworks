@@ -520,13 +520,14 @@ graphs/<图名>__<图 id>/
 
 - 侧栏目录条新增「↻」：重新 `readProject` 并替换当前项目，历史/选择清空；外部改 `node.json` 的标题后点 ↻，画布与大纲立即更新；
 - MCP `--file` 指向一个**已存在的目录**时进入目录模式：启动时 `readProject`，每次写操作 `writeProject` 整份回写，快照存 `<目录>/snapshots.json`；`add_node`/`undo`/`validate_project`/`export_project` 全链路通过；
-- 单文件模式（`--file xxx/project.json`）行为不变，原 mcp2 回归全过。
+- 单文件模式（`--file xxx/project.json`）行为不变，原 mcp2 回归全过；
+- 资源预览优先读绑定目录里的字节：`AssetPreview` 传 `nodeId`，按 `graphs/…/nodes/<nodeDir>/<resource.file 或 resources/resourceFileName>` 读取并转 blob URL，读不到才退回站点路径；导入资源后无需重新打开即可预览。
 
-验证：`folder.mjs` 7 项、`mcp-folder.mjs` 通过；`pnpm test` 164 项（20 个文件）；`tsc` / `typecheck:mcp` 干净；`vite build` 主包 JS gzip 163.85 kB。
+验证：`folder.mjs` 8 项、`mcp-folder.mjs` 通过；`pnpm test` 164 项（20 个文件）；`tsc` / `typecheck:mcp` 干净；`vite build` 主包 JS gzip 164.11 kB。
 
 实现要点：store 的 `reloadFolder`；`mcp/node-fs.ts` 的 `NodeFS`（把 Node fs 适配成 `ProjectFS`）；`mcp/server.ts` 的 `FOLDER_MODE`、异步 `persist/mutate` 与按行串行处理的请求队列。
 
-已知限制：仍然没有文件监听（浏览器不允许），重载是手动的；MCP 目录模式只写 JSON，不复制 `resources/` 字节；MCP 的撤销栈只在当前会话。
+已知限制：仍然没有文件监听（浏览器不允许），重载是手动的；MCP 目录模式只写 JSON、不复制 `resources/` 字节；MCP 的撤销栈只在当前会话；目录资源预览只覆盖当前层节点（子图内部节点的资源仍按站点路径）。
 
 ### 之后（未排期）
 

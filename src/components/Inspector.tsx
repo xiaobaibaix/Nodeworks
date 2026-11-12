@@ -278,7 +278,7 @@ export default function Inspector() {
           ))}
         </ul>
         <button onClick={() => setPreview(false)}>退出预览以编辑</button>
-        {previewRes && <AssetPreview resource={previewRes} onClose={() => setPreviewRes(null)} />}
+        {previewRes && <AssetPreview resource={previewRes} nodeId={node?.id} onClose={() => setPreviewRes(null)} />}
       </aside>
     );
   }
@@ -460,7 +460,7 @@ export default function Inspector() {
 
       <h3>危险区</h3>
       <button className="danger" onClick={() => removeNode(node.id)}>删除单元</button>
-      {previewRes && <AssetPreview resource={previewRes} onClose={() => setPreviewRes(null)} />}
+      {previewRes && <AssetPreview resource={previewRes} nodeId={node?.id} onClose={() => setPreviewRes(null)} />}
     </aside>
   );
 }
