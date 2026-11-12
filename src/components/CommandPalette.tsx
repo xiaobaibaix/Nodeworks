@@ -75,6 +75,27 @@ export default function CommandPalette() {
       },
     });
     list.push({
+      id: 'open-demo',
+      label: '打开示例：炼钢产线',
+      hint: '铁矿 + 煤 → 钢水 → 钢坯 → 钢板',
+      group: '命令',
+      mutates: true,
+      run: () => {
+        void fetch('/examples/steel.project.json')
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json() as Promise<unknown>;
+          })
+          .then((raw) => {
+            if (!useGraph.getState().loadFile(raw)) useGraph.getState().toastOf('示例项目载入失败');
+            else useGraph.getState().toastOf('已打开示例「炼钢产线」');
+          })
+          .catch((error: unknown) => {
+            useGraph.getState().toastOf(`示例载入失败：${error instanceof Error ? error.message : String(error)}`);
+          });
+      },
+    });
+    list.push({
       id: 'save-folder',
       label: '另存为目录项目…',
       hint: 'project.json + graphs/ + nodes/',

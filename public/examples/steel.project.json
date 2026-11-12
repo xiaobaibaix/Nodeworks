@@ -1,0 +1,754 @@
+{
+  "version": 1,
+  "active": "g_steel",
+  "graphs": [
+    {
+      "id": "g_steel",
+      "name": "炼钢产线",
+      "graph": {
+        "version": 1,
+        "nodes": [
+          {
+            "id": "n_wmzdshe",
+            "title": "铁矿石",
+            "props": {
+              "value": {
+                "value": 3,
+                "type": "number",
+                "unit": "cr"
+              },
+              "tier": {
+                "value": 1,
+                "type": "number"
+              },
+              "tags": {
+                "value": [
+                  "ore",
+                  "metal"
+                ],
+                "type": "json"
+              },
+              "hardness": {
+                "value": 5.5,
+                "type": "number"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_i6l9pps",
+                "dir": "out",
+                "label": "铁矿",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 40,
+              "y": 60
+            },
+            "kind": "item"
+          },
+          {
+            "id": "n_c05oy8l",
+            "title": "煤矿",
+            "props": {
+              "value": {
+                "value": 2,
+                "type": "number",
+                "unit": "cr"
+              },
+              "tier": {
+                "value": 1,
+                "type": "number"
+              },
+              "tags": {
+                "value": [
+                  "ore",
+                  "fuel"
+                ],
+                "type": "json"
+              },
+              "calorific": {
+                "value": 27,
+                "type": "number",
+                "unit": "MJ/kg"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_lhfrb58",
+                "dir": "out",
+                "label": "煤",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 40,
+              "y": 300
+            },
+            "kind": "item"
+          },
+          {
+            "id": "n_49apcti",
+            "title": "石灰石",
+            "props": {
+              "value": {
+                "value": 2,
+                "type": "number",
+                "unit": "cr"
+              },
+              "tier": {
+                "value": 1,
+                "type": "number"
+              },
+              "tags": {
+                "value": [
+                  "flux"
+                ],
+                "type": "json"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_3aotmla",
+                "dir": "out",
+                "label": "石灰石",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 40,
+              "y": 540
+            },
+            "kind": "item"
+          },
+          {
+            "id": "n_4cownst",
+            "title": "炼钢炉",
+            "props": {
+              "footprint": {
+                "value": "3x3",
+                "type": "string"
+              },
+              "power": {
+                "value": 480,
+                "type": "number",
+                "unit": "kW"
+              },
+              "heat": {
+                "value": 1600,
+                "type": "number",
+                "unit": "°C"
+              },
+              "workers": {
+                "value": 4,
+                "type": "number"
+              },
+              "tier": {
+                "value": 2,
+                "type": "number"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_9stpa6r",
+                "dir": "in",
+                "label": "电力",
+                "capacity": "many"
+              },
+              {
+                "id": "p_qxwq84w",
+                "dir": "out",
+                "label": "机器",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 40,
+              "y": 780
+            },
+            "kind": "machine",
+            "resources": [
+              {
+                "id": "r_furnace_icon",
+                "type": "image",
+                "label": "炼钢炉图标",
+                "path": "assets/steel/furnace.png"
+              }
+            ]
+          },
+          {
+            "id": "n_3yuivr6",
+            "title": "炼钢（碱性氧气转炉）",
+            "props": {
+              "cycle": {
+                "value": 12,
+                "type": "number",
+                "unit": "s"
+              },
+              "power": {
+                "value": 480,
+                "type": "number",
+                "unit": "kW"
+              },
+              "batch": {
+                "value": 2,
+                "type": "number"
+              },
+              "temperature": {
+                "value": 1600,
+                "type": "number",
+                "unit": "°C"
+              },
+              "yield": {
+                "value": 0.92,
+                "type": "number"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_bbrtvca",
+                "dir": "in",
+                "label": "铁矿",
+                "capacity": "many"
+              },
+              {
+                "id": "p_58pemfx",
+                "dir": "in",
+                "label": "煤",
+                "capacity": "many"
+              },
+              {
+                "id": "p_109irpa",
+                "dir": "in",
+                "label": "石灰石",
+                "capacity": "many"
+              },
+              {
+                "id": "p_fbro15d",
+                "dir": "in",
+                "label": "机器",
+                "capacity": "many"
+              },
+              {
+                "id": "p_jwtfdgg",
+                "dir": "out",
+                "label": "钢水",
+                "capacity": "many"
+              },
+              {
+                "id": "p_elvetw4",
+                "dir": "out",
+                "label": "炉渣",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 380,
+              "y": 120
+            },
+            "kind": "recipe"
+          },
+          {
+            "id": "n_q0f87jy",
+            "title": "炉渣",
+            "props": {
+              "value": {
+                "value": 1,
+                "type": "number",
+                "unit": "cr"
+              },
+              "tier": {
+                "value": 1,
+                "type": "number"
+              },
+              "tags": {
+                "value": [
+                  "waste"
+                ],
+                "type": "json"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_di0p506",
+                "dir": "in",
+                "label": "炉渣",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 720,
+              "y": 420
+            },
+            "kind": "item"
+          },
+          {
+            "id": "n_knowjmi",
+            "title": "连铸",
+            "props": {
+              "cycle": {
+                "value": 8,
+                "type": "number",
+                "unit": "s"
+              },
+              "power": {
+                "value": 200,
+                "type": "number",
+                "unit": "kW"
+              },
+              "batch": {
+                "value": 2,
+                "type": "number"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_shhjgjq",
+                "dir": "in",
+                "label": "钢水",
+                "capacity": "many"
+              },
+              {
+                "id": "p_x5x6nkz",
+                "dir": "in",
+                "label": "机器",
+                "capacity": "many"
+              },
+              {
+                "id": "p_c08tn9v",
+                "dir": "out",
+                "label": "钢坯",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 720,
+              "y": 120
+            },
+            "kind": "recipe"
+          },
+          {
+            "id": "n_zeed8xz",
+            "title": "连铸机",
+            "props": {
+              "footprint": {
+                "value": "2x3",
+                "type": "string"
+              },
+              "power": {
+                "value": 200,
+                "type": "number",
+                "unit": "kW"
+              },
+              "speed": {
+                "value": 1.2,
+                "type": "number",
+                "unit": "x"
+              },
+              "tier": {
+                "value": 2,
+                "type": "number"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_72x35bn",
+                "dir": "in",
+                "label": "电力",
+                "capacity": "many"
+              },
+              {
+                "id": "p_fbftoz1",
+                "dir": "out",
+                "label": "机器",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 380,
+              "y": 760
+            },
+            "kind": "machine"
+          },
+          {
+            "id": "n_rxxwfso",
+            "title": "热轧机",
+            "props": {
+              "footprint": {
+                "value": "4x2",
+                "type": "string"
+              },
+              "power": {
+                "value": 320,
+                "type": "number",
+                "unit": "kW"
+              },
+              "speed": {
+                "value": 2,
+                "type": "number",
+                "unit": "x"
+              },
+              "tier": {
+                "value": 3,
+                "type": "number"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_q18of1q",
+                "dir": "in",
+                "label": "电力",
+                "capacity": "many"
+              },
+              {
+                "id": "p_kamens1",
+                "dir": "out",
+                "label": "机器",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 720,
+              "y": 760
+            },
+            "kind": "machine"
+          },
+          {
+            "id": "n_5hcvso1",
+            "title": "热轧",
+            "props": {
+              "cycle": {
+                "value": 6,
+                "type": "number",
+                "unit": "s"
+              },
+              "power": {
+                "value": 320,
+                "type": "number",
+                "unit": "kW"
+              },
+              "batch": {
+                "value": 2,
+                "type": "number"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_4nlk9xp",
+                "dir": "in",
+                "label": "钢坯",
+                "capacity": "many"
+              },
+              {
+                "id": "p_eyc9kj1",
+                "dir": "in",
+                "label": "机器",
+                "capacity": "many"
+              },
+              {
+                "id": "p_wazrszx",
+                "dir": "out",
+                "label": "钢板",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 1060,
+              "y": 120
+            },
+            "kind": "recipe"
+          },
+          {
+            "id": "n_28p4vpr",
+            "title": "钢板",
+            "props": {
+              "value": {
+                "value": 48,
+                "type": "number",
+                "unit": "cr"
+              },
+              "tier": {
+                "value": 3,
+                "type": "number"
+              },
+              "tags": {
+                "value": [
+                  "metal",
+                  "plate"
+                ],
+                "type": "json"
+              },
+              "thickness": {
+                "value": 6,
+                "type": "number",
+                "unit": "mm"
+              }
+            },
+            "ports": [
+              {
+                "id": "p_eu1zzt5",
+                "dir": "in",
+                "label": "钢板",
+                "capacity": "many"
+              }
+            ],
+            "pos": {
+              "x": 1400,
+              "y": 120
+            },
+            "kind": "item",
+            "resources": [
+              {
+                "id": "r_plate_icon",
+                "type": "image",
+                "label": "钢板图标",
+                "path": "assets/steel/plate.png"
+              }
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_95dim2v",
+            "from": {
+              "node": "n_wmzdshe",
+              "port": "p_i6l9pps"
+            },
+            "to": {
+              "node": "n_3yuivr6",
+              "port": "p_bbrtvca"
+            },
+            "label": "2 : 1",
+            "props": {
+              "ratio": {
+                "value": 2,
+                "type": "number"
+              }
+            }
+          },
+          {
+            "id": "e_yesejv7",
+            "from": {
+              "node": "n_c05oy8l",
+              "port": "p_lhfrb58"
+            },
+            "to": {
+              "node": "n_3yuivr6",
+              "port": "p_58pemfx"
+            },
+            "label": "1 : 1",
+            "props": {
+              "ratio": {
+                "value": 1,
+                "type": "number"
+              }
+            }
+          },
+          {
+            "id": "e_6e1iku7",
+            "from": {
+              "node": "n_49apcti",
+              "port": "p_3aotmla"
+            },
+            "to": {
+              "node": "n_3yuivr6",
+              "port": "p_109irpa"
+            },
+            "label": "1 : 1",
+            "props": {
+              "ratio": {
+                "value": 1,
+                "type": "number"
+              }
+            }
+          },
+          {
+            "id": "e_6hp9ert",
+            "from": {
+              "node": "n_4cownst",
+              "port": "p_qxwq84w"
+            },
+            "to": {
+              "node": "n_3yuivr6",
+              "port": "p_fbro15d"
+            },
+            "label": "runs-on"
+          },
+          {
+            "id": "e_r6epptu",
+            "from": {
+              "node": "n_3yuivr6",
+              "port": "p_jwtfdgg"
+            },
+            "to": {
+              "node": "n_knowjmi",
+              "port": "p_shhjgjq"
+            },
+            "label": "2 : 1",
+            "props": {
+              "ratio": {
+                "value": 2,
+                "type": "number"
+              }
+            }
+          },
+          {
+            "id": "e_wq8meeg",
+            "from": {
+              "node": "n_zeed8xz",
+              "port": "p_fbftoz1"
+            },
+            "to": {
+              "node": "n_knowjmi",
+              "port": "p_x5x6nkz"
+            },
+            "label": "runs-on"
+          },
+          {
+            "id": "e_0u1ksgg",
+            "from": {
+              "node": "n_3yuivr6",
+              "port": "p_elvetw4"
+            },
+            "to": {
+              "node": "n_q0f87jy",
+              "port": "p_di0p506"
+            }
+          },
+          {
+            "id": "e_ani9rgu",
+            "from": {
+              "node": "n_knowjmi",
+              "port": "p_c08tn9v"
+            },
+            "to": {
+              "node": "n_5hcvso1",
+              "port": "p_4nlk9xp"
+            },
+            "label": "2 : 1",
+            "props": {
+              "ratio": {
+                "value": 2,
+                "type": "number"
+              }
+            }
+          },
+          {
+            "id": "e_4k8w3vi",
+            "from": {
+              "node": "n_rxxwfso",
+              "port": "p_kamens1"
+            },
+            "to": {
+              "node": "n_5hcvso1",
+              "port": "p_eyc9kj1"
+            },
+            "label": "runs-on"
+          },
+          {
+            "id": "e_ik92wyj",
+            "from": {
+              "node": "n_5hcvso1",
+              "port": "p_wazrszx"
+            },
+            "to": {
+              "node": "n_28p4vpr",
+              "port": "p_eu1zzt5"
+            },
+            "label": "2 : 1",
+            "props": {
+              "ratio": {
+                "value": 2,
+                "type": "number"
+              }
+            }
+          }
+        ],
+        "kinds": {
+          "item": {
+            "name": "物品",
+            "color": "#7dc4ff",
+            "defaults": {
+              "value": {
+                "value": 0,
+                "type": "number",
+                "unit": "cr"
+              },
+              "tier": {
+                "value": 1,
+                "type": "number"
+              }
+            },
+            "ports": [
+              {
+                "dir": "in",
+                "label": "输入",
+                "capacity": "many"
+              },
+              {
+                "dir": "out",
+                "label": "输出",
+                "capacity": "many"
+              }
+            ]
+          },
+          "recipe": {
+            "name": "配方",
+            "color": "#ffbe5c",
+            "defaults": {
+              "cycle": {
+                "value": 1,
+                "type": "number",
+                "unit": "s"
+              },
+              "power": {
+                "value": 0,
+                "type": "number",
+                "unit": "kW"
+              }
+            },
+            "ports": [
+              {
+                "dir": "in",
+                "label": "原料",
+                "capacity": "many"
+              },
+              {
+                "dir": "out",
+                "label": "产物",
+                "capacity": "many"
+              }
+            ]
+          },
+          "machine": {
+            "name": "机器",
+            "color": "#9ae6b4",
+            "defaults": {
+              "footprint": {
+                "value": "1x1",
+                "type": "string"
+              },
+              "power": {
+                "value": 0,
+                "type": "number",
+                "unit": "kW"
+              }
+            },
+            "ports": [
+              {
+                "dir": "in",
+                "label": "输入",
+                "capacity": "many"
+              },
+              {
+                "dir": "out",
+                "label": "输出",
+                "capacity": "many"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
