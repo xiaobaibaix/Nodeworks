@@ -398,7 +398,8 @@ function Canvas() {
       const detail = (event as CustomEvent).detail as { kind?: string; clientX: number; clientY: number };
       if (useGraph.getState().preview) return;
       const pos = screenToFlowPosition({ x: detail.clientX, y: detail.clientY });
-      useGraph.getState().addNode(pos, detail.kind || undefined);
+      if (detail.kind === '__subgraph') useGraph.getState().addSubgraphNode(pos);
+      else useGraph.getState().addNode(pos, detail.kind || undefined);
     };
     window.addEventListener('nodeworks:create-node', onCreate);
     return () => window.removeEventListener('nodeworks:create-node', onCreate);

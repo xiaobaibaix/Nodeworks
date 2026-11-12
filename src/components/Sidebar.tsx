@@ -89,7 +89,7 @@ export default function Sidebar() {
       e.preventDefault();
       const ghost = document.createElement('div');
       ghost.className = 'kind-ghost';
-      ghost.textContent = kind ? (graph.kinds[kind]?.name || kind) : '单元';
+      ghost.textContent = kind === '__subgraph' ? '子图' : kind ? (graph.kinds[kind]?.name || kind) : '单元';
       document.body.appendChild(ghost);
       const move = (ev: PointerEvent) => {
         ghost.style.left = `${ev.clientX}px`;
@@ -162,6 +162,7 @@ export default function Sidebar() {
       <div className="kind-tray" aria-label="拖到画布创建单元">
         <span className="tray-label">拖到画布</span>
         <button className="chip" onPointerDown={startDrag('')}>单元</button>
+        <button className="chip" onPointerDown={startDrag('__subgraph')}>子图</button>
         {Object.entries(graph.kinds).map(([key, def]) => (
           <button key={key} className="chip" onPointerDown={startDrag(key)} title={`新建${def.name || key}`}>
             {def.name || key}
