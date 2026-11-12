@@ -1020,16 +1020,23 @@ export const useGraph = create<Store>((set, get) => ({
     if (project) {
       const active = projectActiveGraph(project);
       get().load(active.graph);
+      const hasFiles = project.graphs.some((pg) =>
+        pg.graph.nodes.some((n) => n.resources?.some((r) => r.file)),
+      );
       set({
         graph: active.graph,
         projectGraphs: project.graphs,
         activeGraphId: project.active,
-        toast: `已载入项目「${project.graphs.find((g) => g.id === project.active)?.name ?? ''}」· 共 ${project.graphs.length} 张图`,
+        toast: `已载入项目「${project.graphs.find((g) => g.id === project.active)?.name ?? ''}」· 共 ${project.graphs.length} 张图${
+          hasFiles ? '；资源文件需用「打开目录」才能预览' : ''
+        }`,
       });
       return true;
     }
-    get().load(parseGraph(raw));
-    set({ toast: '已载入图' });
+    const single = parseGraph(raw);
+    get().load(single);
+    const hasFiles = single.nodes.some((n) => n.resources?.some((r) => r.file));
+    set({ toast: hasFiles ? '已载入图；资源文件不在单文件里，预览请用「打开目录」' : '已载入图' });
     return false;
   },
 

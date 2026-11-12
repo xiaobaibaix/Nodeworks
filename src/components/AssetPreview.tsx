@@ -372,6 +372,7 @@ function ModelPane({ url, buffer, fileName }: { url?: string; buffer?: ArrayBuff
 }
 
 export default function AssetPreview({ resource, nodeId, onClose }: { resource: ResourceItem; nodeId?: string; onClose: () => void }) {
+  const folderName = useGraph((s) => s.folderName);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
   const [fileName, setFileName] = useState('');
@@ -436,7 +437,9 @@ export default function AssetPreview({ resource, nodeId, onClose }: { resource: 
         <header>
           <div>
             <h2>{resource.label || '资源预览'}</h2>
-            <div className="hint">{resource.type} · {resource.path || '（未填路径）'}</div>
+            <div className="hint">
+              {resource.type} · {resource.path || '（未填路径）'} · {folderName ? `目录：${folderName}` : '未绑定目录'}
+            </div>
           </div>
           <div className="asset-actions">
             <button onClick={() => fileRef.current?.click()}>
@@ -464,7 +467,13 @@ export default function AssetPreview({ resource, nodeId, onClose }: { resource: 
                 <img src={objectUrl ?? direct} alt={resource.label} onError={() => setImgBroken(true)} />
               ) : (
                 <div className="hint">
-                  {direct ? <>无法读取 <code>{resource.path}</code>，选一张本地图片预览。</> : '没有路径，选一张本地图片预览。'}
+                  {direct ? (
+                    <>
+                      无法读取 <code>{resource.path}</code>。
+                      {!folderName && ' 单文件项目不携带资源文件，用「打开目录」打开项目文件夹后再预览，'}
+                      或选一张本地图片预览。
+                    </>
+                  ) : '没有路径，选一张本地图片预览。'}
                 </div>
               )}
             </div>
