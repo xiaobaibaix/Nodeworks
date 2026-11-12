@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.12 · 2026-11-12 · 状态：P0–P14 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器、资产预览、模型通配清单）
+> 版本 v0.13 · 2026-11-12 · 状态：P0–P15a 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器、资产预览、模型通配清单、目录项目）
 
 ## 1. 定位
 
@@ -205,8 +205,10 @@ export.mapping.json     # 导出契约（P9 起默认读 src/mappings/，可载�
 
 ```
 src/
-  model/       types / schema / sample / ops / history / layout / clipboard / query / path / table / impact
-  store.ts     zustand：图 + 历史 + 选择 + 过滤 + 剪贴板 + 面板状态 + 视图/影响面 + toast
+  model/       types / schema / sample / ops / history / layout / clipboard / query / path / table / impact /
+               project / folder / preview / autolayout / mapping / cross / modelTemplate
+  fs/           types / memory / disk —— 目录项目抽象（内存实现用于测试，磁盘实现走 File System Access API）
+  store.ts     zustand：图 + 历史 + 选择 + 过滤 + 剪贴板 + 面板状态 + 视图/影响面 + 项目/目录绑定 + toast
   components/  UnitNode / Toolbar / Inspector / OrphanBanner / Sidebar / CommandPalette /
                MultiBar / ReconnectWizard / Breadcrumbs / TableView / ImpactPanel /
                ExportDialog / SnapshotDialog / CrossLinkDialog / BoundaryNode / AssetPreview
@@ -463,6 +465,34 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 - `modelTemplate.test.ts` 7 项、浏览器 `modeltpl.mjs` 6 项通过；`pnpm test` 155 项通过（19 个文件）；`tsc` 干净；`vite build` 主包 JS gzip 160.34 kB、CSS gzip 8.11 kB。
 
 实现要点：`src/model/modelTemplate.ts` 的通配表、槽位推断与清单状态；store 的 `applyModelTemplate` 一次 `replaceNodeOp` 提交；Inspector 的 `ModelTemplate` 区块（缺项、可选组、两个勾选项）。角色骨骼/动画不落成文件，只记在 mesh 的 `meta.rigged`。
+
+### P15a：目录项目（已完成，2026-11-12）
+
+范围：项目以文件夹为权威数据，「存为目录」把整份 project 写成 `project.json` + 每图一个目录 + 每节点一个目录；之后每次提交（含撤销/重做）防抖 300ms 全量回写；「打开目录」从文件夹恢复。
+
+目录结构：
+
+```
+project.json                       # version / active / kinds / graphs:[{id,name,dir}]
+graphs/<图名>__<图 id>/
+  graph.json                       # nodeOrder + edges + 图级元数据
+  nodes/<节点标题>__<节点 id>/
+    node.json                      # 节点（不含 subgraph）
+    subgraph/graph.json            # 递归子图
+```
+
+验收：
+
+- 写出 `project.json`、`graph.json`、三个 `node.json`；加节点立即多一个目录，改标题目录随之改名，删节点/删图清理旧目录；
+- 手工重命名文件夹后仍按 `node.json` 里的 id 读回；缺 `project.json` 的目录给出明确提示；
+- 刷新后「打开目录」恢复同样的节点/连线/子图/资源；绑定后在侧栏显示目录名，可一键取消绑定；
+- 只在 Chromium 系浏览器可用（`showDirectoryPicker`）；没有文件监听，外部改动需要重新打开；同一目录不要同时开两个窗口。
+
+验证：`folder.test.ts` 6 项、浏览器 `folder.mjs` 5 项通过；`pnpm test` 162 项通过（20 个文件）；`tsc` 干净；`vite build` 主包 JS gzip 163.11 kB、CSS gzip 8.21 kB。
+
+实现要点：`src/model/folder.ts` 的读写、目录名 slug 与孤儿目录清理；`src/fs/disk.ts` 把 `TypeMismatchError` / 缺失父目录都按「不存在」处理；store 的 `saveToFolder/openFolder/unbindFolder` 与模块级防抖同步。
+
+已知限制：资源文件尚未复制进 `resources/`（P15b）；目录句柄不持久化，重开应用要重新选择；MCP 仍按单文件 project.json 工作。
 
 ### 之后（未排期）
 

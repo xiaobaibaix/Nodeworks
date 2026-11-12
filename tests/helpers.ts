@@ -27,6 +27,7 @@ export function resetStore(): void {
     snapshots: [],
     snapshotOpen: false,
     mapping: DEFAULT_MAPPING,
+    folderName: null,
     projectGraphs: [],
     activeGraphId: '',
     booted: true,

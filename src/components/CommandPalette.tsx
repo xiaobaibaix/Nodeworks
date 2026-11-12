@@ -65,6 +65,25 @@ export default function CommandPalette() {
       },
     });
     list.push({
+      id: 'open-folder',
+      label: '打开目录项目…',
+      hint: '选择含 project.json 的文件夹',
+      group: '命令',
+      mutates: true,
+      run: () => {
+        void useGraph.getState().openFolder();
+      },
+    });
+    list.push({
+      id: 'save-folder',
+      label: '另存为目录项目…',
+      hint: 'project.json + graphs/ + nodes/',
+      group: '命令',
+      run: () => {
+        void useGraph.getState().saveToFolder();
+      },
+    });
+    list.push({
       id: 'export-project',
       label: '导出契约（dry-run）',
       hint: 'Forgeworks project.json',

@@ -26,10 +26,47 @@ import {
   parseProjectDoc, syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
 } from './model/project';
 import { loadCached, loadProject, saveCached, saveProject } from './persistence';
+import { DiskFS } from './fs/disk';
+import { hasFolderProject, readProject, writeProject } from './model/folder';
 import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitPort } from './model/types';
 import type { SortDir } from './model/table';
 
 export type ViewMode = 'graph' | 'table';
+
+/** 目录项目绑定：句柄只在会话内保存，重新打开应用需再选一次目录。 */
+let folderHandle: FileSystemDirectoryHandle | null = null;
+let folderSyncTimer: ReturnType<typeof setTimeout> | null = null;
+let folderSyncRunning = false;
+let folderSyncQueued = false;
+
+function scheduleFolderSync(): void {
+  if (!folderHandle) return;
+  if (folderSyncTimer) clearTimeout(folderSyncTimer);
+  folderSyncTimer = setTimeout(() => {
+    folderSyncTimer = null;
+    void flushFolderSync();
+  }, 300);
+}
+
+async function flushFolderSync(): Promise<void> {
+  if (!folderHandle) return;
+  if (folderSyncRunning) {
+    folderSyncQueued = true;
+    return;
+  }
+  folderSyncRunning = true;
+  try {
+    await writeProject(new DiskFS(folderHandle), useGraph.getState().currentProject());
+  } catch (error) {
+    useGraph.getState().toastOf(`目录同步失败：${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    folderSyncRunning = false;
+    if (folderSyncQueued) {
+      folderSyncQueued = false;
+      scheduleFolderSync();
+    }
+  }
+}
 
 export type PortDeleteTarget =
   | { kind: 'rewire'; portId: string }
@@ -72,6 +109,7 @@ interface Store {
   /** 本地版本快照（最新在前，最多 SNAPSHOT_LIMIT 份） */
   snapshots: Snapshot[];
   snapshotOpen: boolean;
+  folderName: string | null;
   /** 多图容器：一个 project 下的所有根图（当前图另外存在 graph 里） */
   projectGraphs: ProjectGraph[];
   activeGraphId: string;
@@ -141,6 +179,9 @@ interface Store {
   loadFile(raw: unknown): boolean;
   saveToCache(): void;
   currentProject(): import('./model/project').ProjectDoc;
+  saveToFolder(): Promise<void>;
+  openFolder(): Promise<void>;
+  unbindFolder(): void;
   enterSubgraph(id: string): void;
   goToPath(depth: number): void;
   setPreview(on: boolean): void;
@@ -199,6 +240,7 @@ export const useGraph = create<Store>((set, get) => ({
   mapping: loadMapping(),
   snapshots: [],
   snapshotOpen: false,
+  folderName: null,
   projectGraphs: [],
   activeGraphId: '',
 
@@ -264,6 +306,7 @@ export const useGraph = create<Store>((set, get) => ({
       past: pushEntry(get().past, entry),
       future: [],
     });
+    scheduleFolderSync();
   },
 
   undo: () => {
@@ -282,6 +325,7 @@ export const useGraph = create<Store>((set, get) => ({
         ? { selectedNodes: [], selectedEdge: null, pendingPort: null }
         : {}),
     });
+    scheduleFolderSync();
   },
 
   redo: () => {
@@ -300,6 +344,7 @@ export const useGraph = create<Store>((set, get) => ({
         ? { selectedNodes: [], selectedEdge: null, pendingPort: null }
         : {}),
     });
+    scheduleFolderSync();
   },
 
   addNode: (pos, kind) => {
@@ -943,6 +988,7 @@ export const useGraph = create<Store>((set, get) => ({
       focus: null,
       exportOpen: false,
       snapshotOpen: false,
+      folderName: null,
       ...(() => {
         const seeded = projectFromGraph(g);
         return { projectGraphs: seeded.graphs, activeGraphId: seeded.active };
@@ -950,6 +996,7 @@ export const useGraph = create<Store>((set, get) => ({
     }),
 
   loadFile: (raw) => {
+    get().unbindFolder();
     const project = parseProjectDoc(raw);
     if (project) {
       const active = projectActiveGraph(project);
@@ -1093,6 +1140,60 @@ export const useGraph = create<Store>((set, get) => ({
     );
     set({ projectGraphs: project.graphs });
     saveProject(project);
+  },
+
+  saveToFolder: async () => {
+    try {
+      if (typeof window === 'undefined' || !window.showDirectoryPicker) {
+        get().toastOf('当前浏览器不支持目录访问，请用 Chrome / Edge');
+        return;
+      }
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
+      folderHandle = handle;
+      await writeProject(new DiskFS(handle), get().currentProject());
+      set({ folderName: handle.name });
+      get().toastOf(`已保存到「${handle.name}」`);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      get().toastOf(`保存目录失败：${error instanceof Error ? error.message : String(error)}`);
+    }
+  },
+
+  openFolder: async () => {
+    try {
+      if (typeof window === 'undefined' || !window.showDirectoryPicker) {
+        get().toastOf('当前浏览器不支持目录访问，请用 Chrome / Edge');
+        return;
+      }
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
+      const fs = new DiskFS(handle);
+      if (!(await hasFolderProject(fs))) {
+        get().toastOf('这个文件夹里没有 project.json');
+        return;
+      }
+      const project = await readProject(fs);
+      get().load(projectActiveGraph(project).graph);
+      set({
+        graph: projectActiveGraph(project).graph,
+        projectGraphs: project.graphs,
+        activeGraphId: project.active,
+        folderName: handle.name,
+        toast: `已打开目录项目「${handle.name}」· 共 ${project.graphs.length} 张图`,
+      });
+      folderHandle = handle;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      get().toastOf(`打开目录失败：${error instanceof Error ? error.message : String(error)}`);
+    }
+  },
+
+  unbindFolder: () => {
+    folderHandle = null;
+    if (folderSyncTimer) {
+      clearTimeout(folderSyncTimer);
+      folderSyncTimer = null;
+    }
+    if (get().folderName) set({ folderName: null });
   },
 
   currentProject: () => {

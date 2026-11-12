@@ -88,6 +88,8 @@ export default function Toolbar() {
         <span className="sep" />
         <button onClick={() => downloadProject(useGraph.getState().currentProject())}>保存</button>
         <button onClick={open}>打开</button>
+        <button onClick={() => void useGraph.getState().openFolder()} title="打开一个目录项目（Chrome / Edge）">打开目录</button>
+        <button onClick={() => void useGraph.getState().saveToFolder()} title="把整份项目写入一个目录（Chrome / Edge）">存为目录</button>
         <button onClick={() => setExportOpen(true)} title="按映射导出为 project.json（先 dry-run）">
           导出…
         </button>
