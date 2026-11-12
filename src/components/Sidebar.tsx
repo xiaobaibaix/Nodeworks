@@ -4,6 +4,7 @@ import {
   groupByKind, isolatedNodeIds, kindOptions, nodeMatches, orphanNodeIds, visibleNodes,
 } from '../model/query';
 import { useCurrentGraph, useGraph } from '../store';
+import { beginTemplateDrag } from './dragCreate';
 
 function highlight(text: string, query: string) {
   const needle = query.trim().toLowerCase();
@@ -58,8 +59,6 @@ export default function Sidebar() {
   const isolated = useMemo(() => isolatedNodeIds(graph), [graph]);
   const orphan = useMemo(() => orphanNodeIds(graph), [graph]);
 
-  const lastDragAt = useRef(0);
-
   useEffect(() => {
     setCursor(-1);
   }, [filter.query, filter.kinds, filter.onlyIsolated, filter.onlyOrphan]);
@@ -87,54 +86,9 @@ export default function Sidebar() {
 
   function startDrag(kind: string) {
     return (e: React.PointerEvent<HTMLButtonElement>) => {
-      // 鼠标走原生 HTML5 拖放（更可靠）；触屏/手写笔走 Pointer 拖拽。
-      if (e.pointerType === 'mouse') return;
-      if (e.button !== 0) return;
-      e.preventDefault();
-      lastDragAt.current = Date.now();
-      const ghost = document.createElement('div');
-      ghost.className = 'kind-ghost';
-      ghost.textContent = kind === '__subgraph' ? '子图' : kind ? (graph.kinds[kind]?.name || kind) : '单元';
-      document.body.appendChild(ghost);
-      const move = (ev: PointerEvent) => {
-        ghost.style.left = `${ev.clientX}px`;
-        ghost.style.top = `${ev.clientY}px`;
-      };
-      move(e.nativeEvent);
-      const up = (ev: PointerEvent) => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-        window.removeEventListener('pointercancel', up);
-        ghost.remove();
-        const el = document.elementFromPoint(ev.clientX, ev.clientY);
-        if (el && el.closest('.react-flow')) {
-          window.dispatchEvent(new CustomEvent('nodeworks:create-node', {
-            detail: { kind, clientX: ev.clientX, clientY: ev.clientY },
-          }));
-        }
-      };
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
-      window.addEventListener('pointercancel', up);
+      const label = kind === '__subgraph' ? '子图' : kind ? (graph.kinds[kind]?.name || kind) : '单元';
+      beginTemplateDrag(e, kind, label, (m) => useGraph.getState().toastOf(m));
     };
-  }
-
-  function dragStartEvent(e: React.DragEvent<HTMLButtonElement>, kind: string) {
-    lastDragAt.current = Date.now();
-    e.dataTransfer.setData('text/nodeworks-kind', kind);
-    e.dataTransfer.effectAllowed = 'copy';
-  }
-
-  function clickCreate(kind: string) {
-    if (Date.now() - lastDragAt.current < 400) return;
-    const box = document.querySelector('.react-flow')?.getBoundingClientRect();
-    if (!box) {
-      useGraph.getState().toastOf('先切回画布视图再创建');
-      return;
-    }
-    window.dispatchEvent(new CustomEvent('nodeworks:create-node', {
-      detail: { kind, clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 },
-    }));
   }
 
   return (
@@ -184,18 +138,10 @@ export default function Sidebar() {
 
       <div className="kind-tray" aria-label="拖到画布创建单元">
         <span className="tray-label">拖到画布 / 点击</span>
-        <button className="chip" draggable onClick={() => clickCreate('')} onDragStart={(e) => dragStartEvent(e, '')} onPointerDown={startDrag('')}>单元</button>
-        <button className="chip" draggable onClick={() => clickCreate('__subgraph')} onDragStart={(e) => dragStartEvent(e, '__subgraph')} onPointerDown={startDrag('__subgraph')}>子图</button>
+        <button className="chip" onPointerDown={startDrag('')}>单元</button>
+        <button className="chip" onPointerDown={startDrag('__subgraph')}>子图</button>
         {Object.entries(graph.kinds).map(([key, def]) => (
-          <button
-            key={key}
-            className="chip"
-            draggable
-            onDragStart={(e) => dragStartEvent(e, key)}
-            onPointerDown={startDrag(key)}
-            onClick={() => clickCreate(key)}
-            title={`新建${def.name || key}`}
-          >
+          <button key={key} className="chip" onPointerDown={startDrag(key)} title={`新建${def.name || key}`}>
             {def.name || key}
           </button>
         ))}

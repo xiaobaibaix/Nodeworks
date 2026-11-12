@@ -1,6 +1,7 @@
 import { useReactFlow } from '@xyflow/react';
 import { useEffect, useRef, useState } from 'react';
 import { downloadProject } from '../persistence';
+import { beginTemplateDrag } from './dragCreate';
 import { useCurrentGraph, useGraph } from '../store';
 
 function SplitButton({
@@ -65,13 +66,12 @@ function SplitButton({
 
 export default function Toolbar() {
   const addNode = useGraph((s) => s.addNode);
-  const addSubgraphNode = useGraph((s) => s.addSubgraphNode);
+  const toastOf = useGraph((s) => s.toastOf);
   const preview = useGraph((s) => s.preview);
   const undo = useGraph((s) => s.undo);
   const redo = useGraph((s) => s.redo);
   const canUndo = useGraph((s) => s.past.length > 0);
   const canRedo = useGraph((s) => s.future.length > 0);
-  const toastOf = useGraph((s) => s.toastOf);
   const graph = useCurrentGraph();
   const count = graph.nodes.length;
   const kinds = graph.kinds;
@@ -119,8 +119,8 @@ export default function Toolbar() {
         </button>
       </div>
       <div className="bar-actions">
-        <button onClick={() => addNode()} disabled={preview}>+ 单元</button>
-        <button onClick={() => addSubgraphNode()} disabled={preview} title="新建一个空子图单元，双击进入编辑">+ 子图</button>
+        <button onPointerDown={(e) => beginTemplateDrag(e, '', '单元', toastOf)} disabled={preview}>+ 单元</button>
+        <button onPointerDown={(e) => beginTemplateDrag(e, '__subgraph', '子图', toastOf)} disabled={preview} title="按住拖到画布放置；单击则落在中央">+ 子图</button>
         <select
           className="template-pick"
           value=""
