@@ -574,7 +574,18 @@ export default function App() {
         <Toolbar />
         <div className="body">
           <Sidebar />
-          <div className={`canvas${view === 'table' ? ' table-canvas' : ''}`}>
+          <div
+            className={`canvas${view === 'table' ? ' table-canvas' : ''}`}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              const kind = e.dataTransfer.getData('text/nodeworks-kind');
+              if (!kind) return;
+              e.preventDefault();
+              window.dispatchEvent(new CustomEvent('nodeworks:create-node', {
+                detail: { kind, clientX: e.clientX, clientY: e.clientY },
+              }));
+            }}
+          >
             {view === 'table' ? <TableView /> : ready && <Canvas />}
             {view === 'graph' && <Breadcrumbs />}
             {view === 'graph' && <MultiBar />}
