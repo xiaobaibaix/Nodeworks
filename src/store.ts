@@ -1347,7 +1347,10 @@ export const useGraph = create<Store>((set, get) => ({
       set({ folderError: null });
       get().toastOf(bound ? `已同步到「${handle.name}」` : `已保存到「${handle.name}」· project.json`);
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        get().toastOf('已取消选择，没有写入任何文件');
+        return;
+      }
       const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       console.error('saveToFolder failed', error);
       set({ folderError: `保存到项目文件夹失败：${detail}` });
