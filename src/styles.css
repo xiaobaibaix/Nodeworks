@@ -336,7 +336,8 @@ textarea { font: inherit; color: inherit; resize: vertical; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px 8px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--line);
   font-weight: 650;
   font-size: 12px;
   letter-spacing: .04em;
@@ -352,8 +353,12 @@ textarea { font: inherit; color: inherit; resize: vertical; }
   border: 1px solid #333a47;
 }
 
-.search-box { position: relative; padding: 0 10px; }
-.search-box input { width: 100%; padding-right: 22px; }
+.search-box { position: relative; padding: 0 10px; margin-top: 10px; }
+.search-icon {
+  position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+  display: flex; color: #5f6a7b; pointer-events: none;
+}
+.search-box input { width: 100%; height: 30px; padding-left: 28px; padding-right: 26px; }
 .search-clear {
   position: absolute;
   right: 13px;
@@ -377,11 +382,17 @@ textarea { font: inherit; color: inherit; resize: vertical; }
   font-variant-numeric: tabular-nums;
 }
 
+.chips-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px 0;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--dim);
+}
+.chips-head .link { font-size: 11px; padding: 0; }
 .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 8px 10px 10px;
+  padding: 6px 10px 10px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -411,12 +422,15 @@ textarea { font: inherit; color: inherit; resize: vertical; }
 
 .kind-group { margin-bottom: 2px; }
 .kind-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 4px 6px;
-  background: transparent;
+  padding: 5px 6px;
+  background: var(--panel);
   border: 1px solid transparent;
   border-radius: 5px;
   color: var(--dim);
@@ -428,16 +442,21 @@ textarea { font: inherit; color: inherit; resize: vertical; }
 .caret { display: inline-block; width: 10px; transition: transform .15s ease; }
 .caret.closed { transform: rotate(-90deg); }
 .kind-name { flex: 1; text-align: left; }
-.kind-count { font-variant-numeric: tabular-nums; font-weight: 400; }
+.kind-count { font-variant-numeric: tabular-nums; font-weight: 500; color: #6f7a8b; font-size: 10px; }
 
-.outline-list { list-style: none; margin: 0; padding: 0 0 4px; }
+.outline-list {
+  list-style: none;
+  margin: 0 0 4px 12px;
+  padding: 0 0 4px;
+  border-left: 1px solid #232833;
+}
 
 .outline-item {
   display: flex;
   align-items: center;
   gap: 4px;
   width: 100%;
-  padding: 3px 8px 3px 20px;
+  padding: 4px 8px 4px 10px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 5px;
@@ -450,6 +469,7 @@ textarea { font: inherit; color: inherit; resize: vertical; }
   background: rgba(245, 158, 11, .13);
   border-color: rgba(245, 158, 11, .4);
   color: #ffe1b0;
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 .outline-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -949,19 +969,28 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 /* ---------- 多图容器 ---------- */
 .graph-bar {
   display: flex;
-  gap: 4px;
-  padding: 8px 10px 0;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 10px 0;
 }
 .graph-bar select {
   flex: 1;
   min-width: 0;
+  height: 30px;
   font-size: 12px;
-  padding: 4px 6px;
+  padding: 0 6px;
 }
-.graph-bar button {
-  padding: 4px 8px;
+.graph-bar > button {
+  flex: none;
+  width: 28px;
+  height: 30px;
+  padding: 0;
   font-size: 12px;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #aab3c2;
 }
 
 /* ---------- 子图缩略图 ---------- */
@@ -1394,8 +1423,14 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 
 .folder-error .detail { color: var(--text); font-size: 12.5px; line-height: 1.7; }
 
-.kind-tray { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 2px; align-items: center; }
-.kind-tray .tray-label { font-size: 10.5px; color: var(--muted); margin-right: 2px; }
+.kind-tray {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 10px 8px; border-bottom: 1px solid var(--line);
+}
+.kind-tray .tray-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kind-tray .tray-title { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--dim); }
+.kind-tray .tray-label { font-size: 10.5px; color: #5f6a7b; }
+.kind-tray .tray-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .kind-tray .chip { touch-action: none; cursor: grab; }
 .kind-ghost {
   position: fixed; z-index: 200; pointer-events: none; transform: translate(-50%, -50%) scale(.9);

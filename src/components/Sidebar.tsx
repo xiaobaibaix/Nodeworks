@@ -113,7 +113,9 @@ export default function Sidebar() {
           <option value="__new">＋ 新建图…</option>
         </select>
         <button
-          title="重命名当前图"
+          className="icon tip"
+          data-tip="重命名当前图"
+          aria-label="重命名当前图"
           onClick={() => {
             const name = window.prompt('图名称', activeName);
             if (name) renameGraph(name);
@@ -121,7 +123,13 @@ export default function Sidebar() {
         >
           ✎
         </button>
-        <button title="删除当前图" onClick={removeGraph} disabled={projectGraphs.length <= 1}>
+        <button
+          className="icon tip"
+          data-tip="删除当前图"
+          aria-label="删除当前图"
+          onClick={removeGraph}
+          disabled={projectGraphs.length <= 1}
+        >
           −
         </button>
       </div>
@@ -130,24 +138,49 @@ export default function Sidebar() {
         <div className="folder-bound" title={folderName ? '当前项目与这个文件夹双向同步' : '保存会覆盖这个 JSON 文件'}>
           <span>{folderName ? `目录：${folderName}` : `文件：${fileName}`}</span>
           {folderName && (
-            <button title="从目录重新载入（外部改动后用）" onClick={() => void reloadFolder()}>↻</button>
+            <button
+              className="tip"
+              data-tip="从目录重新载入"
+              aria-label="从目录重新载入"
+              onClick={() => void reloadFolder()}
+            >
+              ↻
+            </button>
           )}
-          <button title={folderName ? '取消目录绑定' : '关闭这个文件'} onClick={unbindFolder}>×</button>
+          <button
+            className="tip"
+            data-tip={folderName ? '取消目录绑定' : '关闭这个文件'}
+            aria-label={folderName ? '取消目录绑定' : '关闭这个文件'}
+            onClick={unbindFolder}
+          >
+            ×
+          </button>
         </div>
       )}
 
       <div className="kind-tray" aria-label="拖到画布创建单元">
-        <span className="tray-label">拖到画布 / 点击</span>
-        <button className="chip" onPointerDown={startDrag('')}>单元</button>
-        <button className="chip" onPointerDown={startDrag('__subgraph')}>子图</button>
-        {Object.entries(graph.kinds).map(([key, def]) => (
-          <button key={key} className="chip" onPointerDown={startDrag(key)} title={`新建${def.name || key}`}>
-            {def.name || key}
-          </button>
-        ))}
+        <div className="tray-head">
+          <span className="tray-title">新建单元</span>
+          <span className="tray-label">拖到画布 / 点击</span>
+        </div>
+        <div className="tray-chips">
+          <button className="chip" onPointerDown={startDrag('')}>单元</button>
+          <button className="chip" onPointerDown={startDrag('__subgraph')}>子图</button>
+          {Object.entries(graph.kinds).map(([key, def]) => (
+            <button key={key} className="chip" onPointerDown={startDrag(key)} title={`新建${def.name || key}`}>
+              {def.name || key}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="search-box">
+        <span className="search-icon" aria-hidden="true">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+        </span>
         <input
           ref={inputRef}
           value={filter.query}
@@ -166,6 +199,7 @@ export default function Sidebar() {
         <button
           className="search-clear"
           title="清空搜索"
+          aria-label="清空搜索"
           onClick={() => {
             setFilter({ query: '' });
             inputRef.current?.focus();
@@ -180,6 +214,17 @@ export default function Sidebar() {
         {filter.query && <span className="dim">Enter 跳转</span>}
       </div>
 
+      <div className="chips-head">
+        <span>筛选</span>
+        {filtering && (
+          <button
+            className="link"
+            onClick={() => setFilter({ kinds: [], onlyIsolated: false, onlyOrphan: false })}
+          >
+            清除
+          </button>
+        )}
+      </div>
       <div className="chips">
         {kinds.map((k) => (
           <button
@@ -203,14 +248,6 @@ export default function Sidebar() {
         >
           只看孤儿
         </button>
-        {filtering && (
-          <button
-            className="chip clear"
-            onClick={() => setFilter({ kinds: [], onlyIsolated: false, onlyOrphan: false })}
-          >
-            清除
-          </button>
-        )}
       </div>
 
       <div className="outline">
