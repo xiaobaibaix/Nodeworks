@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "id": "g_steel",
+  "name": "炼钢产线",
+  "nodeOrder": [
+    "n_wmzdshe",
+    "n_c05oy8l",
+    "n_49apcti",
+    "n_4cownst",
+    "n_3yuivr6",
+    "n_q0f87jy",
+    "n_knowjmi",
+    "n_zeed8xz",
+    "n_rxxwfso",
+    "n_5hcvso1",
+    "n_28p4vpr"
+  ],
+  "edges": [
+    {
+      "id": "e_95dim2v",
+      "from": {
+        "node": "n_wmzdshe",
+        "port": "p_i6l9pps"
+      },
+      "to": {
+        "node": "n_3yuivr6",
+        "port": "p_bbrtvca"
+      },
+      "label": "2 : 1",
+      "props": {
+        "ratio": {
+          "value": 2,
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "e_yesejv7",
+      "from": {
+        "node": "n_c05oy8l",
+        "port": "p_lhfrb58"
+      },
+      "to": {
+        "node": "n_3yuivr6",
+        "port": "p_58pemfx"
+      },
+      "label": "1 : 1",
+      "props": {
+        "ratio": {
+          "value": 1,
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "e_6e1iku7",
+      "from": {
+        "node": "n_49apcti",
+        "port": "p_3aotmla"
+      },
+      "to": {
+        "node": "n_3yuivr6",
+        "port": "p_109irpa"
+      },
+      "label": "1 : 1",
+      "props": {
+        "ratio": {
+          "value": 1,
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "e_6hp9ert",
+      "from": {
+        "node": "n_4cownst",
+        "port": "p_qxwq84w"
+      },
+      "to": {
+        "node": "n_3yuivr6",
+        "port": "p_fbro15d"
+      },
+      "label": "runs-on"
+    },
+    {
+      "id": "e_r6epptu",
+      "from": {
+        "node": "n_3yuivr6",
+        "port": "p_jwtfdgg"
+      },
+      "to": {
+        "node": "n_knowjmi",
+        "port": "p_shhjgjq"
+      },
+      "label": "2 : 1",
+      "props": {
+        "ratio": {
+          "value": 2,
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "e_wq8meeg",
+      "from": {
+        "node": "n_zeed8xz",
+        "port": "p_fbftoz1"
+      },
+      "to": {
+        "node": "n_knowjmi",
+        "port": "p_x5x6nkz"
+      },
+      "label": "runs-on"
+    },
+    {
+      "id": "e_0u1ksgg",
+      "from": {
+        "node": "n_3yuivr6",
+        "port": "p_elvetw4"
+      },
+      "to": {
+        "node": "n_q0f87jy",
+        "port": "p_di0p506"
+      }
+    },
+    {
+      "id": "e_ani9rgu",
+      "from": {
+        "node": "n_knowjmi",
+        "port": "p_c08tn9v"
+      },
+      "to": {
+        "node": "n_5hcvso1",
+        "port": "p_4nlk9xp"
+      },
+      "label": "2 : 1",
+      "props": {
+        "ratio": {
+          "value": 2,
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "e_4k8w3vi",
+      "from": {
+        "node": "n_rxxwfso",
+        "port": "p_kamens1"
+      },
+      "to": {
+        "node": "n_5hcvso1",
+        "port": "p_eyc9kj1"
+      },
+      "label": "runs-on"
+    },
+    {
+      "id": "e_ik92wyj",
+      "from": {
+        "node": "n_5hcvso1",
+        "port": "p_wazrszx"
+      },
+      "to": {
+        "node": "n_28p4vpr",
+        "port": "p_eu1zzt5"
+      },
+      "label": "2 : 1",
+      "props": {
+        "ratio": {
+          "value": 2,
+          "type": "number"
+        }
+      }
+    }
+  ]
+}

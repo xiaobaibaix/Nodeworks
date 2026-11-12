@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "id": "n_5hcvso1",
+  "title": "热轧",
+  "props": {
+    "cycle": {
+      "value": 6,
+      "type": "number",
+      "unit": "s"
+    },
+    "power": {
+      "value": 320,
+      "type": "number",
+      "unit": "kW"
+    },
+    "batch": {
+      "value": 2,
+      "type": "number"
+    }
+  },
+  "ports": [
+    {
+      "id": "p_4nlk9xp",
+      "dir": "in",
+      "label": "钢坯",
+      "capacity": "many"
+    },
+    {
+      "id": "p_eyc9kj1",
+      "dir": "in",
+      "label": "机器",
+      "capacity": "many"
+    },
+    {
+      "id": "p_wazrszx",
+      "dir": "out",
+      "label": "钢板",
+      "capacity": "many"
+    }
+  ],
+  "pos": {
+    "x": 1060,
+    "y": 120
+  },
+  "kind": "recipe"
+}

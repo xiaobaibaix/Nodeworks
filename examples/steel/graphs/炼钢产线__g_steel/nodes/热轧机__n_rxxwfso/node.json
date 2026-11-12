@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "id": "n_rxxwfso",
+  "title": "热轧机",
+  "props": {
+    "footprint": {
+      "value": "4x2",
+      "type": "string"
+    },
+    "power": {
+      "value": 320,
+      "type": "number",
+      "unit": "kW"
+    },
+    "speed": {
+      "value": 2,
+      "type": "number",
+      "unit": "x"
+    },
+    "tier": {
+      "value": 3,
+      "type": "number"
+    }
+  },
+  "ports": [
+    {
+      "id": "p_q18of1q",
+      "dir": "in",
+      "label": "电力",
+      "capacity": "many"
+    },
+    {
+      "id": "p_kamens1",
+      "dir": "out",
+      "label": "机器",
+      "capacity": "many"
+    }
+  ],
+  "pos": {
+    "x": 720,
+    "y": 760
+  },
+  "kind": "machine"
+}

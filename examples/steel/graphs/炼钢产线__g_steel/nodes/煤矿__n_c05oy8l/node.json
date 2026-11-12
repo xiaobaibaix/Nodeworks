@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "id": "n_c05oy8l",
+  "title": "煤矿",
+  "props": {
+    "value": {
+      "value": 2,
+      "type": "number",
+      "unit": "cr"
+    },
+    "tier": {
+      "value": 1,
+      "type": "number"
+    },
+    "tags": {
+      "value": [
+        "ore",
+        "fuel"
+      ],
+      "type": "json"
+    },
+    "calorific": {
+      "value": 27,
+      "type": "number",
+      "unit": "MJ/kg"
+    }
+  },
+  "ports": [
+    {
+      "id": "p_lhfrb58",
+      "dir": "out",
+      "label": "煤",
+      "capacity": "many"
+    }
+  ],
+  "pos": {
+    "x": 40,
+    "y": 300
+  },
+  "kind": "item"
+}

@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "active": "g_steel",
+  "kinds": {
+    "item": {
+      "name": "物品",
+      "color": "#7dc4ff",
+      "defaults": {
+        "value": {
+          "value": 0,
+          "type": "number",
+          "unit": "cr"
+        },
+        "tier": {
+          "value": 1,
+          "type": "number"
+        }
+      },
+      "ports": [
+        {
+          "dir": "in",
+          "label": "输入",
+          "capacity": "many"
+        },
+        {
+          "dir": "out",
+          "label": "输出",
+          "capacity": "many"
+        }
+      ]
+    },
+    "recipe": {
+      "name": "配方",
+      "color": "#ffbe5c",
+      "defaults": {
+        "cycle": {
+          "value": 1,
+          "type": "number",
+          "unit": "s"
+        },
+        "power": {
+          "value": 0,
+          "type": "number",
+          "unit": "kW"
+        }
+      },
+      "ports": [
+        {
+          "dir": "in",
+          "label": "原料",
+          "capacity": "many"
+        },
+        {
+          "dir": "out",
+          "label": "产物",
+          "capacity": "many"
+        }
+      ]
+    },
+    "machine": {
+      "name": "机器",
+      "color": "#9ae6b4",
+      "defaults": {
+        "footprint": {
+          "value": "1x1",
+          "type": "string"
+        },
+        "power": {
+          "value": 0,
+          "type": "number",
+          "unit": "kW"
+        }
+      },
+      "ports": [
+        {
+          "dir": "in",
+          "label": "输入",
+          "capacity": "many"
+        },
+        {
+          "dir": "out",
+          "label": "输出",
+          "capacity": "many"
+        }
+      ]
+    }
+  },
+  "graphs": [
+    {
+      "id": "g_steel",
+      "name": "炼钢产线",
+      "dir": "炼钢产线__g_steel"
+    }
+  ]
+}

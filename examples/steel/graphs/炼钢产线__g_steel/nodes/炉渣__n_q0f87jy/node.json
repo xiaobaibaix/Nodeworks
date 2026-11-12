@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "n_q0f87jy",
+  "title": "炉渣",
+  "props": {
+    "value": {
+      "value": 1,
+      "type": "number",
+      "unit": "cr"
+    },
+    "tier": {
+      "value": 1,
+      "type": "number"
+    },
+    "tags": {
+      "value": [
+        "waste"
+      ],
+      "type": "json"
+    }
+  },
+  "ports": [
+    {
+      "id": "p_di0p506",
+      "dir": "in",
+      "label": "炉渣",
+      "capacity": "many"
+    }
+  ],
+  "pos": {
+    "x": 720,
+    "y": 420
+  },
+  "kind": "item"
+}
