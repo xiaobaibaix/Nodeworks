@@ -184,6 +184,7 @@ interface Store {
   saveToFolder(): Promise<void>;
   openFolder(): Promise<void>;
   unbindFolder(): void;
+  reloadFolder(): Promise<void>;
   enterSubgraph(id: string): void;
   goToPath(depth: number): void;
   setPreview(on: boolean): void;
@@ -1219,6 +1220,25 @@ export const useGraph = create<Store>((set, get) => ({
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       get().toastOf(`打开目录失败：${error instanceof Error ? error.message : String(error)}`);
+    }
+  },
+
+  reloadFolder: async () => {
+    if (!folderHandle) {
+      get().toastOf('还没有绑定目录');
+      return;
+    }
+    try {
+      const project = await readProject(new DiskFS(folderHandle));
+      get().load(projectActiveGraph(project).graph);
+      set({
+        graph: projectActiveGraph(project).graph,
+        projectGraphs: project.graphs,
+        activeGraphId: project.active,
+        toast: '已从目录重新载入',
+      });
+    } catch (error) {
+      get().toastOf(`重新载入失败：${error instanceof Error ? error.message : String(error)}`);
     }
   },
 

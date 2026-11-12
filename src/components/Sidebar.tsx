@@ -37,6 +37,7 @@ export default function Sidebar() {
   const addGraph = useGraph((s) => s.addGraph);
   const folderName = useGraph((s) => s.folderName);
   const unbindFolder = useGraph((s) => s.unbindFolder);
+  const reloadFolder = useGraph((s) => s.reloadFolder);
   const renameGraph = useGraph((s) => s.renameGraph);
   const removeGraph = useGraph((s) => s.removeGraph);
   const { fitView } = useReactFlow();
@@ -119,6 +120,7 @@ export default function Sidebar() {
       {folderName && (
         <div className="folder-bound" title="当前项目与这个文件夹双向同步">
           <span>目录：{folderName}</span>
+          <button title="从目录重新载入（外部改动后用）" onClick={() => void reloadFolder()}>↻</button>
           <button title="取消目录绑定" onClick={unbindFolder}>×</button>
         </div>
       )}

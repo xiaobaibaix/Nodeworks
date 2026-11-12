@@ -109,9 +109,11 @@ MCP 客户端配置（Claude Code / 任意 stdio 客户端）：
 
 工具（19 个）：`project_info`、`get_graph`、`create_graph`、`set_active_graph`、`define_kind`、`find_nodes`、`add_node`、`update_node`、`remove_nodes`、`add_edge`、`remove_edges`、`auto_layout`、`export_project`、`validate_project`、`list_snapshots`、`create_snapshot`、`restore_snapshot`、`delete_snapshot`、`undo`。
 
+目录模式：`--file` 指向一个已存在的目录时，MCP 直接读写目录项目（`project.json` + `graphs/` + `nodes/`），每次写操作整份回写，快照存 `<目录>/snapshots.json`。
+
 自定义映射：启动加 `--mapping <export.mapping.json>`（或 env `NODEWORKS_MAPPING`），`export_project` 也可单次传 `mapping`。快照为文件级，存 `<project>.snapshots.json`（最多 20 份），与编辑器 localStorage 快照彼此独立；`restore_snapshot` 整体替换项目，`undo` 可退回。
 
-注意：MCP 直接写文件；应用不会自动监听外部修改，AI 改完后在应用里重新「打开」同一文件即可。文件读写的是 project 文档（`{version:1, active, graphs}`），与应用 localStorage 同构。
+注意：MCP 直接写文件；应用不会自动监听外部修改，AI 改完后在应用里重新「打开」同一文件，或目录模式下点侧栏「↻」重载。文件读写的是 project 文档（`{version:1, active, graphs}`），与应用 localStorage 同构。
 
 ## 下一步
 

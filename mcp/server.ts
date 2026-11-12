@@ -5,7 +5,7 @@
  * 构建：pnpm build:mcp  →  mcp/server.mjs
  * 运行：node mcp/server.mjs --file <project.json>
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { layeredLayout, estimateSize } from '../src/model/autolayout';
@@ -20,6 +20,8 @@ import {
   switchGraph, type ProjectDoc,
 } from '../src/model/project';
 import { GraphSchema } from '../src/model/schema';
+import { readProject, writeProject } from '../src/model/folder';
+import { NodeFS } from './node-fs';
 import type { Endpoint, Graph, PropBag, PropMeta, UnitNode } from '../src/model/types';
 
 type Json = Record<string, unknown>;
@@ -31,7 +33,9 @@ function arg(name: string): string | undefined {
 }
 const FILE = resolve(arg('--file') ?? process.env.NODEWORKS_PROJECT ?? '.nodeworks/project.json');
 const MAPPING_FILE = arg('--mapping') ?? process.env.NODEWORKS_MAPPING;
-const SNAP_FILE = `${FILE}.snapshots.json`;
+/** --file 指向目录时走目录项目（project.json + graphs/ + nodes/）。 */
+const FOLDER_MODE = existsSync(FILE) && statSync(FILE).isDirectory();
+const SNAP_FILE = FOLDER_MODE ? resolve(FILE, 'snapshots.json') : `${FILE}.snapshots.json`;
 const SNAP_LIMIT = 20;
 
 /** 解析导出映射：工具参数 > --mapping/env > 内置默认。 */
@@ -77,6 +81,10 @@ function saveSnaps(list: SnapEntry[]): void {
 let doc: ProjectDoc | null = null;
 let onDisk = false;
 const history: Array<{ doc: ProjectDoc; label: string }> = [];
+if (FOLDER_MODE) {
+  doc = await readProject(new NodeFS(FILE));
+  onDisk = true;
+}
 
 function loadDoc(): ProjectDoc {
   if (doc) return doc;
@@ -104,20 +112,24 @@ function emptyGraphOf(): Graph {
   return { version: 1, nodes: [], edges: [], kinds: {} };
 }
 
-function persist(next: ProjectDoc): void {
-  mkdirSync(dirname(FILE), { recursive: true });
-  writeFileSync(FILE, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+async function persist(next: ProjectDoc): Promise<void> {
+  if (FOLDER_MODE) {
+    await writeProject(new NodeFS(FILE), next);
+  } else {
+    mkdirSync(dirname(FILE), { recursive: true });
+    writeFileSync(FILE, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  }
   doc = next;
   onDisk = true;
 }
 
-function mutate(label: string, fn: (d: ProjectDoc) => void): void {
+async function mutate(label: string, fn: (d: ProjectDoc) => void): Promise<void> {
   const before = structuredClone(loadDoc());
   history.push({ doc: before, label });
   if (history.length > 50) history.shift();
   const next = structuredClone(loadDoc());
   fn(next);
-  persist(next);
+  await persist(next);
 }
 
 function graphCard(d: ProjectDoc, ref?: string) {
@@ -244,7 +256,7 @@ interface Tool {
   name: string;
   description: string;
   inputSchema: Json;
-  run: (args: Json) => unknown;
+  run: (args: Json) => unknown | Promise<unknown>;
 }
 
 const tools: Tool[] = [
@@ -252,7 +264,7 @@ const tools: Tool[] = [
     name: 'project_info',
     description: '项目文件路径、是否存在、当前图与各图规模。',
     inputSchema: S.obj('无参数'),
-    run: () => {
+    run: async () => {
       const d = loadDoc();
       const active = activeGraph(d);
       return {
@@ -274,7 +286,7 @@ const tools: Tool[] = [
     name: 'get_graph',
     description: '读取一张图的完整 JSON（节点、连线、kinds）。',
     inputSchema: S.obj('参数', { ...common }),
-    run: ({ graph }) => {
+    run: async ({ graph }) => {
       const d = loadDoc();
       const card = graphCard(d, typeof graph === 'string' ? graph : undefined);
       return { id: card.id, name: card.name, graph: card.graph };
@@ -284,9 +296,9 @@ const tools: Tool[] = [
     name: 'create_graph',
     description: '新建一张图（继承共享 kinds）并设为当前图。',
     inputSchema: S.obj('参数', { name: S.str('图名，默认“图 N”') }),
-    run: ({ name }) => {
+    run: async ({ name }) => {
       let id = '';
-      mutate('新建图', (d) => {
+      await mutate('新建图', (d) => {
         const res = addGraph(d, typeof name === 'string' ? name : undefined);
         id = res.id;
         Object.assign(d, res.project);
@@ -298,8 +310,8 @@ const tools: Tool[] = [
     name: 'set_active_graph',
     description: '切换当前图（id 或名称）。',
     inputSchema: S.obj('参数', { graph: S.str('图 id 或名称') }, ['graph']),
-    run: ({ graph }) => {
-      mutate('切换图', (d) => {
+    run: async ({ graph }) => {
+      await mutate('切换图', (d) => {
         const next = switchGraph(d, String(graph));
         if (!next) throw new Error(`找不到图「${graph}」`);
         Object.assign(d, next);
@@ -317,7 +329,7 @@ const tools: Tool[] = [
       kind: S.str('只看某个 kind'),
       limit: S.num('默认 50'),
     }),
-    run: ({ graph, query, kind, limit }) => {
+    run: async ({ graph, query, kind, limit }) => {
       const g = graphOf(loadDoc(), typeof graph === 'string' ? graph : undefined);
       const q = typeof query === 'string' ? query.trim().toLowerCase() : '';
       const max = typeof limit === 'number' ? Math.max(1, Math.min(200, limit)) : 50;
@@ -347,12 +359,12 @@ const tools: Tool[] = [
         capacity: { type: 'string', enum: ['one', 'many'] },
       }, ['dir'])),
     }, ['name']),
-    run: ({ graph, name, title, color, defaults, ports }) => {
+    run: async ({ graph, name, title, color, defaults, ports }) => {
       const ref = typeof graph === 'string' ? graph : undefined;
       const key = String(name ?? '').trim();
       if (!key) throw new Error('name 不能为空');
       let count = 0;
-      mutate('定义模板', (d) => {
+      await mutate('定义模板', (d) => {
         const g = graphOf(d, ref);
         count = g.nodes.filter((n) => n.kind === key).length;
         const def = {
@@ -381,7 +393,7 @@ const tools: Tool[] = [
       props: S.obj('属性（值或 {value,type,unit}）'),
       ports: S.arr('端口列表（覆盖模板端口）', portSchema),
     }),
-    run: ({ graph, title, kind, id, x, y, props, ports }) => {
+    run: async ({ graph, title, kind, id, x, y, props, ports }) => {
       const ref = typeof graph === 'string' ? graph : undefined;
       const d = loadDoc();
       const g = graphOf(d, ref);
@@ -399,7 +411,7 @@ const tools: Tool[] = [
       }
       node.props = { ...node.props, ...toProps(props) };
       if (Array.isArray(ports)) node.ports = buildPorts(ports);
-      mutate('新增单元', (dd) => replaceGraph(dd, ref, addNodeOp(graphOf(dd, ref), node)));
+      await mutate('新增单元', (dd) => replaceGraph(dd, ref, addNodeOp(graphOf(dd, ref), node)));
       return summary(node);
     },
   },
@@ -415,9 +427,9 @@ const tools: Tool[] = [
       y: S.num('y 坐标'),
       props: S.obj('要合并的属性'),
     }, ['id']),
-    run: ({ graph, id, title, kind, x, y, props }) => {
+    run: async ({ graph, id, title, kind, x, y, props }) => {
       const ref = typeof graph === 'string' ? graph : undefined;
-      mutate('编辑单元', (d) => {
+      await mutate('编辑单元', (d) => {
         let g = graphOf(d, ref);
         const node = myNode(g, String(id));
         if (typeof title === 'string') g = renameNodeOp(g, node.id, title);
@@ -435,10 +447,10 @@ const tools: Tool[] = [
     name: 'remove_nodes',
     description: '删除单元（连带其连线）。',
     inputSchema: S.obj('参数', { ...common, ids: S.arr('单元 id', S.str('id')) }, ['ids']),
-    run: ({ graph, ids }) => {
+    run: async ({ graph, ids }) => {
       const ref = typeof graph === 'string' ? graph : undefined;
       if (!Array.isArray(ids) || !ids.length) throw new Error('ids 不能为空');
-      mutate('删除单元', (d) => replaceGraph(d, ref, removeNodesOp(graphOf(d, ref), ids.map(String))));
+      await mutate('删除单元', (d) => replaceGraph(d, ref, removeNodesOp(graphOf(d, ref), ids.map(String))));
       return { removed: ids.length, nodes: graphOf(loadDoc(), ref).nodes.length };
     },
   },
@@ -452,7 +464,7 @@ const tools: Tool[] = [
       label: S.str('连线标签'),
       amount: S.num('配比/速率，写入 props.amount'),
     }, ['from', 'to']),
-    run: ({ graph, from, to, label, amount }) => {
+    run: async ({ graph, from, to, label, amount }) => {
       const ref = typeof graph === 'string' ? graph : undefined;
       const fromEp = resolveEndpoint(from);
       const toEp = resolveEndpoint(to);
@@ -462,7 +474,7 @@ const tools: Tool[] = [
       const edge = createEdge(fromEp, toEp);
       if (typeof label === 'string' && label) edge.label = label;
       if (typeof amount === 'number') edge.props = { amount: { type: 'number', value: amount } };
-      mutate('新增连线', (d) => replaceGraph(d, ref, addEdgeOp(graphOf(d, ref), edge)));
+      await mutate('新增连线', (d) => replaceGraph(d, ref, addEdgeOp(graphOf(d, ref), edge)));
       return { id: edge.id, from: edge.from, to: edge.to, label: edge.label ?? null };
     },
   },
@@ -470,10 +482,10 @@ const tools: Tool[] = [
     name: 'remove_edges',
     description: '删除连线。',
     inputSchema: S.obj('参数', { ...common, ids: S.arr('连线 id', S.str('id')) }, ['ids']),
-    run: ({ graph, ids }) => {
+    run: async ({ graph, ids }) => {
       const ref = typeof graph === 'string' ? graph : undefined;
       if (!Array.isArray(ids) || !ids.length) throw new Error('ids 不能为空');
-      mutate('删除连线', (d) => {
+      await mutate('删除连线', (d) => {
         let g = graphOf(d, ref);
         for (const id of ids) g = removeEdgeOp(g, String(id));
         replaceGraph(d, ref, g);
@@ -485,10 +497,10 @@ const tools: Tool[] = [
     name: 'auto_layout',
     description: '分层自动布局并写回坐标。',
     inputSchema: S.obj('参数', { ...common }),
-    run: ({ graph }) => {
+    run: async ({ graph }) => {
       const ref = typeof graph === 'string' ? graph : undefined;
       let moved = 0;
-      mutate('自动布局', (d) => {
+      await mutate('自动布局', (d) => {
         const g = graphOf(d, ref);
         const sizes: Record<string, { width: number; height: number }> = {};
         for (const n of g.nodes) sizes[n.id] = estimateSize(n);
@@ -507,7 +519,7 @@ const tools: Tool[] = [
       mapping: S.str('映射文件路径（相对项目文件）；省略用 --mapping 或内置默认映射'),
       out: S.str('输出路径；省略则只返回报告'),
     }),
-    run: ({ graph, out, mapping }) => {
+    run: async ({ graph, out, mapping }) => {
       const d = loadDoc();
       const g = graphOf(d, typeof graph === 'string' ? graph : undefined);
       const result = exportProject(g, resolveMapping(typeof mapping === 'string' ? mapping : undefined));
@@ -523,7 +535,7 @@ const tools: Tool[] = [
     name: 'list_snapshots',
     description: '列出文件级快照（与项目文件同目录的 .snapshots.json，独立于编辑器 localStorage 快照）。',
     inputSchema: S.obj('无参数'),
-    run: () => {
+    run: async () => {
       const list = loadSnaps();
       return {
         file: SNAP_FILE,
@@ -541,7 +553,7 @@ const tools: Tool[] = [
     name: 'create_snapshot',
     description: '把当前整个项目（所有图）存为快照，用于危险批量编辑前回滚。',
     inputSchema: S.obj('参数', { label: S.str('快照名；省略用时间') }),
-    run: ({ label }) => {
+    run: async ({ label }) => {
       const list = loadSnaps();
       const at = Date.now();
       const time = new Date(at).toTimeString().slice(0, 5);
@@ -560,11 +572,11 @@ const tools: Tool[] = [
     name: 'restore_snapshot',
     description: '回滚到某个文件级快照（覆盖当前项目文件；可用 undo 退回回滚前）。',
     inputSchema: S.obj('参数', { id: S.str('快照 id') }, ['id']),
-    run: ({ id }) => {
+    run: async ({ id }) => {
       const list = loadSnaps();
       const snap = list.find((s) => s.id === id);
       if (!snap) throw new Error(`找不到快照「${String(id)}」`);
-      mutate('restore snapshot', (d) => {
+      await mutate('restore snapshot', (d) => {
         const next = structuredClone(snap.project);
         d.version = next.version;
         d.active = next.active;
@@ -577,7 +589,7 @@ const tools: Tool[] = [
     name: 'delete_snapshot',
     description: '删除一个文件级快照。',
     inputSchema: S.obj('参数', { id: S.str('快照 id') }, ['id']),
-    run: ({ id }) => {
+    run: async ({ id }) => {
       const list = loadSnaps();
       const next = list.filter((s) => s.id !== id);
       saveSnaps(next);
@@ -588,7 +600,7 @@ const tools: Tool[] = [
     name: 'validate_project',
     description: '校验项目文件里每张图是否符合 schema。',
     inputSchema: S.obj('无参数'),
-    run: () => {
+    run: async () => {
       const d = loadDoc();
       return {
         ok: d.graphs.every((g) => GraphSchema.safeParse(g.graph).success),
@@ -608,10 +620,10 @@ const tools: Tool[] = [
     name: 'undo',
     description: '撤销本 MCP 会话内最近一次写操作（最多 50 步）。',
     inputSchema: S.obj('无参数'),
-    run: () => {
+    run: async () => {
       const entry = history.pop();
       if (!entry) return { undone: false, message: '没有可撤销的操作' };
-      persist(entry.doc);
+      await persist(entry.doc);
       return { undone: true, label: entry.label, remaining: history.length };
     },
   },
@@ -631,7 +643,7 @@ function fail(id: RpcId, code: number, message: string): void {
   send({ jsonrpc: '2.0', id, error: { code, message } });
 }
 
-function handle(msg: Json): void {
+async function handle(msg: Json): Promise<void> {
   const id = (msg.id ?? null) as RpcId;
   const method = msg.method;
   if (method === 'initialize') {
@@ -665,7 +677,7 @@ function handle(msg: Json): void {
     }
     try {
       const args = (params.arguments ?? {}) as Json;
-      const result = tool.run(args);
+      const result = await tool.run(args);
       reply(id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
     } catch (error) {
       reply(id, {
@@ -679,6 +691,7 @@ function handle(msg: Json): void {
 }
 
 const rl = createInterface({ input: process.stdin, terminal: false });
+let queue: Promise<void> = Promise.resolve();
 rl.on('line', (line) => {
   const trimmed = line.trim();
   if (!trimmed) return;
@@ -689,10 +702,8 @@ rl.on('line', (line) => {
     send({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'JSON 解析失败' } });
     return;
   }
-  try {
-    handle(msg);
-  } catch (error) {
+  queue = queue.then(() => handle(msg)).catch((error: unknown) => {
     const id = (msg.id ?? null) as RpcId;
     fail(id, -32603, (error as Error).message);
-  }
+  });
 });

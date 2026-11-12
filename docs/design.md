@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.14 · 2026-11-12 · 状态：P0–P15b 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器、资产预览、模型通配清单、目录项目）
+> 版本 v0.15 · 2026-11-12 · 状态：P0–P15c 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器、资产预览、模型通配清单、目录项目）
 
 ## 1. 定位
 
@@ -511,6 +511,22 @@ graphs/<图名>__<图 id>/
 实现要点：`src/model/folder.ts` 的 `WriteOptions.readResource`、`resourceFileName`、resources 目录清理；store 的 `importResourceFile`（内存 `resourceFiles`）与 `saveToFolder` 的 fetch/File 读取；Inspector 的 `.file-pick`。
 
 已知限制：预览仍按 `path` 走站点 URL，不直接读目录里的 `file`；导出契约不看 `file`；资源复制只在显式保存时发生。
+
+### P15c：目录重载与 MCP 目录模式（已完成，2026-11-12）
+
+范围：目录项目没有文件监听，外部改动（手改、git pull、AI 写盘）后可以手动重载；MCP 也能直接读写目录项目，而不是只能操作单文件。
+
+验收：
+
+- 侧栏目录条新增「↻」：重新 `readProject` 并替换当前项目，历史/选择清空；外部改 `node.json` 的标题后点 ↻，画布与大纲立即更新；
+- MCP `--file` 指向一个**已存在的目录**时进入目录模式：启动时 `readProject`，每次写操作 `writeProject` 整份回写，快照存 `<目录>/snapshots.json`；`add_node`/`undo`/`validate_project`/`export_project` 全链路通过；
+- 单文件模式（`--file xxx/project.json`）行为不变，原 mcp2 回归全过。
+
+验证：`folder.mjs` 7 项、`mcp-folder.mjs` 通过；`pnpm test` 164 项（20 个文件）；`tsc` / `typecheck:mcp` 干净；`vite build` 主包 JS gzip 163.85 kB。
+
+实现要点：store 的 `reloadFolder`；`mcp/node-fs.ts` 的 `NodeFS`（把 Node fs 适配成 `ProjectFS`）；`mcp/server.ts` 的 `FOLDER_MODE`、异步 `persist/mutate` 与按行串行处理的请求队列。
+
+已知限制：仍然没有文件监听（浏览器不允许），重载是手动的；MCP 目录模式只写 JSON，不复制 `resources/` 字节；MCP 的撤销栈只在当前会话。
 
 ### 之后（未排期）
 
