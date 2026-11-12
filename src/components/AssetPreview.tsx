@@ -398,6 +398,7 @@ export default function AssetPreview({ resource, nodeId, onClose }: { resource: 
   const isImage = resource.type === 'image';
   const isAudio = resource.type === 'audio';
   const [folderUrl, setFolderUrl] = useState<string | null>(null);
+  const [missPath, setMissPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (!nodeId) return;
@@ -405,7 +406,13 @@ export default function AssetPreview({ resource, nodeId, onClose }: { resource: 
     let url: string | null = null;
     void (async () => {
       const blob = await useGraph.getState().readFolderAsset(nodeId, resource).catch(() => null);
-      if (!alive || !blob) return;
+      if (!alive) return;
+      if (!blob) {
+        setFolderUrl(null);
+        setMissPath(useGraph.getState().folderAssetPath(nodeId, resource));
+        return;
+      }
+      setMissPath(null);
       url = URL.createObjectURL(blob);
       setFolderUrl(url);
     })();
@@ -479,6 +486,7 @@ export default function AssetPreview({ resource, nodeId, onClose }: { resource: 
                   {direct ? (
                     <>
                       无法读取 <code>{resource.path}</code>。
+                      {folderName && missPath ? <> 目录里按 <code>{missPath}</code> 查找，没有找到文件。</> : null}
                       {!folderName && ' 单文件项目不携带资源文件，先绑定项目文件夹再预览，'}
                       或选一张本地图片预览。
                       <div style={{ marginTop: 10 }}>

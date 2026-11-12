@@ -84,7 +84,6 @@ export default function Toolbar() {
   const impactOn = useGraph((s) => s.impactOn);
   const setImpactOn = useGraph((s) => s.setImpactOn);
   const loadFile = useGraph((s) => s.loadFile);
-  const saveCurrentProject = useGraph((s) => s.saveCurrentProject);
   const folderName = useGraph((s) => s.folderName);
   const { fitView } = useReactFlow();
 
@@ -151,12 +150,12 @@ export default function Toolbar() {
         <span className="sep" />
         <SplitButton
           label="保存"
-          title={folderName ? `写回目录「${folderName}」（⌘S）` : '下载项目文件（⌘S）'}
-          onPrimary={saveCurrentProject}
+          title={folderName ? `写回目录「${folderName}」（⌘S）` : '保存项目（⌘S）：选择/创建项目文件夹，资源随目录保存'}
+          onPrimary={() => void useGraph.getState().saveToFolder()}
           items={[
             {
-              label: '下载项目文件…',
-              hint: 'nodeworks.project.json，可用于备份/邮件',
+              label: '下载 JSON 备份…',
+              hint: 'nodeworks.project.json；仅数据，不含资源文件',
               run: () => downloadProject(useGraph.getState().currentProject()),
             },
             {

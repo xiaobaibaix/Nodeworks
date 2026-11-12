@@ -198,6 +198,7 @@ interface Store {
   openDirectory(handle: FileSystemDirectoryHandle): Promise<void>;
   reloadFolder(): Promise<void>;
   readFolderAsset(nodeId: string, resource: ResourceItem): Promise<Blob | null>;
+  folderAssetPath(nodeId: string, resource: ResourceItem): string | null;
   enterSubgraph(id: string): void;
   goToPath(depth: number): void;
   setPreview(on: boolean): void;
@@ -1353,6 +1354,17 @@ export const useGraph = create<Store>((set, get) => ({
     } catch (error) {
       get().toastOf(`重新载入失败：${error instanceof Error ? error.message : String(error)}`);
     }
+  },
+
+  folderAssetPath: (nodeId, resource) => {
+    if (!folderHandle) return null;
+    const state = get();
+    const node = graphOf(state).nodes.find((n) => n.id === nodeId);
+    const card = state.projectGraphs.find((pg) => pg.id === state.activeGraphId)
+      ?? state.projectGraphs.find((pg) => pg.graph.nodes.some((n) => n.id === nodeId));
+    if (!node || !card) return null;
+    const rel = resource.file ?? joinPath('resources', resourceFileName(resource));
+    return joinPath('graphs', graphDirName(card.name, card.id), 'nodes', nodeDirName(node), rel);
   },
 
   readFolderAsset: async (nodeId, resource) => {
