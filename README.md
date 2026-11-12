@@ -12,14 +12,6 @@ pnpm dev
 
 然后打开 Vite 打印的地址（默认 http://127.0.0.1:5173）。
 
-## 示例项目
-
-`examples/steel.project.json`：铁矿 + 煤 + 石灰石 → 钢水 → 钢坯 → 钢板的完整产线，含 3 台机器、3 个配方（周期/功率/温度/收率）、配比连线与两枚图标资源。
-
-- 「打开」选 `examples/steel.project.json` 可直接看单文件版；
-- 「打开目录」选 `examples/steel/` 是同一份数据的文件夹版（含 `resources/` 字节），适合看目录结构；
-- 重新生成：先构建并运行 `scripts/seed-demo.ts`（首次生成 `examples/`，会覆盖同名文件）。
-
 ## 已实现（P0–P15b）
 
 - 画布：缩放、平移、框选、小地图、适应视图（React Flow）
