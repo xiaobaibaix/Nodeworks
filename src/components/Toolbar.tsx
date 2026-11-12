@@ -1,17 +1,144 @@
 import { useReactFlow } from '@xyflow/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { downloadProject } from '../persistence';
 import { beginTemplateDrag } from './dragCreate';
 import { useCurrentGraph, useGraph } from '../store';
 
+function TIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="15"
+      height="15"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const IconUndo = () => (
+  <TIcon>
+    <path d="M5.5 3.5l-3 3 3 3" />
+    <path d="M2.5 6.5h6.2A4.3 4.3 0 0113 10.8V13" />
+  </TIcon>
+);
+const IconRedo = () => (
+  <TIcon>
+    <path d="M10.5 3.5l3 3-3 3" />
+    <path d="M13.5 6.5H7.3A4.3 4.3 0 003 10.8V13" />
+  </TIcon>
+);
+const IconSave = () => (
+  <TIcon>
+    <path d="M3 2.5h7.5L13.5 5.5v8H3z" />
+    <path d="M5.5 2.5v3.5h4.5V2.5" />
+    <path d="M5.5 9h5v4.5h-5z" />
+  </TIcon>
+);
+const IconNew = () => (
+  <TIcon>
+    <path d="M4 2h5l3 3v9H4z" />
+    <path d="M9 2v3h3" />
+    <path d="M8 8v4M6 10h4" />
+  </TIcon>
+);
+const IconFolder = () => (
+  <TIcon>
+    <path d="M2 4.5h4L7.5 6H14v7H2z" />
+  </TIcon>
+);
+const IconPalette = () => (
+  <TIcon>
+    <path d="M8 2a6 6 0 100 12c1.2 0 1.6-.9 1-1.6-.6-.8 0-1.9 1.1-1.9h.9a2 2 0 002-2A6 6 0 008 2z" />
+    <circle cx="5.5" cy="8.2" r=".8" />
+    <circle cx="7" cy="5.4" r=".8" />
+    <circle cx="10.2" cy="5.6" r=".8" />
+  </TIcon>
+);
+const IconKey = () => (
+  <TIcon>
+    <circle cx="5.5" cy="10.5" r="2.5" />
+    <path d="M7.4 8.6L13 3" />
+    <path d="M10.8 5.2l1.4 1.4" />
+  </TIcon>
+);
+const IconDownload = () => (
+  <TIcon>
+    <path d="M8 2.5v8M5 7.5l3 3 3-3" />
+    <path d="M3 13h10" />
+  </TIcon>
+);
+const IconCamera = () => (
+  <TIcon>
+    <path d="M2.5 5.5h3l1-1.5h3l1 1.5h3v7h-11z" />
+    <circle cx="8" cy="9" r="2.2" />
+  </TIcon>
+);
+const IconFit = () => (
+  <TIcon>
+    <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
+  </TIcon>
+);
+const IconLayout = () => (
+  <TIcon>
+    <rect x="6" y="2" width="4" height="3" rx=".6" />
+    <rect x="2" y="11" width="4" height="3" rx=".6" />
+    <rect x="10" y="11" width="4" height="3" rx=".6" />
+    <path d="M8 5v3M4 11V9.5h8V11" />
+  </TIcon>
+);
+const IconImpact = () => (
+  <TIcon>
+    <circle cx="8" cy="8" r="2" />
+    <path d="M8 2v2M8 12v2M2 8h2M12 8h2" />
+    <path d="M4.2 4.2l1.3 1.3M10.5 10.5l1.3 1.3M11.8 4.2l-1.3 1.3M5.5 10.5l-1.3 1.3" />
+  </TIcon>
+);
+
+/** 纯图标按钮：延时悬浮提示，省略文字。 */
+function IconButton({
+  tip,
+  onClick,
+  disabled,
+  className,
+  children,
+}: {
+  tip: string;
+  onClick: () => void;
+  disabled?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className={`icon tip${className ? ` ${className}` : ''}`}
+      data-tip={tip}
+      aria-label={tip}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
 function SplitButton({
   label,
   title,
+  icon,
   onPrimary,
   items,
 }: {
   label: string;
   title: string;
+  icon: ReactNode;
   onPrimary: () => void;
   items: { label: string; hint?: string; run: () => void }[];
 }) {
@@ -34,7 +161,7 @@ function SplitButton({
   }, [open]);
   return (
     <div className="split" ref={ref}>
-      <button onClick={onPrimary} title={title}>{label}</button>
+      <button onClick={onPrimary} title={title} aria-label={label}>{icon}</button>
       <button
         className="caret"
         aria-label={`${label}的其他方式`}
@@ -99,26 +226,28 @@ export default function Toolbar() {
 
   return (
     <header className="bar">
-      <div className="brand">
-        <span className="dot" />
-        Nodeworks
-        <span className="sub">单元节点编辑器</span>
-      </div>
-      <div className="view-switch" role="group" aria-label="视图">
-        <button
-          className={view === 'graph' ? 'on' : ''}
-          onClick={() => setView('graph')}
-          title="画布视图"
-        >
-          图
-        </button>
-        <button
-          className={view === 'table' ? 'on' : ''}
-          onClick={() => setView('table')}
-          title="表格投影：批量编辑属性"
-        >
-          表格
-        </button>
+      <div className="bar-left">
+        <div className="brand">
+          <span className="dot" />
+          Nodeworks
+          <span className="sub">单元节点编辑器</span>
+        </div>
+        <div className="view-switch" role="group" aria-label="视图">
+          <button
+            className={view === 'graph' ? 'on' : ''}
+            onClick={() => setView('graph')}
+            title="画布视图"
+          >
+            图
+          </button>
+          <button
+            className={view === 'table' ? 'on' : ''}
+            onClick={() => setView('table')}
+            title="表格投影：批量编辑属性"
+          >
+            表格
+          </button>
+        </div>
       </div>
       <div className="bar-actions">
         <button onPointerDown={(e) => beginTemplateDrag(e, '', '单元', toastOf)} disabled={preview}>+ 单元</button>
@@ -139,11 +268,17 @@ export default function Toolbar() {
           ))}
         </select>
         <button className="kbd" title="命令面板 (⌘K)" onClick={() => togglePalette(true)}>⌘K</button>
-        <button onClick={undo} disabled={!canUndo || preview}>撤销</button>
-        <button onClick={redo} disabled={!canRedo || preview}>重做</button>
+        <span className="sep" />
+        <IconButton tip="撤销（⌘Z）" onClick={undo} disabled={!canUndo || preview}>
+          <IconUndo />
+        </IconButton>
+        <IconButton tip="重做（⌘⇧Z）" onClick={redo} disabled={!canRedo || preview}>
+          <IconRedo />
+        </IconButton>
         <span className="sep" />
         <SplitButton
           label="保存"
+          icon={<IconSave />}
           title={folderName
             ? `写回目录「${folderName}」（⌘S）`
             : fileName
@@ -163,9 +298,12 @@ export default function Toolbar() {
             },
           ]}
         />
-        <button onClick={() => useGraph.getState().openNewProject()} title="新建项目（会清空当前编辑）">新建</button>
+        <IconButton tip="新建项目（会清空当前编辑）" onClick={() => useGraph.getState().openNewProject()}>
+          <IconNew />
+        </IconButton>
         <SplitButton
           label="打开"
+          icon={<IconFolder />}
           title="打开项目文件夹（推荐：资源随目录读取）"
           onPrimary={() => void useGraph.getState().openFolder()}
           items={[
@@ -181,31 +319,43 @@ export default function Toolbar() {
             },
           ]}
         />
-        <button onClick={() => openStyle(true)} title="资源全局风格：图标/模型描述词的公共前提">
-          资源风格…
-        </button>
-        <button onClick={() => openProviders(true)} title="全局生成服务与 API Key（类似 CC Switch）">
-          生成设置…
-        </button>
-        <button onClick={() => setExportOpen(true)} title="按映射导出为 project.json（先 dry-run）">
-          导出…
-        </button>
-        <button onClick={() => openSnapshots(true)} title="本地快照：对比、回滚（可撤销）">
-          快照…
-        </button>
         <span className="sep" />
-        <button onClick={() => fitView({ padding: 0.25, duration: 300 })}>适应视图</button>
-        <button onClick={autoLayout} disabled={preview} title="按依赖分层重新排列（⌘⇧L，可撤销）">
-          自动布局
-        </button>
+        <IconButton className="quiet" tip="资源全局风格…" onClick={() => openStyle(true)}>
+          <IconPalette />
+        </IconButton>
+        <IconButton className="quiet" tip="生成设置…（全局服务与 API Key）" onClick={() => openProviders(true)}>
+          <IconKey />
+        </IconButton>
+        <IconButton className="quiet" tip="导出…（按映射，先 dry-run）" onClick={() => setExportOpen(true)}>
+          <IconDownload />
+        </IconButton>
+        <IconButton className="quiet" tip="快照…（本地对比与回滚）" onClick={() => openSnapshots(true)}>
+          <IconCamera />
+        </IconButton>
+        <span className="sep" />
+        <IconButton
+          className="quiet"
+          tip="适应视图"
+          onClick={() => fitView({ padding: 0.25, duration: 300 })}
+        >
+          <IconFit />
+        </IconButton>
+        <IconButton
+          className="quiet"
+          tip="自动布局（⌘⇧L）"
+          onClick={autoLayout}
+          disabled={preview}
+        >
+          <IconLayout />
+        </IconButton>
         {view === 'graph' && (
-          <button
-            className={impactOn ? 'on' : ''}
+          <IconButton
+            className={`quiet${impactOn ? ' on' : ''}`}
+            tip="影响面（高亮上下游依赖）"
             onClick={toggleImpact}
-            title="高亮选中单元的上下游依赖（只读）"
           >
-            影响面
-          </button>
+            <IconImpact />
+          </IconButton>
         )}
         <span className="count">{count} 个单元{preview ? ' · 预览' : ''}</span>
       </div>
