@@ -42,7 +42,7 @@ pnpm dev
 - 映射外置：`src/mappings/forgeworks.mapping.json`，导出对话框可下载映射、载入自定义 `export.mapping.json`、恢复默认
 - 跨子图直连：子图层把输出端口拖到「连接到其它子图…」，选另一子图内部的输入端口；自动建外层端口、写映射、连根层边，一条历史可撤销
 - MCP：`mcp/server.ts` 提供 stdio MCP，AI 可读图、建模板、增删单元/连线、自动布局、导出与校验、文件级快照（见下）
-- 持久化：编辑防抖写入 localStorage；「保存」未绑定目录时下载整份 `nodeworks.project.json`（多张根图 + 共享 kinds + active），「打开」支持项目文件夹、project 多图文件或旧单图，均做 zod 校验
+- 持久化：编辑防抖写入 localStorage；「保存」未绑定目录时下载整份 `nodeworks.project.json`（多张根图 + 共享 kinds + active），「打开」支持项目文件夹、project 多图文件或旧单图，均做 zod 校验；打开带资源的单文件时会提示选择项目文件夹，绑定后资源预览直接读目录
 - 示例图：钛矿 → 钛锭 → 钛板
 
 ## 数据模型

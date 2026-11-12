@@ -112,6 +112,9 @@ interface Store {
   snapshots: Snapshot[];
   snapshotOpen: boolean;
   folderName: string | null;
+  /** 打开的单个文件引用了目录资源时，提示去绑定项目文件夹（值为资源数量，0 表示关闭）。 */
+  assetPrompt: number;
+  dismissAssetPrompt(): void;
   /** 多图容器：一个 project 下的所有根图（当前图另外存在 graph 里） */
   projectGraphs: ProjectGraph[];
   activeGraphId: string;
@@ -248,6 +251,7 @@ export const useGraph = create<Store>((set, get) => ({
   snapshots: [],
   snapshotOpen: false,
   folderName: null,
+  assetPrompt: 0,
   projectGraphs: [],
   activeGraphId: '',
 
@@ -1010,6 +1014,7 @@ export const useGraph = create<Store>((set, get) => ({
       exportOpen: false,
       snapshotOpen: false,
       folderName: null,
+      assetPrompt: 0,
       ...(() => {
         const seeded = projectFromGraph(g);
         return { projectGraphs: seeded.graphs, activeGraphId: seeded.active };
@@ -1022,23 +1027,28 @@ export const useGraph = create<Store>((set, get) => ({
     if (project) {
       const active = projectActiveGraph(project);
       get().load(active.graph);
-      const hasFiles = project.graphs.some((pg) =>
-        pg.graph.nodes.some((n) => n.resources?.some((r) => r.file)),
+      const fileCount = project.graphs.reduce(
+        (sum, pg) => sum + pg.graph.nodes.reduce((n, node) => n + (node.resources?.length ?? 0), 0),
+        0,
       );
       set({
         graph: active.graph,
         projectGraphs: project.graphs,
         activeGraphId: project.active,
+        assetPrompt: fileCount,
         toast: `已载入项目「${project.graphs.find((g) => g.id === project.active)?.name ?? ''}」· 共 ${project.graphs.length} 张图${
-          hasFiles ? '；资源文件需用「打开目录」才能预览' : ''
+          fileCount ? '；资源文件需绑定项目文件夹才能预览' : ''
         }`,
       });
       return true;
     }
     const single = parseGraph(raw);
     get().load(single);
-    const hasFiles = single.nodes.some((n) => n.resources?.some((r) => r.file));
-    set({ toast: hasFiles ? '已载入图；资源文件不在单文件里，预览请用「打开目录」' : '已载入图' });
+    const fileCount = single.nodes.reduce((n, node) => n + (node.resources?.length ?? 0), 0);
+    set({
+      assetPrompt: fileCount,
+      toast: fileCount ? '已载入图；资源文件需绑定项目文件夹才能预览' : '已载入图',
+    });
     return false;
   },
 
@@ -1170,6 +1180,8 @@ export const useGraph = create<Store>((set, get) => ({
     saveProjectDoc(project);
   },
 
+  dismissAssetPrompt: () => set({ assetPrompt: 0 }),
+
   saveCurrentProject: () => {
     const state = get();
     if (state.folderName && folderHandle) {
@@ -1234,6 +1246,7 @@ export const useGraph = create<Store>((set, get) => ({
         projectGraphs: project.graphs,
         activeGraphId: project.active,
         folderName: handle.name,
+        assetPrompt: 0,
         toast: `已打开目录项目「${handle.name}」· 共 ${project.graphs.length} 张图`,
       });
       folderHandle = handle;

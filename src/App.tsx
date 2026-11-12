@@ -7,6 +7,7 @@ import BoundaryNode from './components/BoundaryNode';
 import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
 import CrossLinkDialog from './components/CrossLinkDialog';
+import AssetFolderPrompt from './components/AssetFolderPrompt';
 import ExportDialog from './components/ExportDialog';
 import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
@@ -490,6 +491,8 @@ export default function App() {
           state.openSnapshots(false);
         } else if (state.exportOpen) {
           state.setExportOpen(false);
+        } else if (state.assetPrompt) {
+          state.dismissAssetPrompt();
         } else if (state.pendingPort) {
           state.cancelRemovePort();
         } else if (!typing) {
@@ -538,6 +541,7 @@ export default function App() {
         <ReconnectWizard />
         <ExportDialog />
         <SnapshotDialog />
+        <AssetFolderPrompt />
       </div>
     </ReactFlowProvider>
   );

@@ -1139,3 +1139,27 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 }
 .split .menu button:hover { background: rgba(255, 255, 255, 0.06); }
 .split .menu small { color: var(--dim); font-size: 11px; }
+
+.asset-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 10, 13, 0.6);
+}
+.asset-prompt .card {
+  width: min(460px, calc(100vw - 48px));
+  padding: 18px 20px;
+  background: #1a1e24;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.asset-prompt h3 { margin: 0 0 8px; font-size: 15px; }
+.asset-prompt p { margin: 0 0 12px; color: var(--dim); line-height: 1.7; }
+.asset-prompt code { color: var(--text); }
+.asset-prompt .actions { display: flex; gap: 8px; }
+.asset-prompt .actions button { padding: 7px 12px; }
+.asset-prompt .actions button.primary { background: var(--accent); color: #1a1206; border-color: transparent; }
+.asset-prompt .hint { margin-top: 10px; color: var(--dim); font-size: 11px; }
