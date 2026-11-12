@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useNodesInitialized, useReactFlow,
+  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, SelectionMode, useNodesInitialized, useReactFlow, useStoreApi,
   type Connection, type Edge, type EdgeChange, type Node, type NodeChange,
 } from '@xyflow/react';
 import BoundaryNode from './components/BoundaryNode';
@@ -60,6 +60,7 @@ function Canvas() {
   const focus = useGraph((s) => s.focus);
   const setFocus = useGraph((s) => s.setFocus);
   const { fitView, screenToFlowPosition } = useReactFlow();
+  const flowStore = useStoreApi();
   const nodesInitialized = useNodesInitialized();
   const didFit = useRef(false);
 
@@ -202,7 +203,7 @@ function Canvas() {
         sourceHandle: o.from.port,
         targetHandle: o.to.port,
         label: e.label,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
         selected: selectedEdge === e.id,
         hidden: filtering && (!visibleIds.has(e.from.node) || !visibleIds.has(e.to.node)),
@@ -226,7 +227,7 @@ function Canvas() {
                 sourceHandle: portId,
                 target: ep.node,
                 targetHandle: ep.port,
-                type: 'smoothstep',
+                type: 'default',
                 style: MAP_EDGE_STYLE,
                 selectable: false,
                 deletable: false,
@@ -237,7 +238,7 @@ function Canvas() {
                 sourceHandle: ep.port,
                 target: OUTER_OUT,
                 targetHandle: portId,
-                type: 'smoothstep',
+                type: 'default',
                 style: MAP_EDGE_STYLE,
                 selectable: false,
                 deletable: false,
@@ -343,6 +344,43 @@ function Canvas() {
     [commitMoveMany, commitMoveBoundary],
   );
 
+  // 框选后拖动选区框：React Flow 走 onSelectionDrag*，不经过 onNodeDrag*。
+  const onSelectionDragStart = useCallback((_: unknown, dragged: Node[]) => {
+    const state = useGraph.getState();
+    const from: Record<string, Pos> = {};
+    for (const n of dragged) {
+      const model = graphOf(state).nodes.find((m) => m.id === n.id);
+      if (model) from[n.id] = { ...model.pos };
+    }
+    dragFrom.current = from;
+    dragAnchor.current = null;
+  }, []);
+
+  const onSelectionDrag = useCallback(
+    (_: unknown, dragged: Node[]) => {
+      const moves: Record<string, Pos> = {};
+      for (const n of dragged) if (dragFrom.current[n.id]) moves[n.id] = { ...n.position };
+      silentMoveMany(moves);
+    },
+    [silentMoveMany],
+  );
+
+  const onSelectionDragStop = useCallback(
+    (_: unknown, dragged: Node[]) => {
+      const start = dragFrom.current;
+      dragFrom.current = {};
+      const from: Record<string, Pos> = {};
+      const to: Record<string, Pos> = {};
+      for (const n of dragged) {
+        if (!start[n.id]) continue;
+        from[n.id] = start[n.id];
+        to[n.id] = { ...n.position };
+      }
+      if (Object.keys(to).length) commitMoveMany(from, to);
+    },
+    [commitMoveMany],
+  );
+
   // React Flow 受控模式下 select 变更只会通过 onNodesChange/onEdgesChange 发出；
   // 不接这两个回调，点击/框选就完全不会选中任何东西。
   const onNodesChange = useCallback(
@@ -380,6 +418,8 @@ function Canvas() {
         (c): c is Extract<EdgeChange, { type: 'select' }> => c.type === 'select',
       );
       if (!selections.length) return;
+      // 框选会顺带选中节点之间的连线；这里按单选连线处理会把刚框中的节点清掉，框选期间忽略。
+      if (flowStore.getState().userSelectionRect) return;
       const chosen = selections.find((c) => c.selected);
       if (chosen) {
         select([], chosen.id);
@@ -388,7 +428,7 @@ function Canvas() {
       const current = useGraph.getState().selectedEdge;
       if (current && selections.some((c) => c.id === current)) select([], null);
     },
-    [select],
+    [select, flowStore],
   );
 
 
@@ -417,6 +457,13 @@ function Canvas() {
       onNodeDragStart={onNodeDragStart}
       onNodeDrag={onNodeDrag}
       onNodeDragStop={onNodeDragStop}
+      onSelectionDragStart={onSelectionDragStart}
+      onSelectionDrag={onSelectionDrag}
+      onSelectionDragStop={onSelectionDragStop}
+      // 左键在空白处拖 = 框选（碰到即选中）；中键/右键拖 = 平移画布
+      selectionOnDrag
+      selectionMode={SelectionMode.Partial}
+      panOnDrag={[1, 2]}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onDelete={({ nodes: gone, edges: alsoGone }) => {
