@@ -990,3 +990,77 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 }
 .cross-target:hover { border-color: var(--accent); background: #151c25; }
 .cross-target .muted { color: var(--muted); }
+
+/* 资源预览 */
+.asset-modal {
+  position: fixed; inset: 0; z-index: 95; padding: 24px;
+  background: rgba(5, 7, 10, .72);
+  display: flex; align-items: center; justify-content: center;
+}
+.asset-box {
+  width: min(1180px, 96vw); height: min(760px, 92vh);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .5);
+}
+.asset-box > header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; border-bottom: 1px solid var(--line);
+}
+.asset-box h2 { margin: 0 0 2px; font-size: 14px; }
+.asset-actions { display: flex; gap: 8px; align-items: center; }
+.asset-body { flex: 1; min-height: 0; }
+.image-pane { height: 100%; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.image-pane img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; background: #0b0e13; }
+.audio-pane { padding: 40px; }
+.model-pane {
+  height: 100%; display: grid; grid-template-columns: 220px minmax(0, 1fr) 270px;
+  grid-template-rows: minmax(0, 1fr) 30px;
+}
+.model-tree-panel, .model-mat-panel { overflow: auto; padding: 10px 12px; background: #14171d; }
+.model-tree-panel { border-right: 1px solid var(--line); }
+.model-mat-panel { border-left: 1px solid var(--line); }
+.model-panel-head {
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  color: #8a94a3; margin-bottom: 8px;
+}
+.model-tree, .model-tree ul { list-style: none; margin: 0; padding-left: 12px; }
+.model-tree { padding-left: 0; }
+.model-tree li { margin: 2px 0; }
+.model-tree summary { cursor: pointer; color: #cfd6e2; }
+.model-tree .tree-leaf { color: #cfd6e2; }
+.model-tree .tree-kind { color: #6f7a8b; margin-left: 6px; font-size: 11px; }
+.model-stage {
+  position: relative; min-height: 0;
+  background: radial-gradient(circle at 50% 40%, #1a2029 0%, #0e1116 70%);
+}
+.model-host { position: absolute; inset: 0; }
+.model-canvas { width: 100%; height: 100%; display: block; }
+.model-overlay {
+  position: absolute; inset: 0; padding: 24px; font-size: 12px; text-align: center;
+  display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center;
+  color: #aab3c2;
+}
+.model-overlay.is-error strong { color: #ff9a9a; }
+.model-hud { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 8px; align-items: center; }
+.model-hud .hint { color: #7c8798; }
+.model-hud button.on { border-color: var(--accent); color: var(--accent); }
+.model-stats {
+  grid-column: 1 / -1; display: flex; gap: 16px; align-items: center;
+  padding: 0 12px; border-top: 1px solid var(--line);
+  color: #8a94a3; font-size: 11px;
+}
+.mat-card { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 8px; background: #10141a; }
+.mat-title { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.mat-title i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.mat-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: #8a94a3; font-size: 11px; margin: 4px 0; }
+.mat-textures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tex { display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: #8a94a3; }
+.tex img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); }
+.tex-missing {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1; background: #0b0e13; border: 1px dashed var(--line); border-radius: 4px;
+}
+.res-row { grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1.3fr) 26px 24px; }
+.link { background: none; border: 0; color: var(--accent); padding: 0 6px; cursor: pointer; font-size: 11px; }
+.link:hover { text-decoration: underline; }

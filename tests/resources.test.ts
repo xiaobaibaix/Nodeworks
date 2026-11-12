@@ -72,3 +72,15 @@ describe('资源项容器', () => {
     expect(GraphSchema.safeParse(bad).success).toBe(false);
   });
 });
+
+describe('assetUrl', () => {
+  it('相对路径按站点根解析，绝对地址原样保留', async () => {
+    const { assetUrl } = await import('../src/components/AssetPreview');
+    expect(assetUrl('assets/icon.png')).toBe('/assets/icon.png');
+    expect(assetUrl('./assets/a b.png')).toBe('/assets/a b.png');
+    expect(assetUrl('/assets/x.glb')).toBe('/assets/x.glb');
+    expect(assetUrl('https://cdn.example.com/a.png')).toBe('https://cdn.example.com/a.png');
+    expect(assetUrl('data:image/png;base64,AAA')).toBe('data:image/png;base64,AAA');
+    expect(assetUrl('')).toBe('');
+  });
+});

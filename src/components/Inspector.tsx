@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useCurrentGraph, useGraph } from '../store';
-import type { ResourceType } from '../model/types';
+import type { ResourceItem, ResourceType } from '../model/types';
+import AssetPreview from './AssetPreview';
 
 const TYPES = ['string', 'number', 'boolean', 'json'];
 
@@ -141,6 +142,7 @@ export default function Inspector() {
   const setPreview = useGraph((s) => s.setPreview);
   const enterSubgraph = useGraph((s) => s.enterSubgraph);
   const setSubgraphMap = useGraph((s) => s.setSubgraphMap);
+  const [previewRes, setPreviewRes] = useState<ResourceItem | null>(null);
 
   const edge = edgeId ? graph.edges.find((e) => e.id === edgeId) : undefined;
   const node = selectedNodes.length === 1
@@ -219,7 +221,10 @@ export default function Inspector() {
         <h3>资源 <span className="dim">{node.resources?.length ?? 0}</span></h3>
         <ul className="multi-list">
           {(node.resources ?? []).map((r) => (
-            <li key={r.id}>{r.type} · {r.label} · <code>{r.path || '（未填路径）'}</code></li>
+            <li key={r.id}>
+              {r.type} · {r.label} · <code>{r.path || '（未填路径）'}</code>
+              <button className="link" onClick={() => setPreviewRes(r)}>预览</button>
+            </li>
           ))}
           {!(node.resources ?? []).length && <li className="hint">无</li>}
         </ul>
@@ -230,6 +235,7 @@ export default function Inspector() {
           ))}
         </ul>
         <button onClick={() => setPreview(false)}>退出预览以编辑</button>
+        {previewRes && <AssetPreview resource={previewRes} onClose={() => setPreviewRes(null)} />}
       </aside>
     );
   }
@@ -288,6 +294,7 @@ export default function Inspector() {
             </select>
             <TextCommit value={r.label} onCommit={(v) => setResource(node.id, r.id, { label: v })} />
             <TextCommit value={r.path} onCommit={(v) => setResource(node.id, r.id, { path: v })} />
+            <button className="icon" title="预览资源" onClick={() => setPreviewRes(r)}>◎</button>
             <button className="icon" title="删除资源项" onClick={() => removeResource(node.id, r.id)}>×</button>
           </div>
         ))}
@@ -398,6 +405,7 @@ export default function Inspector() {
 
       <h3>危险区</h3>
       <button className="danger" onClick={() => removeNode(node.id)}>删除单元</button>
+      {previewRes && <AssetPreview resource={previewRes} onClose={() => setPreviewRes(null)} />}
     </aside>
   );
 }

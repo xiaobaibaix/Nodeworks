@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.10 · 2026-11-12 · 状态：P0–P12 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器）
+> 版本 v0.11 · 2026-11-12 · 状态：P0–P13 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器、资产预览）
 
 ## 1. 定位
 
@@ -206,8 +206,9 @@ export.mapping.json     # 导出契约（P4，当前以 src/model/mapping.ts 的
 src/
   model/       types / schema / sample / ops / history / layout / clipboard / query / path / table / impact
   store.ts     zustand：图 + 历史 + 选择 + 过滤 + 剪贴板 + 面板状态 + 视图/影响面 + toast
-  components/  UnitNode / Toolbar / Inspector / OrphanBanner / Sidebar /
-               CommandPalette / MultiBar / ReconnectWizard / Breadcrumbs / TableView / ImpactPanel
+  components/  UnitNode / Toolbar / Inspector / OrphanBanner / Sidebar / CommandPalette /
+               MultiBar / ReconnectWizard / Breadcrumbs / TableView / ImpactPanel /
+               ExportDialog / SnapshotDialog / CrossLinkDialog / BoundaryNode / AssetPreview
   persistence.ts  localStorage + 文件下载/读取
   App.tsx      画布装配、多选拖动、快捷键、自动保存
 ```
@@ -433,9 +434,25 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 
 实现要点：`src/model/ops.ts` 的 `createResource/addResourceOp/setResourceOp/removeResourceOp`；store 的 `addResource/setResource/removeResource`；Inspector 只登记路径不碰文件，文件仍放 `assets/`。
 
+### P13：资产预览（已完成，2026-11-12）
+
+范围：资源项旁「◎」打开预览。图片按路径显示；模型用 three.js 在模态里旋转/缩放/平移查看，同时展示节点树、材质参数与贴图缩略图；也可以选择本地文件，预览还没部署到站点上的资产。
+
+验收：
+
+- 图片：路径可读则直接显示；读不到时提示并允许选本地图片；预览本身不写回路径、不改图。
+- 模型：GLB 与内嵌资源的 glTF 可解析；显示节点树（组/网格/骨骼/灯光）、材质（基础色、金属度、粗糙度、自发光、透明、双面）与各贴图槽缩略图，以及节点/网格/三角面/材质/贴图统计；有动画时可播放，支持自动旋转。
+- 交互：左键拖动旋转、滚轮缩放、右键平移；Esc 或点击背景关闭。
+- 依赖 three 通过动态 `import()` 懒加载，主包不包含 three。
+- `preview.mjs` 8 项通过；`pnpm test` 148 项通过（18 个文件）；`tsc` 干净；`vite build` 主包 JS gzip 158.86 kB，three 单独 chunk gzip 191.20 kB（仅打开模型预览时加载）。
+
+实现要点：`src/components/AssetPreview.tsx` 的 `assetUrl` 与三种面板；`ModelPane` 动态 import `three` / `GLTFLoader` / `OrbitControls`，本地文件走 `loader.parse(arrayBuffer)`；贴图缩略图从 `texture.image` 绘到 48px canvas；节点树用原生 `<details>`。
+
+已知限制：`.gltf` 的外部贴图/二进制需要同路径可访问，否则只显示几何与内嵌资源；贴图暂不能按通道（R/G/B）单独查看。
+
 ### 之后（未排期）
 
-只读分享页、协作、快照导出为文件、端口类型强约束、嵌套子图互连（当前跨子图直连限于顶层兄弟子图）。
+只读分享页、协作、快照导出为文件、端口类型强约束、嵌套子图互连（当前跨子图直连限于顶层兄弟子图）、视频/字体预览、贴图通道检查。
 
 ## 8. 非目标
 
