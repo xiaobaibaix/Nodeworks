@@ -98,6 +98,10 @@ input:focus, select:focus { outline: 1px solid var(--accent); border-color: var(
 .prop-type { color: var(--dim); font-size: 11px; text-align: right; }
 .prop-row input, .prop-row select { width: 100%; }
 
+.res-row { display: grid; grid-template-columns: 68px 1fr 1.4fr 24px; gap: 6px; align-items: center; margin-top: 4px; }
+.res-row input, .res-row select { width: 100%; }
+.res-row .icon { padding: 0; }
+
 .prop-add { display: grid; grid-template-columns: 1fr 82px 1fr 28px; gap: 6px; margin-top: 8px; }
 .prop-add button { padding: 4px 0; }
 

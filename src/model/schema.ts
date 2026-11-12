@@ -31,6 +31,17 @@ const NodeBase = z.object({
   pos: z.object({ x: z.number(), y: z.number() }),
   subgraph: z.lazy(() => GraphSchema).optional(),
   subgraphMap: z.record(z.string(), EndpointSchema).optional(),
+  resources: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        type: z.enum(['image', 'model', 'audio', 'other']),
+        label: z.string(),
+        path: z.string(),
+        meta: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+      }),
+    )
+    .optional(),
   boundaryPos: z
     .object({
       in: z.object({ x: z.number(), y: z.number() }).optional(),

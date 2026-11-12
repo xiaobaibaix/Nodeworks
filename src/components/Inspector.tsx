@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useCurrentGraph, useGraph } from '../store';
+import type { ResourceType } from '../model/types';
 
 const TYPES = ['string', 'number', 'boolean', 'json'];
 
@@ -125,6 +126,9 @@ export default function Inspector() {
   const setKind = useGraph((s) => s.setKind);
   const setProp = useGraph((s) => s.setProp);
   const removeProp = useGraph((s) => s.removeProp);
+  const addResource = useGraph((s) => s.addResource);
+  const setResource = useGraph((s) => s.setResource);
+  const removeResource = useGraph((s) => s.removeResource);
   const addPort = useGraph((s) => s.addPort);
   const setPort = useGraph((s) => s.setPort);
   const requestRemovePort = useGraph((s) => s.requestRemovePort);
@@ -212,6 +216,13 @@ export default function Inspector() {
           ))}
           {!Object.keys(node.props).length && <li className="hint">无</li>}
         </ul>
+        <h3>资源 <span className="dim">{node.resources?.length ?? 0}</span></h3>
+        <ul className="multi-list">
+          {(node.resources ?? []).map((r) => (
+            <li key={r.id}>{r.type} · {r.label} · <code>{r.path || '（未填路径）'}</code></li>
+          ))}
+          {!(node.resources ?? []).length && <li className="hint">无</li>}
+        </ul>
         <h3>端口</h3>
         <ul className="multi-list">
           {node.ports.map((port) => (
@@ -261,6 +272,33 @@ export default function Inspector() {
         {Object.keys(node.props).length === 0 && <div className="hint">还没有属性</div>}
       </div>
       <AddProp nodeId={node.id} />
+
+      <h3>资源 <span className="dim">{node.resources?.length ?? 0}</span></h3>
+      <div className="res-list">
+        {(node.resources ?? []).map((r) => (
+          <div className="res-row" key={r.id}>
+            <select
+              value={r.type}
+              onChange={(e) => setResource(node.id, r.id, { type: e.target.value as ResourceType })}
+            >
+              <option value="image">图片</option>
+              <option value="model">模型</option>
+              <option value="audio">音频</option>
+              <option value="other">其它</option>
+            </select>
+            <TextCommit value={r.label} onCommit={(v) => setResource(node.id, r.id, { label: v })} />
+            <TextCommit value={r.path} onCommit={(v) => setResource(node.id, r.id, { path: v })} />
+            <button className="icon" title="删除资源项" onClick={() => removeResource(node.id, r.id)}>×</button>
+          </div>
+        ))}
+        {(node.resources ?? []).length === 0 && <div className="hint">还没有资源项</div>}
+      </div>
+      <div className="btn-row">
+        <button onClick={() => addResource(node.id, 'image')}>+ 图片</button>
+        <button onClick={() => addResource(node.id, 'model')}>+ 模型</button>
+        <button onClick={() => addResource(node.id, 'other')}>+ 其它</button>
+      </div>
+      <div className="hint">资源项只登记类型、名称与相对路径（如 assets/icon.png），文件本身不进图。</div>
 
       <h3>端口</h3>
       <div className="port-list">

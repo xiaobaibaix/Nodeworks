@@ -1,6 +1,6 @@
 # Nodeworks 设计文档
 
-> 版本 v0.9 · 2026-11-11 · 状态：P0–P11 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图）
+> 版本 v0.10 · 2026-11-12 · 状态：P0–P12 均已实现（多图、子图可视化与直连、映射外置、MCP、可交互缩略图、资源项容器）
 
 ## 1. 定位
 
@@ -89,7 +89,11 @@ Nodeworks 的取舍是**分工**：
         { "id": "p_in_1", "dir": "in", "label": "矿石", "capacity": "many" },
         { "id": "p_out_1", "dir": "out", "label": "钛锭", "capacity": "many" }
       ],
-      "pos": { "x": 430, "y": 180 }
+      "pos": { "x": 430, "y": 180 },
+      "resources": [
+        { "id": "r_9a1", "type": "image", "label": "图标", "path": "assets/icon_ti.png" },
+        { "id": "r_9a2", "type": "model", "label": "模型", "path": "assets/titanium.glb" }
+      ]
     }
   ],
   "edges": [
@@ -111,7 +115,8 @@ Nodeworks 的取舍是**分工**：
 - **子图**：节点可带 `subgraph`（结构与根图完全相同的嵌套 `Graph`）与 `subgraphMap`（父端口 id → `{node, port}` 内部端点）。子图与父图存在同一份文件里，`version` 只在根图出现；进入子图的路径是节点 id 链，历史里记录的操作在提交时抬升到根图。
 - **校验**：载入时用 zod 校验 `version`、端口方向、引用存在性；错误信息带路径（`图数据不合法：nodes[3].ports[0].dir`）。
 - **持久化**：编辑防抖 250ms 写 `localStorage`；显式「保存」下载 `project.graph.json`；「打开」读文件并校验后替换当前图（清空历史）。
-- **为什么单文件**：便于 git diff、便于发给别人、便于导出契约做整体校验。资产（图片/模型）后续放 `assets/` 并以相对路径引用，不进 json。
+- **资源项**（`node.resources`）：节点上可动态增删的资产登记，每项是 `{ id, type: image|model|audio|other, label, path, meta? }`。图标加一个 `image` 项，模型加一个 `model` 项；文件放 `assets/`，json 里只存相对路径，不内嵌 base64。它和 `props` 分开，因为资源是"外部文件引用"，需要按类型渲染、可挂多个，而 props 是标量/短文本。
+- **为什么单文件**：便于 git diff、便于发给别人、便于导出契约做整体校验。资产（图片/模型）放 `assets/` 并以相对路径引用，不进 json。
 
 ### 4.1 文件与项目结构
 
@@ -415,6 +420,18 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 - `pnpm test` 143 项通过（17 个文件；新增 cross 3、preview id 1、外层代理位置 2）；`tsc` 干净；`vite build` 成功（JS gzip 153.51 kB、CSS gzip 7.09 kB）。
 
 实现要点：`src/model/cross.ts` 的 `crossTargets/planCrossLink`（合成 addPortOp + setSubgraphMapOp + addEdgeOp，纯函数可测）；store 的 `linkCrossSubgraph` 单条历史；`CrossLinkDialog` 只列其它顶层子图内部的输入端口；子图层 `__cross__` 合成落点节点。
+
+### P12：资源项容器（已完成，2026-11-12）
+
+范围：单元检查器在「属性」和「端口」之间增加资源区，可动态添加图片/模型/音频/其它项，编辑类型、名称、相对路径，删除可撤销。
+
+验收：
+
+- 资源项写进 `node.resources`，刷新/保存/打开/子图嵌套都能保留；schema 校验类型枚举与字段形状；
+- 增删改各走一条历史，文本编辑 500ms 内合并；`resources.test.ts` 4 项、浏览器 `resources.mjs` 15 项通过；
+- `pnpm test` 147 项通过（18 个文件）；`tsc` 干净；`vite build` 成功（JS gzip 154.32 kB、CSS gzip 7.12 kB）。
+
+实现要点：`src/model/ops.ts` 的 `createResource/addResourceOp/setResourceOp/removeResourceOp`；store 的 `addResource/setResource/removeResource`；Inspector 只登记路径不碰文件，文件仍放 `assets/`。
 
 ### 之后（未排期）
 

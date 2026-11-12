@@ -1,4 +1,4 @@
-import type { Endpoint, Graph, KindDef, PropMeta, UnitEdge, UnitNode, UnitPort } from './types';
+import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitEdge, UnitNode, UnitPort } from './types';
 
 export function uid(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -320,6 +320,62 @@ export function setBoundaryPosOp(
         ...n,
         boundaryPos: { ...n.boundaryPos, [side]: { x: Math.round(pos.x), y: Math.round(pos.y) } },
       };
+    }),
+  };
+}
+
+export function createResource(type: ResourceType, label?: string): ResourceItem {
+  const names: Record<ResourceType, string> = {
+    image: '图标', model: '模型', audio: '音频', other: '资源',
+  };
+  return {
+    id: uid('r'),
+    type,
+    label: label ?? names[type],
+    path: type === 'image' ? 'assets/icon.png' : type === 'model' ? 'assets/model.glb' : '',
+  };
+}
+
+export function addResourceOp(g: Graph, nodeId: string, item: ResourceItem): Graph {
+  return {
+    ...g,
+    nodes: g.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      return { ...n, resources: [...(n.resources ?? []), item] };
+    }),
+  };
+}
+
+export function setResourceOp(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  patch: Partial<Omit<ResourceItem, 'id'>>,
+): Graph {
+  return {
+    ...g,
+    nodes: g.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      return {
+        ...n,
+        resources: (n.resources ?? []).map((r) =>
+          r.id === resourceId ? { ...r, ...patch, id: resourceId } : r,
+        ),
+      };
+    }),
+  };
+}
+
+export function removeResourceOp(g: Graph, nodeId: string, resourceId: string): Graph {
+  return {
+    ...g,
+    nodes: g.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      const next = (n.resources ?? []).filter((r) => r.id !== resourceId);
+      const copy = { ...n };
+      if (next.length) copy.resources = next;
+      else delete copy.resources;
+      return copy;
     }),
   };
 }

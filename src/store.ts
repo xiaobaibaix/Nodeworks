@@ -8,7 +8,8 @@ import { planCrossLink, type CrossTarget } from './model/cross';
 import { EMPTY_FILTER, type GraphFilter } from './model/query';
 import { emptySubgraph, parseGraph } from './model/schema';
 import {
-  addEdgeOp, addNodeOp, addPortOp, createEdge, createNode, createNodeFromKind, createPort,
+  addEdgeOp, addNodeOp, addPortOp, addResourceOp, createEdge, createNode, createNodeFromKind,
+  createPort, createResource, removeResourceOp, setResourceOp,
   findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp,
   removePortEdgesOp, removePortOp, removePropOp, renameNodeOp, replaceNodeOp,
   replacePortInEdgesOp, setEdgeLabelOp, setKindOp, setNodePosOp, setPortOp,
@@ -24,7 +25,7 @@ import {
   parseProjectDoc, syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
 } from './model/project';
 import { loadCached, loadProject, saveCached, saveProject } from './persistence';
-import type { Endpoint, Graph, KindDef, PropMeta, UnitPort } from './model/types';
+import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitPort } from './model/types';
 import type { SortDir } from './model/table';
 
 export type ViewMode = 'graph' | 'table';
@@ -95,6 +96,9 @@ interface Store {
   moveNodes(moves: Record<string, Pos>, label: string): void;
   autoLayout(): void;
   addProp(nodeId: string, name: string, type: string, value: unknown): void;
+  addResource(nodeId: string, type: ResourceType): void;
+  setResource(nodeId: string, resourceId: string, patch: Partial<Omit<ResourceItem, 'id'>>): void;
+  removeResource(nodeId: string, resourceId: string): void;
   setProp(nodeId: string, name: string, value: unknown): void;
   setPropMany(ids: string[], name: string, type: string, value: unknown): void;
   removeProp(nodeId: string, name: string): void;
@@ -443,6 +447,39 @@ export const useGraph = create<Store>((set, get) => ({
       label: '新增属性',
       run: (g) => setPropOp(g, nodeId, key, prop),
       revert: (g) => removePropOp(g, nodeId, key),
+    });
+  },
+
+  addResource: (nodeId, type) => {
+    const item = createResource(type);
+    get().commit({
+      label: '添加资源项',
+      run: (g) => addResourceOp(g, nodeId, item),
+      revert: (g) => removeResourceOp(g, nodeId, item.id),
+    });
+  },
+
+  setResource: (nodeId, resourceId, patch) => {
+    const node = findNode(graphOf(get()), nodeId);
+    const old = node?.resources?.find((r) => r.id === resourceId);
+    if (!node || !old) return;
+    const field = Object.keys(patch).join(',');
+    get().commit({
+      label: '改资源项',
+      mergeKey: `res:${nodeId}:${resourceId}:${field}`,
+      run: (g) => setResourceOp(g, nodeId, resourceId, patch),
+      revert: (g) => setResourceOp(g, nodeId, resourceId, old),
+    });
+  },
+
+  removeResource: (nodeId, resourceId) => {
+    const node = findNode(graphOf(get()), nodeId);
+    const old = node?.resources?.find((r) => r.id === resourceId);
+    if (!old) return;
+    get().commit({
+      label: '删除资源项',
+      run: (g) => removeResourceOp(g, nodeId, resourceId),
+      revert: (g) => addResourceOp(g, nodeId, old),
     });
   },
 
