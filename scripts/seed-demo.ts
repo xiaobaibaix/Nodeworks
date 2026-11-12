@@ -8,7 +8,7 @@
  *
  * 图标从 /tmp/steel-icons 读取（不存在时跳过资源字节，只写资源元数据）。
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createEdge, createNode, createPort } from '../src/model/ops';
 import { writeProject } from '../src/model/folder';
 import { NodeFS } from '../mcp/node-fs';
@@ -245,8 +245,6 @@ await writeProject(new NodeFS(OUT), project, {
 
 const jsonText = `${JSON.stringify(project, null, 2)}\n`;
 writeFileSync(`${ROOT}/examples/steel.project.json`, jsonText);
-mkdirSync(`${ROOT}/public/examples`, { recursive: true });
-writeFileSync(`${ROOT}/public/examples/steel.project.json`, jsonText);
 console.log(
   `wrote ${OUT} (${all.length} nodes, ${edges.length} edges); examples/steel.project.json ${(jsonText.length / 1024).toFixed(1)} kB`,
 );
