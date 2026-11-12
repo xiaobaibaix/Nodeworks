@@ -82,6 +82,37 @@ export default function Sidebar() {
 
   const filtering = filter.kinds.length > 0 || filter.onlyIsolated || filter.onlyOrphan;
 
+  function startDrag(kind: string) {
+    return (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const ghost = document.createElement('div');
+      ghost.className = 'kind-ghost';
+      ghost.textContent = kind ? (graph.kinds[kind]?.name || kind) : '单元';
+      document.body.appendChild(ghost);
+      const move = (ev: PointerEvent) => {
+        ghost.style.left = `${ev.clientX}px`;
+        ghost.style.top = `${ev.clientY}px`;
+      };
+      move(e.nativeEvent);
+      const up = (ev: PointerEvent) => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+        ghost.remove();
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        if (el && el.closest('.react-flow')) {
+          window.dispatchEvent(new CustomEvent('nodeworks:create-node', {
+            detail: { kind, clientX: ev.clientX, clientY: ev.clientY },
+          }));
+        }
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
+    };
+  }
+
   return (
     <aside className="sidebar">
       <header className="sidebar-head">
@@ -124,6 +155,16 @@ export default function Sidebar() {
           <button title="取消目录绑定" onClick={unbindFolder}>×</button>
         </div>
       )}
+
+      <div className="kind-tray" aria-label="拖到画布创建单元">
+        <span className="tray-label">拖到画布</span>
+        <button className="chip" onPointerDown={startDrag('')}>单元</button>
+        {Object.entries(graph.kinds).map(([key, def]) => (
+          <button key={key} className="chip" onPointerDown={startDrag(key)} title={`新建${def.name || key}`}>
+            {def.name || key}
+          </button>
+        ))}
+      </div>
 
       <div className="search-box">
         <input

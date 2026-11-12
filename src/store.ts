@@ -25,9 +25,10 @@ import {
   projectFromGraph, removeGraph as projectRemoveGraph, renameGraph as projectRenameGraph,
   parseProjectDoc, syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
 } from './model/project';
-import { downloadProject, loadCached, loadProject, saveCached, saveProject as saveProjectDoc } from './persistence';
+import { loadCached, loadProject, saveCached, saveProject as saveProjectDoc } from './persistence';
 import { DiskFS } from './fs/disk';
 import { graphDirName, hasFolderProject, nodeDirName, readProject, resourceFileName, writeProject } from './model/folder';
+import { clearFolderHandle, loadFolderHandle, saveFolderHandle } from './fs/handleStore';
 import { joinPath } from './fs/types';
 import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitNode, UnitPort } from './model/types';
 import type { SortDir } from './model/table';
@@ -235,6 +236,27 @@ function randomPos(): Pos {
   return { x: 160 + Math.random() * 240, y: 140 + Math.random() * 160 };
 }
 
+async function restoreFolder() {
+  const handle = await loadFolderHandle().catch(() => null);
+  if (!handle) return;
+  const perm = (await handle.queryPermission?.({ mode: 'readwrite' })) ?? 'prompt';
+  if (perm !== 'granted') return;
+  try {
+    const project = await readProject(new DiskFS(handle));
+    if (useGraph.getState().past.length || useGraph.getState().future.length) return;
+    folderHandle = handle;
+    const active = projectActiveGraph(project);
+    useGraph.setState({
+      graph: active.graph,
+      projectGraphs: project.graphs,
+      activeGraphId: active.id,
+      folderName: handle.name,
+    });
+  } catch {
+    /* 目录不存在或结构变了：保持单文件状态 */
+  }
+}
+
 export const useGraph = create<Store>((set, get) => ({
   graph: { version: 1, nodes: [], edges: [], kinds: {} },
   past: [],
@@ -279,6 +301,7 @@ export const useGraph = create<Store>((set, get) => ({
         booted: true,
         snapshots: loadSnapshots(),
       });
+      void restoreFolder();
       return;
     }
     const seeded = projectFromGraph(loadCached() ?? sampleGraph());
@@ -290,6 +313,7 @@ export const useGraph = create<Store>((set, get) => ({
       booted: true,
       snapshots: loadSnapshots(),
     });
+    void restoreFolder();
   },
 
   toastOf: (msg) => set({ toast: msg }),
@@ -1230,12 +1254,8 @@ export const useGraph = create<Store>((set, get) => ({
 
 
   saveCurrentProject: () => {
-    const state = get();
-    if (state.folderName && folderHandle) {
-      void state.saveToFolder();
-      return;
-    }
-    downloadProject(state.currentProject());
+    // 保存的目标就是项目文件夹；未绑定时才需要选一次目录。
+    void get().saveToFolder();
   },
 
   saveToFolder: async () => {
@@ -1264,7 +1284,16 @@ export const useGraph = create<Store>((set, get) => ({
         return;
       }
       const handle = bound ?? (await picker!({ mode: 'readwrite', id: 'nodeworks-project' }));
+      const permission = (await handle.queryPermission?.({ mode: 'readwrite' })) ?? 'granted';
+      if (permission !== 'granted') {
+        const asked = (await handle.requestPermission?.({ mode: 'readwrite' })) ?? 'denied';
+        if (asked !== 'granted') {
+          get().toastOf('目录写入权限被拒绝');
+          return;
+        }
+      }
       folderHandle = handle;
+      void saveFolderHandle(handle);
       set({ folderName: handle.name });
       await writeProject(new DiskFS(handle), get().currentProject(), { readResource });
       get().toastOf(bound ? `已同步到「${handle.name}」` : `已保存到「${handle.name}」`);
@@ -1331,6 +1360,7 @@ export const useGraph = create<Store>((set, get) => ({
         toast: `已打开目录项目「${handle.name}」${via} · 共 ${project.graphs.length} 张图`,
       });
       folderHandle = handle;
+      void saveFolderHandle(handle);
     } catch (error) {
       const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       console.error('openDirectory failed', error);
@@ -1390,6 +1420,7 @@ export const useGraph = create<Store>((set, get) => ({
 
   unbindFolder: () => {
     folderHandle = null;
+    void clearFolderHandle();
     if (folderSyncTimer) {
       clearTimeout(folderSyncTimer);
       folderSyncTimer = null;

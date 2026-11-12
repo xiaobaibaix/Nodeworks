@@ -59,7 +59,7 @@ function Canvas() {
   const impactDepth = useGraph((s) => s.impactDepth);
   const focus = useGraph((s) => s.focus);
   const setFocus = useGraph((s) => s.setFocus);
-  const { fitView } = useReactFlow();
+  const { fitView, screenToFlowPosition } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
   const didFit = useRef(false);
 
@@ -391,6 +391,19 @@ function Canvas() {
     [select],
   );
 
+
+  // 从侧栏模板托盘拖到画布创建节点（鼠标/触屏都用 Pointer Events）。
+  useEffect(() => {
+    const onCreate = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { kind?: string; clientX: number; clientY: number };
+      if (useGraph.getState().preview) return;
+      const pos = screenToFlowPosition({ x: detail.clientX, y: detail.clientY });
+      useGraph.getState().addNode(pos, detail.kind || undefined);
+    };
+    window.addEventListener('nodeworks:create-node', onCreate);
+    return () => window.removeEventListener('nodeworks:create-node', onCreate);
+  }, [screenToFlowPosition]);
+
   return (
     <>
     <ReactFlow
@@ -448,6 +461,7 @@ function Canvas() {
 
 export default function App() {
   const [ready, setReady] = useState(false);
+
 
   async function onDropProject(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
