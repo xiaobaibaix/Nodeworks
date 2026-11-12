@@ -19,3 +19,14 @@ interface FileSystemHandle {
   queryPermission?(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
   requestPermission?(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
 }
+
+interface FileSystemFileHandle {
+  createWritable(options?: { keepExistingData?: boolean }): Promise<FileSystemWritableFileStream>;
+}
+
+interface Window {
+  showOpenFilePicker?(options?: {
+    multiple?: boolean;
+    types?: Array<{ description?: string; accept: Record<string, string[]> }>;
+  }): Promise<FileSystemFileHandle[]>;
+}

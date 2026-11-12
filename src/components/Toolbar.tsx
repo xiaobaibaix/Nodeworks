@@ -1,6 +1,6 @@
 import { useReactFlow } from '@xyflow/react';
 import { useEffect, useRef, useState } from 'react';
-import { downloadProject, pickJsonFile } from '../persistence';
+import { downloadProject } from '../persistence';
 import { useCurrentGraph, useGraph } from '../store';
 
 function SplitButton({
@@ -83,8 +83,8 @@ export default function Toolbar() {
   const setView = useGraph((s) => s.setView);
   const impactOn = useGraph((s) => s.impactOn);
   const setImpactOn = useGraph((s) => s.setImpactOn);
-  const loadFile = useGraph((s) => s.loadFile);
   const folderName = useGraph((s) => s.folderName);
+  const fileName = useGraph((s) => s.fileName);
   const { fitView } = useReactFlow();
 
   function toggleImpact() {
@@ -93,14 +93,6 @@ export default function Toolbar() {
       return;
     }
     setImpactOn(!impactOn);
-  }
-
-  async function open() {
-    try {
-      loadFile(await pickJsonFile());
-    } catch (error) {
-      toastOf((error as Error).message);
-    }
   }
 
   return (
@@ -150,8 +142,12 @@ export default function Toolbar() {
         <span className="sep" />
         <SplitButton
           label="保存"
-          title={folderName ? `写回目录「${folderName}」（⌘S）` : '保存项目（⌘S）：选择/创建项目文件夹，资源随目录保存'}
-          onPrimary={() => void useGraph.getState().saveToFolder()}
+          title={folderName
+            ? `写回目录「${folderName}」（⌘S）`
+            : fileName
+              ? `覆盖文件「${fileName}」（⌘S）`
+              : '保存项目（⌘S）：首次保存会选一次项目文件夹'}
+          onPrimary={() => useGraph.getState().saveCurrentProject()}
           items={[
             {
               label: '下载 JSON 备份…',
@@ -179,7 +175,7 @@ export default function Toolbar() {
             {
               label: '打开单文件 .json…',
               hint: '只有数据，不含资源文件',
-              run: open,
+              run: () => void useGraph.getState().openProjectFile(),
             },
           ]}
         />

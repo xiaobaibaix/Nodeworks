@@ -476,7 +476,7 @@ export default function App() {
       if (handle?.kind === 'file') {
         const file = await (handle as FileSystemFileHandle).getFile();
         if (file.name.endsWith('.json')) {
-          state.loadFile(JSON.parse(await file.text()));
+          state.loadFile(JSON.parse(await file.text()), handle as FileSystemFileHandle);
           return;
         }
       }

@@ -25,7 +25,7 @@ import {
   projectFromGraph, removeGraph as projectRemoveGraph, renameGraph as projectRenameGraph,
   parseProjectDoc, syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
 } from './model/project';
-import { loadCached, loadProject, saveCached, saveProject as saveProjectDoc } from './persistence';
+import { loadCached, loadProject, pickGraphFile, saveCached, saveProject as saveProjectDoc } from './persistence';
 import { DiskFS } from './fs/disk';
 import { graphDirName, hasFolderProject, nodeDirName, readProject, resourceFileName, writeProject } from './model/folder';
 import { clearFolderHandle, loadFolderHandle, saveFolderHandle } from './fs/handleStore';
@@ -37,6 +37,7 @@ export type ViewMode = 'graph' | 'table';
 
 /** 目录项目绑定：句柄只在会话内保存，重新打开应用需再选一次目录。 */
 let folderHandle: FileSystemDirectoryHandle | null = null;
+let projectFileHandle: FileSystemFileHandle | null = null;
 const resourceFiles = new Map<string, File>();
 let folderSyncTimer: ReturnType<typeof setTimeout> | null = null;
 let folderSyncRunning = false;
@@ -113,6 +114,7 @@ interface Store {
   snapshots: Snapshot[];
   snapshotOpen: boolean;
   folderName: string | null;
+  fileName: string | null;
   /** 打开的单个文件引用了目录资源时，提示去绑定项目文件夹（值为资源数量，0 表示关闭）。 */
   assetPrompt: number;
   dismissAssetPrompt(): void;
@@ -185,7 +187,8 @@ interface Store {
   paste(): void;
   load(g: Graph): void;
   /** 载入任意 JSON：project 文档（多图）或单图；返回是否为多图。 */
-  loadFile(raw: unknown): boolean;
+  loadFile(raw: unknown, handle?: FileSystemFileHandle): boolean;
+  openProjectFile(): Promise<void>;
   saveToCache(): void;
   currentProject(): import('./model/project').ProjectDoc;
   saveToFolder(): Promise<void>;
@@ -283,6 +286,7 @@ export const useGraph = create<Store>((set, get) => ({
   snapshots: [],
   snapshotOpen: false,
   folderName: null,
+  fileName: null,
   assetPrompt: 0,
   folderError: null,
   newProjectOpen: false,
@@ -1050,6 +1054,7 @@ export const useGraph = create<Store>((set, get) => ({
       exportOpen: false,
       snapshotOpen: false,
       folderName: null,
+      fileName: null,
       assetPrompt: 0,
       folderError: null,
       ...(() => {
@@ -1058,8 +1063,10 @@ export const useGraph = create<Store>((set, get) => ({
       })(),
     }),
 
-  loadFile: (raw) => {
+  loadFile: (raw, handle) => {
     get().unbindFolder();
+    projectFileHandle = handle ?? null;
+    set({ fileName: handle?.name ?? null });
     const project = parseProjectDoc(raw);
     if (project) {
       const active = projectActiveGraph(project);
@@ -1224,6 +1231,7 @@ export const useGraph = create<Store>((set, get) => ({
 
   newProject: () => {
     folderHandle = null;
+    projectFileHandle = null;
     const blank = { ...sampleGraph(), nodes: [], edges: [] };
     const seeded = projectFromGraph(blank, '主图');
     set({
@@ -1254,8 +1262,44 @@ export const useGraph = create<Store>((set, get) => ({
 
 
   saveCurrentProject: () => {
-    // 保存的目标就是项目文件夹；未绑定时才需要选一次目录。
+    // 优先写回已绑定的项目文件夹；其次覆盖打开的单文件；都没有才选目录。
+    if (!folderHandle && projectFileHandle) {
+      void (async () => {
+        try {
+          const handle = projectFileHandle!;
+          const writable = await handle.createWritable();
+          await writable.write(`${JSON.stringify(get().currentProject(), null, 2)}\n`);
+          await writable.close();
+          get().toastOf(`已保存到「${handle.name}」`);
+        } catch (error) {
+          const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+          console.error('save project file failed', error);
+          set({ folderError: `保存到项目文件失败：${detail}` });
+        }
+      })();
+      return;
+    }
     void get().saveToFolder();
+  },
+
+  openProjectFile: async () => {
+    if (typeof window === 'undefined') return;
+    if (!window.showOpenFilePicker) {
+      const raw = await pickGraphFile();
+      if (raw !== null) get().loadFile(raw);
+      return;
+    }
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{ description: 'Nodeworks 项目', accept: { 'application/json': ['.json'] } }],
+      });
+      const file = await handle.getFile();
+      get().loadFile(JSON.parse(await file.text()), handle);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      get().toastOf(`打开失败：${error instanceof Error ? error.message : String(error)}`);
+    }
   },
 
   saveToFolder: async () => {
@@ -1362,11 +1406,13 @@ export const useGraph = create<Store>((set, get) => ({
         projectGraphs: project.graphs,
         activeGraphId: project.active,
         folderName: handle.name,
+        fileName: null,
         assetPrompt: 0,
         folderError: null,
         toast: `已打开目录项目「${handle.name}」${via} · 共 ${project.graphs.length} 张图`,
       });
       folderHandle = handle;
+      projectFileHandle = null;
       void saveFolderHandle(handle);
     } catch (error) {
       const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
@@ -1427,12 +1473,13 @@ export const useGraph = create<Store>((set, get) => ({
 
   unbindFolder: () => {
     folderHandle = null;
+    projectFileHandle = null;
     void clearFolderHandle();
     if (folderSyncTimer) {
       clearTimeout(folderSyncTimer);
       folderSyncTimer = null;
     }
-    if (get().folderName) set({ folderName: null });
+    if (get().folderName || get().fileName) set({ folderName: null, fileName: null });
   },
 
   currentProject: () => {

@@ -36,6 +36,7 @@ export default function Sidebar() {
   const switchGraph = useGraph((s) => s.switchGraph);
   const addGraph = useGraph((s) => s.addGraph);
   const folderName = useGraph((s) => s.folderName);
+  const fileName = useGraph((s) => s.fileName);
   const unbindFolder = useGraph((s) => s.unbindFolder);
   const reloadFolder = useGraph((s) => s.reloadFolder);
   const renameGraph = useGraph((s) => s.renameGraph);
@@ -148,11 +149,13 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {folderName && (
-        <div className="folder-bound" title="当前项目与这个文件夹双向同步">
-          <span>目录：{folderName}</span>
-          <button title="从目录重新载入（外部改动后用）" onClick={() => void reloadFolder()}>↻</button>
-          <button title="取消目录绑定" onClick={unbindFolder}>×</button>
+      {(folderName || fileName) && (
+        <div className="folder-bound" title={folderName ? '当前项目与这个文件夹双向同步' : '保存会覆盖这个 JSON 文件'}>
+          <span>{folderName ? `目录：${folderName}` : `文件：${fileName}`}</span>
+          {folderName && (
+            <button title="从目录重新载入（外部改动后用）" onClick={() => void reloadFolder()}>↻</button>
+          )}
+          <button title={folderName ? '取消目录绑定' : '关闭这个文件'} onClick={unbindFolder}>×</button>
         </div>
       )}
 
