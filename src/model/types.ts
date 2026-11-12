@@ -27,6 +27,8 @@ export interface ResourceItem {
   type: ResourceType;
   label: string;
   path: string;
+  /** 通配槽位：mesh / basecolor / normal / orm / lod / collision（见 modelTemplate） */
+  slot?: string;
   meta?: Record<string, string | number | boolean>;
 }
 

@@ -38,6 +38,7 @@ const NodeBase = z.object({
         type: z.enum(['image', 'model', 'audio', 'other']),
         label: z.string(),
         path: z.string(),
+        slot: z.string().optional(),
         meta: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
       }),
     )

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useCurrentGraph, useGraph } from '../store';
-import type { ResourceItem, ResourceType } from '../model/types';
+import type { ResourceItem, ResourceType, UnitNode } from '../model/types';
+import { hasSceneSlots, isRigged, modelChecklist } from '../model/modelTemplate';
 import AssetPreview from './AssetPreview';
 
 const TYPES = ['string', 'number', 'boolean', 'json'];
@@ -116,6 +117,47 @@ function AddProp({ nodeId }: { nodeId: string }) {
       <input placeholder="值" value={value} onChange={(e) => setValue(e.target.value)} />
       <button onClick={submit}>+</button>
     </div>
+  );
+}
+
+function ModelTemplate({ node }: { node: UnitNode }) {
+  const apply = useGraph((s) => s.applyModelTemplate);
+  const [rig, setRig] = useState(isRigged(node));
+  const [scene, setScene] = useState(hasSceneSlots(node));
+
+  useEffect(() => {
+    setRig(isRigged(node));
+    setScene(hasSceneSlots(node));
+  }, [node.id, node.resources]);
+
+  const rows = modelChecklist(node);
+  const missing = rows.filter((r) => r.state === 'missing').length;
+
+  return (
+    <details className="model-template">
+      <summary>
+        模型通配清单
+        {missing > 0 ? <em className="missing">缺 {missing}</em> : <em className="ok">基础项齐全</em>}
+      </summary>
+      <ul className="model-check">
+        {rows.map((r) => (
+          <li key={r.key} className={r.state} title={r.hint}>
+            <i className="dot" />
+            <span>{r.label}</span>
+            <span className="group">{r.group}</span>
+          </li>
+        ))}
+      </ul>
+      <label className="check">
+        <input type="checkbox" checked={rig} onChange={(e) => setRig(e.target.checked)} />
+        角色（骨骼 / 蒙皮 / 动画）
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={scene} onChange={(e) => setScene(e.target.checked)} />
+        场景件（LOD / 碰撞）
+      </label>
+      <button onClick={() => apply(node.id, { rig, scene })}>套用通配 / 补齐缺失</button>
+    </details>
   );
 }
 
@@ -280,6 +322,7 @@ export default function Inspector() {
       <AddProp nodeId={node.id} />
 
       <h3>资源 <span className="dim">{node.resources?.length ?? 0}</span></h3>
+      <ModelTemplate node={node} />
       <div className="res-list">
         {(node.resources ?? []).map((r) => (
           <div className="res-row" key={r.id}>

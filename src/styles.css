@@ -1061,6 +1061,31 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   display: flex; align-items: center; justify-content: center;
   aspect-ratio: 1; background: #0b0e13; border: 1px dashed var(--line); border-radius: 4px;
 }
-.res-row { grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1.3fr) 26px 24px; }
+.res-row {
+  grid-template-columns: 64px minmax(0, 1fr) 26px 24px;
+  gap: 4px 6px; padding: 6px 0; border-bottom: 1px solid #1d222b;
+}
+.res-row select { grid-area: 1 / 1; }
+.res-row input:nth-of-type(1) { grid-area: 1 / 2; }
+.res-row input:nth-of-type(2) { grid-area: 2 / 1 / 3 / 5; }
+.res-row button[title="预览资源"] { grid-area: 1 / 3; }
+.res-row button[title="删除资源项"] { grid-area: 1 / 4; }
 .link { background: none; border: 0; color: var(--accent); padding: 0 6px; cursor: pointer; font-size: 11px; }
 .link:hover { text-decoration: underline; }
+
+/* 模型通配清单 */
+.model-template { margin: 8px 0 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #10141a; }
+.model-template summary { cursor: pointer; color: #cfd6e2; }
+.model-template summary em { font-style: normal; font-size: 11px; margin-left: 8px; }
+.model-template summary em.missing { color: #f0a25c; }
+.model-template summary em.ok { color: #7ccf8f; }
+.model-check { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.model-check li { display: grid; grid-template-columns: 10px 1fr auto; gap: 6px; align-items: center; font-size: 12px; color: #aab3c2; }
+.model-check .dot { width: 6px; height: 6px; border-radius: 50%; background: #4a5364; }
+.model-check li.ok .dot { background: #7ccf8f; }
+.model-check li.missing .dot { background: #f0a25c; }
+.model-check li.optional { color: #6f7a8b; }
+.model-check li.optional .dot { background: #3a4252; }
+.model-check .group { font-size: 10px; color: #5f6a7b; }
+.model-template .check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #aab3c2; margin: 4px 0; }
+.model-template > button { margin-top: 6px; width: 100%; }

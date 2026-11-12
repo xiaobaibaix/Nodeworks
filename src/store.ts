@@ -5,6 +5,7 @@ import { copySelection, pasteClip, type ClipPayload } from './model/clipboard';
 import { pushEntry, type Entry, type EntryInput } from './model/history';
 import { graphAtPath, normalizePath, updateAtPath } from './model/path';
 import { planCrossLink, type CrossTarget } from './model/cross';
+import { slotOf, templateResources, isRigged } from './model/modelTemplate';
 import { EMPTY_FILTER, type GraphFilter } from './model/query';
 import { emptySubgraph, parseGraph } from './model/schema';
 import {
@@ -99,6 +100,7 @@ interface Store {
   addResource(nodeId: string, type: ResourceType): void;
   setResource(nodeId: string, resourceId: string, patch: Partial<Omit<ResourceItem, 'id'>>): void;
   removeResource(nodeId: string, resourceId: string): void;
+  applyModelTemplate(nodeId: string, opts: { rig: boolean; scene: boolean }): void;
   setProp(nodeId: string, name: string, value: unknown): void;
   setPropMany(ids: string[], name: string, type: string, value: unknown): void;
   removeProp(nodeId: string, name: string): void;
@@ -481,6 +483,29 @@ export const useGraph = create<Store>((set, get) => ({
       run: (g) => removeResourceOp(g, nodeId, resourceId),
       revert: (g) => addResourceOp(g, nodeId, old),
     });
+  },
+
+  applyModelTemplate: (nodeId, opts) => {
+    const node = findNode(graphOf(get()), nodeId);
+    if (!node) return;
+    const before = structuredClone(node);
+    const missing = templateResources(node, opts);
+    const merged = [...(node.resources ?? []), ...missing].map((r) => {
+      if (slotOf(r) !== 'mesh') return r;
+      return { ...r, slot: r.slot ?? 'mesh', meta: { ...(r.meta ?? {}), rigged: opts.rig } };
+    });
+    const rigChanged = isRigged(node) !== opts.rig;
+    if (!missing.length && !rigChanged) {
+      set({ toast: '通配清单已经齐全' });
+      return;
+    }
+    const next = { ...node, resources: merged };
+    get().commit({
+      label: '套用模型通配',
+      run: (g) => replaceNodeOp(g, next),
+      revert: (g) => replaceNodeOp(g, before),
+    });
+    set({ toast: missing.length ? `已补齐 ${missing.length} 项资源` : opts.rig ? '已标记为角色模型' : '已更新模型标记' });
   },
 
   setProp: (nodeId, name, value) => {
