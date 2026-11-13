@@ -11,7 +11,7 @@ import { createInterface } from 'node:readline';
 import { layeredLayout, estimateSize } from '../src/model/autolayout';
 import { DEFAULT_MAPPING, exportProject, validateMapping, type DryRunReport, type ExportMapping } from '../src/model/mapping';
 import {
-  addEdgeOp, addNodeOp, addResourceOp, createEdge, createNode, createNodeFromKind,
+  addEdgeOp, addNodeOp, createEdge, createNode, createNodeFromKind, replaceNodeOp,
   createPort, createResource, findNode, moveNodesOp, removeEdgeOp, removeNodesOp,
   renameNodeOp, setKindOp, setNodePosOp, setPropOp, validateConnection,
 } from '../src/model/ops';
@@ -22,7 +22,7 @@ import {
 import { GraphSchema } from '../src/model/schema';
 import { graphDirName, nodeDirName, readProject, resourceFileName, writeProject } from '../src/model/folder';
 import { NodeFS } from './node-fs';
-import type { Endpoint, Graph, PropBag, PropMeta, UnitNode } from '../src/model/types';
+import type { Endpoint, Graph, PropBag, PropMeta, ResourceItem, UnitNode } from '../src/model/types';
 
 type Json = Record<string, unknown>;
 
@@ -461,25 +461,67 @@ const tools: Tool[] = [
       path: S.str('引擎内路径（默认 assets/<文件名>）'),
       label: S.str('显示名称'),
       slot: S.str('通配槽位：mesh / basecolor / normal / orm / lod / collision'),
+      resourceId: S.str('挂到已有资源下（分组子项时必填）'),
+      groupId: S.str('分组 id（图片容器）'),
+      groupLabel: S.str('分组名称；不存在则新建'),
+      groupPrompt: S.str('分组描述词'),
+      childLabel: S.str('子图片名称'),
     }, ['id', 'type', 'file']),
-    run: async ({ graph, id, type, file, path: enginePath, label, slot }) => {
+    run: async ({ graph, id, type, file, path: enginePath, label, slot, resourceId, groupId, groupLabel, groupPrompt, childLabel }) => {
       if (!FOLDER_MODE) throw new Error('add_resource 只能用于 --dir 目录项目');
       const ref = typeof graph === 'string' ? graph : undefined;
       const source = resolve(String(file));
       if (!existsSync(source)) throw new Error(`找不到源文件：${source}`);
       const bytes = readFileSync(source);
-      const resource = createResource(String(type) as 'image' | 'model' | 'audio' | 'other', typeof label === 'string' ? label : undefined);
-      resource.path = typeof enginePath === 'string' && enginePath ? enginePath : `assets/${basename(source)}`;
-      if (typeof slot === 'string' && slot) resource.slot = slot;
-      resource.file = `resources/${resourceFileName(resource)}`;
-      await mutate('新增资源', (d) => replaceGraph(d, ref, addResourceOp(graphOf(d, ref), String(id), resource)));
+      const g0 = graphOf(loadDoc(), ref);
+      const node0 = myNode(g0, String(id));
+      const resources: ResourceItem[] = [...(node0.resources ?? [])];
+      const groupMode = typeof groupId === 'string' || typeof groupLabel === 'string';
+      let resource: ResourceItem | undefined = typeof resourceId === 'string'
+        ? resources.find((r) => r.id === resourceId)
+        : undefined;
+      let writtenFile: string;
+      if (groupMode) {
+        if (!resource) throw new Error('group 子项需要 resourceId 指向已有资源容器');
+        let group = (resource.views ?? []).find((v) => (typeof groupId === 'string' && v.id === groupId) || (typeof groupLabel === 'string' && v.label === groupLabel));
+        if (!group) {
+          group = createResource('other', typeof groupLabel === 'string' && groupLabel ? groupLabel : '分组');
+          group.group = true;
+          group.path = '';
+          group.views = [];
+          group.prompt = typeof groupPrompt === 'string' ? groupPrompt : '';
+          resource.views = [...(resource.views ?? []), group];
+        } else if (typeof groupPrompt === 'string' && groupPrompt) {
+          group.prompt = groupPrompt;
+        }
+        const child = createResource('image', typeof childLabel === 'string' && childLabel ? childLabel : basename(source).replace(/\.[^.]+$/, ''));
+        child.path = typeof enginePath === 'string' && enginePath ? enginePath : `assets/${basename(source)}`;
+        child.file = `resources/${resourceFileName(child)}`;
+        group.views = [...(group.views ?? []), child];
+        writtenFile = child.file;
+      } else if (resource) {
+        resource.path = typeof enginePath === 'string' && enginePath ? enginePath : `assets/${basename(source)}`;
+        if (typeof label === 'string' && label) resource.label = label;
+        if (typeof slot === 'string' && slot) resource.slot = slot;
+        resource.file = `resources/${resourceFileName(resource)}`;
+        writtenFile = resource.file;
+      } else {
+        resource = createResource(String(type) as 'image' | 'model' | 'audio' | 'other', typeof label === 'string' ? label : undefined);
+        resource.path = typeof enginePath === 'string' && enginePath ? enginePath : `assets/${basename(source)}`;
+        if (typeof slot === 'string' && slot) resource.slot = slot;
+        resource.file = `resources/${resourceFileName(resource)}`;
+        resources.push(resource);
+        writtenFile = resource.file;
+      }
+      const updated: UnitNode = { ...node0, resources };
+      await mutate('新增资源', (d) => replaceGraph(d, ref, replaceNodeOp(graphOf(d, ref), updated)));
       const doc = loadDoc();
       const card = graphCard(doc, ref);
       const node = myNode(card.graph, String(id));
-      const target = resolve(FILE, 'graphs', graphDirName(card.name, card.id), 'nodes', nodeDirName(node), resource.file);
+      const target = resolve(FILE, 'graphs', graphDirName(card.name, card.id), 'nodes', nodeDirName(node), writtenFile);
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, bytes);
-      return { id: resource.id, type: resource.type, label: resource.label, path: resource.path, file: resource.file, bytes: bytes.length };
+      return { resourceId: resource?.id, groupMode, file: writtenFile, bytes: bytes.length };
     },
   },
   {
