@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useCurrentGraph, useGraph } from '../store';
 import type { ResourceItem, ResourceType, UnitNode } from '../model/types';
 import { hasSceneSlots, isRigged, modelChecklist } from '../model/modelTemplate';
-import { composePrompt, wantsPrompt } from '../model/style';
+import { wantsPrompt } from '../model/style';
 import AssetPreview from './AssetPreview';
 import ResourceViews from './ResourceViews';
 
@@ -383,22 +383,7 @@ export default function Inspector() {
   const [previewRes, setPreviewRes] = useState<ResourceItem | null>(null);
   const [showAddProp, setShowAddProp] = useState(false);
   const [showAddRes, setShowAddRes] = useState(false);
-  const toastOf = useGraph((s) => s.toastOf);
   const openGenerate = useGraph((s) => s.openGenerate);
-
-  const copyPrompt = async (resource: ResourceItem, node: UnitNode) => {
-    // 取存储里的最新值：描述词是失焦提交的，点按钮前刚失焦的那一版要算进去
-    const state = useGraph.getState();
-    const liveNode = state.graph.nodes.find((n) => n.id === node.id) ?? node;
-    const live = liveNode.resources?.find((x) => x.id === resource.id) ?? resource;
-    const text = composePrompt(state.projectStyle, live, liveNode.title);
-    try {
-      await navigator.clipboard.writeText(text);
-      toastOf('已复制生成提示词');
-    } catch {
-      toastOf('复制失败，请手动选中文本框复制');
-    }
-  };
 
   const edge = edgeId ? graph.edges.find((e) => e.id === edgeId) : undefined;
   const node = selectedNodes.length === 1
@@ -581,14 +566,6 @@ export default function Inspector() {
                     : `描述图标内容：主体、构图、配色…（会拼上全局「资源风格」）`}
                   onCommit={(v) => setResource(node.id, r.id, { prompt: v })}
                 />
-                <button
-                  className="icon"
-                  title="复制完整生成提示词（全局风格 + 这条描述）"
-                  onPointerDown={() => (document.activeElement as HTMLElement | null)?.blur()}
-                  onClick={() => void copyPrompt(r, node)}
-                >
-                  ⎘
-                </button>
               </div>
             )}
             {(r.type === 'model' || (r.views?.length ?? 0) > 0) && (

@@ -1239,7 +1239,6 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 /* 资源描述词：图片/模型各一行，占满整行；⎘ 复制拼好的提示词 */
 .res-prompt { grid-column: 1 / -1; display: flex; gap: 6px; align-items: flex-start; margin-top: 2px; }
 .res-prompt textarea { flex: 1; min-height: 38px; font-size: 12px; line-height: 1.45; }
-.res-prompt .icon { padding: 0; width: 26px; height: 26px; flex: none; }
 
 /* 资源风格对话框 */
 .style-box {
