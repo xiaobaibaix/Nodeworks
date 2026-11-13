@@ -31,10 +31,11 @@ function arg(name: string): string | undefined {
   const i = argv.indexOf(name);
   return i >= 0 ? argv[i + 1] : undefined;
 }
-const FILE = resolve(arg('--file') ?? process.env.NODEWORKS_PROJECT ?? '.nodeworks/project.json');
+const DIR = arg('--dir') ?? process.env.NODEWORKS_DIR;
+const FILE = resolve(DIR ?? arg('--file') ?? process.env.NODEWORKS_PROJECT ?? '.nodeworks/project.json');
 const MAPPING_FILE = arg('--mapping') ?? process.env.NODEWORKS_MAPPING;
-/** --file 指向目录时走目录项目（project.json + graphs/ + nodes/）。 */
-const FOLDER_MODE = existsSync(FILE) && statSync(FILE).isDirectory();
+/** --dir，或 --file 指向目录时，走目录项目（project.json + graphs/ + nodes/）。 */
+const FOLDER_MODE = Boolean(DIR) || (existsSync(FILE) && statSync(FILE).isDirectory());
 const SNAP_FILE = FOLDER_MODE ? resolve(FILE, 'snapshots.json') : `${FILE}.snapshots.json`;
 const SNAP_LIMIT = 20;
 
@@ -82,8 +83,14 @@ let doc: ProjectDoc | null = null;
 let onDisk = false;
 const history: Array<{ doc: ProjectDoc; label: string }> = [];
 if (FOLDER_MODE) {
-  doc = await readProject(new NodeFS(FILE));
-  onDisk = true;
+  mkdirSync(FILE, { recursive: true });
+  if (existsSync(resolve(FILE, 'project.json'))) {
+    doc = await readProject(new NodeFS(FILE));
+    onDisk = true;
+  } else {
+    doc = projectFromGraph(emptyGraphOf(), '主图');
+    onDisk = false;
+  }
 }
 
 function loadDoc(): ProjectDoc {

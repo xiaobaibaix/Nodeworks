@@ -6,10 +6,11 @@ stdio MCP server，让 AI 直接读写 Nodeworks 的 project.json。
 
 ```bash
 pnpm build:mcp                                  # 产出 mcp/server.mjs（esbuild 打包，已 gitignore）
-node mcp/server.mjs --file path/to/project.json # 也可用 NODEWORKS_PROJECT 环境变量
+node mcp/server.mjs --file path/to/project.json # 单文件项目，也可用 NODEWORKS_PROJECT
+node mcp/server.mjs --dir path/to/project       # 目录项目（project.json + graphs/ + nodes/）
 ```
 
-默认文件：`.nodeworks/project.json`（相对启动目录）。
+默认文件：`.nodeworks/project.json`（相对启动目录）。`--dir` 指向的目录不存在或为空时会先建一张空「主图」，第一次写入落盘成完整目录项目。
 
 ## 客户端配置
 
@@ -18,7 +19,7 @@ node mcp/server.mjs --file path/to/project.json # 也可用 NODEWORKS_PROJECT �
   "mcpServers": {
     "nodeworks": {
       "command": "node",
-      "args": ["/absolute/path/to/Nodeworks/mcp/server.mjs", "--file", "/absolute/path/to/project.json"]
+      "args": ["/absolute/path/to/Nodeworks/mcp/server.mjs", "--dir", "/absolute/path/to/project"]
     }
   }
 }
