@@ -466,8 +466,9 @@ const tools: Tool[] = [
       groupLabel: S.str('分组名称；不存在则新建'),
       groupPrompt: S.str('分组描述词'),
       childLabel: S.str('子图片名称'),
+      prompt: S.str('资源/子图的描述词'),
     }, ['id', 'type', 'file']),
-    run: async ({ graph, id, type, file, path: enginePath, label, slot, resourceId, groupId, groupLabel, groupPrompt, childLabel }) => {
+    run: async ({ graph, id, type, file, path: enginePath, label, slot, resourceId, groupId, groupLabel, groupPrompt, childLabel, prompt }) => {
       if (!FOLDER_MODE) throw new Error('add_resource 只能用于 --dir 目录项目');
       const ref = typeof graph === 'string' ? graph : undefined;
       const source = resolve(String(file));
@@ -497,18 +498,21 @@ const tools: Tool[] = [
         const child = createResource('image', typeof childLabel === 'string' && childLabel ? childLabel : basename(source).replace(/\.[^.]+$/, ''));
         child.path = typeof enginePath === 'string' && enginePath ? enginePath : `assets/${basename(source)}`;
         child.file = `resources/${resourceFileName(child)}`;
+        if (typeof prompt === 'string' && prompt) child.prompt = prompt;
         group.views = [...(group.views ?? []), child];
         writtenFile = child.file;
       } else if (resource) {
         resource.path = typeof enginePath === 'string' && enginePath ? enginePath : `assets/${basename(source)}`;
         if (typeof label === 'string' && label) resource.label = label;
         if (typeof slot === 'string' && slot) resource.slot = slot;
+        if (typeof prompt === 'string' && prompt) resource.prompt = prompt;
         resource.file = `resources/${resourceFileName(resource)}`;
         writtenFile = resource.file;
       } else {
         resource = createResource(String(type) as 'image' | 'model' | 'audio' | 'other', typeof label === 'string' ? label : undefined);
         resource.path = typeof enginePath === 'string' && enginePath ? enginePath : `assets/${basename(source)}`;
         if (typeof slot === 'string' && slot) resource.slot = slot;
+        if (typeof prompt === 'string' && prompt) resource.prompt = prompt;
         resource.file = `resources/${resourceFileName(resource)}`;
         resources.push(resource);
         writtenFile = resource.file;
@@ -522,6 +526,47 @@ const tools: Tool[] = [
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, bytes);
       return { resourceId: resource?.id, groupMode, file: writtenFile, bytes: bytes.length };
+    },
+  },
+  {
+    name: 'update_resource',
+    description: '修改资源项 / 图片分组 / 分组内子图的名称、描述词、路径或槽位。',
+    inputSchema: S.obj('参数', {
+      ...common,
+      id: S.str('单元 id'),
+      resourceId: S.str('资源 id'),
+      groupId: S.str('分组 id（改分组或分组子图时填）'),
+      childId: S.str('子图 id（改分组内某张图时填，需同时给 groupId）'),
+      label: S.str('名称'),
+      prompt: S.str('描述词'),
+      path: S.str('引擎内路径'),
+      slot: S.str('通配槽位'),
+    }, ['id', 'resourceId']),
+    run: async ({ graph, id, resourceId, groupId, childId, label, prompt, path: enginePath, slot }) => {
+      const ref = typeof graph === 'string' ? graph : undefined;
+      const g0 = graphOf(loadDoc(), ref);
+      const node0 = myNode(g0, String(id));
+      const resources: ResourceItem[] = structuredClone(node0.resources ?? []);
+      const resource = resources.find((r) => r.id === resourceId);
+      if (!resource) throw new Error(`资源不存在：${resourceId}`);
+      let target: ResourceItem = resource;
+      if (typeof childId === 'string') {
+        const group = (resource.views ?? []).find((v) => v.id === groupId);
+        if (!group) throw new Error(`分组不存在：${groupId ?? '(未提供)'}`);
+        const child = (group.views ?? []).find((v) => v.id === childId);
+        if (!child) throw new Error(`子图不存在：${childId}`);
+        target = child;
+      } else if (typeof groupId === 'string') {
+        const group = (resource.views ?? []).find((v) => v.id === groupId);
+        if (!group) throw new Error(`分组不存在：${groupId}`);
+        target = group;
+      }
+      if (typeof label === 'string') target.label = label;
+      if (typeof prompt === 'string') target.prompt = prompt;
+      if (typeof enginePath === 'string') target.path = enginePath;
+      if (typeof slot === 'string') target.slot = slot;
+      await mutate('修改资源', (d) => replaceGraph(d, ref, replaceNodeOp(graphOf(d, ref), { ...node0, resources })));
+      return { resourceId, groupId: groupId ?? null, childId: childId ?? null, label: target.label, prompt: target.prompt ?? null };
     },
   },
   {

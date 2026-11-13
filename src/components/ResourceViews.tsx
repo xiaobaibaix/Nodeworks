@@ -129,6 +129,12 @@ function ChildCard({
         placeholder="如：正面 / 45° / 背面"
         onCommit={(label) => setChild(nodeId, resourceId, groupId, child.id, { label })}
       />
+      <CommitArea
+        value={child.prompt ?? ''}
+        placeholder="这张图的补充描述：角度、光照、细节、用途…"
+        rows={2}
+        onCommit={(prompt) => setChild(nodeId, resourceId, groupId, child.id, { prompt })}
+      />
       <div className="view-actions">
         <button className="icon" title="预览视图" onClick={() => onPreview(child)}>◎</button>
         <button className="icon" title="替换图片文件" onClick={() => inputRef.current?.click()}>⇧</button>
