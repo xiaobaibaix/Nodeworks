@@ -6,21 +6,21 @@
  * 运行：node mcp/server.mjs --file <project.json>
  */
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { layeredLayout, estimateSize } from '../src/model/autolayout';
 import { DEFAULT_MAPPING, exportProject, validateMapping, type DryRunReport, type ExportMapping } from '../src/model/mapping';
 import {
-  addEdgeOp, addNodeOp, createEdge, createNode, createNodeFromKind, createPort,
-  findNode, moveNodesOp, removeEdgeOp, removeNodesOp, renameNodeOp, setKindOp,
-  setNodePosOp, setPropOp, validateConnection,
+  addEdgeOp, addNodeOp, addResourceOp, createEdge, createNode, createNodeFromKind,
+  createPort, createResource, findNode, moveNodesOp, removeEdgeOp, removeNodesOp,
+  renameNodeOp, setKindOp, setNodePosOp, setPropOp, validateConnection,
 } from '../src/model/ops';
 import {
   activeGraph, addGraph, parseProjectDoc, projectFromGraph,
   switchGraph, type ProjectDoc,
 } from '../src/model/project';
 import { GraphSchema } from '../src/model/schema';
-import { readProject, writeProject } from '../src/model/folder';
+import { graphDirName, nodeDirName, readProject, resourceFileName, writeProject } from '../src/model/folder';
 import { NodeFS } from './node-fs';
 import type { Endpoint, Graph, PropBag, PropMeta, UnitNode } from '../src/model/types';
 
@@ -448,6 +448,38 @@ const tools: Tool[] = [
         replaceGraph(d, ref, g);
       });
       return summary(myNode(graphOf(loadDoc(), ref), String(id)));
+    },
+  },
+  {
+    name: 'add_resource',
+    description: '给单元挂一个资源文件（图片/模型/音频），并把文件复制进节点文件夹的 resources/。仅目录项目可用。',
+    inputSchema: S.obj('参数', {
+      ...common,
+      id: S.str('单元 id'),
+      type: { type: 'string', enum: ['image', 'model', 'audio', 'other'] },
+      file: S.str('本机源文件绝对路径'),
+      path: S.str('引擎内路径（默认 assets/<文件名>）'),
+      label: S.str('显示名称'),
+      slot: S.str('通配槽位：mesh / basecolor / normal / orm / lod / collision'),
+    }, ['id', 'type', 'file']),
+    run: async ({ graph, id, type, file, path: enginePath, label, slot }) => {
+      if (!FOLDER_MODE) throw new Error('add_resource 只能用于 --dir 目录项目');
+      const ref = typeof graph === 'string' ? graph : undefined;
+      const source = resolve(String(file));
+      if (!existsSync(source)) throw new Error(`找不到源文件：${source}`);
+      const bytes = readFileSync(source);
+      const resource = createResource(String(type) as 'image' | 'model' | 'audio' | 'other', typeof label === 'string' ? label : undefined);
+      resource.path = typeof enginePath === 'string' && enginePath ? enginePath : `assets/${basename(source)}`;
+      if (typeof slot === 'string' && slot) resource.slot = slot;
+      resource.file = `resources/${resourceFileName(resource)}`;
+      await mutate('新增资源', (d) => replaceGraph(d, ref, addResourceOp(graphOf(d, ref), String(id), resource)));
+      const doc = loadDoc();
+      const card = graphCard(doc, ref);
+      const node = myNode(card.graph, String(id));
+      const target = resolve(FILE, 'graphs', graphDirName(card.name, card.id), 'nodes', nodeDirName(node), resource.file);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, bytes);
+      return { id: resource.id, type: resource.type, label: resource.label, path: resource.path, file: resource.file, bytes: bytes.length };
     },
   },
   {

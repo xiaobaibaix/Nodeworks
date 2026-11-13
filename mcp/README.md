@@ -35,6 +35,7 @@ node mcp/server.mjs --dir path/to/project       # 目录项目（project.json + 
 | `define_kind` | 定义 kind 模板（默认属性与端口） |
 | `find_nodes` / `add_node` / `update_node` / `remove_nodes` | 查/增/改/删单元 |
 | `add_edge` / `remove_edges` | 连线（可带配比 amount） |
+| `add_resource` | 给单元挂图片/模型/音频，文件复制进节点 `resources/`（仅目录项目） |
 | `auto_layout` | 分层布局 |
 | `export_project` | 按默认映射 dry-run + 可选写文件 |
 | `validate_project` | schema 校验 |
