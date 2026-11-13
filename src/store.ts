@@ -222,7 +222,7 @@ interface Store {
   openProjectFile(): Promise<void>;
   saveToCache(): void;
   currentProject(): import('./model/project').ProjectDoc;
-  saveToFolder(): Promise<void>;
+  saveToFolder(preset?: FileSystemDirectoryHandle): Promise<void>;
   /** 有绑定目录就写目录，否则下载项目文件。 */
   saveCurrentProject(): void;
   /** 清空当前编辑，开一个只有一张空白图的本地项目（不落盘）。 */
@@ -1468,7 +1468,7 @@ export const useGraph = create<Store>((set, get) => ({
     }
   },
 
-  saveToFolder: async () => {
+  saveToFolder: async (preset?: FileSystemDirectoryHandle) => {
     try {
       if (typeof window === 'undefined') return;
       const readResource = async (node: UnitNode, resource: ResourceItem) => {
@@ -1487,13 +1487,13 @@ export const useGraph = create<Store>((set, get) => ({
         }
       };
 
-      const bound = folderHandle;
+      const bound = preset ?? folderHandle;
       const picker = window.showDirectoryPicker?.bind(window);
       if (!bound && !picker) {
         set({ folderError: '当前浏览器不支持目录访问。请用 Chrome / Edge，或直接把项目文件夹拖进窗口。' });
         return;
       }
-      const handle = bound ?? (await picker!({ mode: 'readwrite', id: 'nodeworks-project' }));
+      const handle = bound ?? (await picker!({ mode: 'readwrite' }));
       const permission = (await handle.queryPermission?.({ mode: 'readwrite' })) ?? 'granted';
       if (permission !== 'granted') {
         const asked = (await handle.requestPermission?.({ mode: 'readwrite' })) ?? 'denied';
@@ -1514,7 +1514,8 @@ export const useGraph = create<Store>((set, get) => ({
       get().toastOf(bound ? `已同步到「${handle.name}」` : `已保存到「${handle.name}」· project.json`);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        get().toastOf('已取消选择，没有写入任何文件');
+        console.warn('saveToFolder aborted', error);
+        get().toastOf('没有写入：选择器被取消，或被浏览器拦截（AbortError）。可重试，或把项目文件夹直接拖进窗口');
         return;
       }
       const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
@@ -1529,7 +1530,7 @@ export const useGraph = create<Store>((set, get) => ({
       return;
     }
     try {
-      const picked = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
+      const picked = await window.showDirectoryPicker({ mode: 'readwrite' });
       await get().openDirectory(picked);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;

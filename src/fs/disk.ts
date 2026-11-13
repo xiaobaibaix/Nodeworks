@@ -121,6 +121,6 @@ export class DiskFS implements ProjectFS {
 
 export async function pickProjectDirectory(): Promise<DiskFS | null> {
   if (typeof window === 'undefined' || !window.showDirectoryPicker) return null;
-  const handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'nodeworks-project' });
+  const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
   return new DiskFS(handle);
 }
