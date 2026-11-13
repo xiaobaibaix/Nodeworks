@@ -1442,3 +1442,16 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .kind-ghost.is-moving { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .kind-ghost .ghost-kind { font-size: 12px; font-weight: 650; color: var(--accent); }
 .kind-ghost .ghost-hint { font-size: 10.5px; color: var(--muted); }
+
+/* 图片容器里的分组：描述词 + 多张图 */
+.view-list { display: flex; flex-direction: column; gap: 8px; }
+.view-group { border: 1px solid var(--line); border-radius: 8px; background: #0e1218; padding: 8px; }
+.view-group-head { display: flex; align-items: center; gap: 6px; }
+.view-group-title { flex: 1; min-width: 0; font-size: 12px; font-weight: 500; }
+.view-group-actions { display: flex; gap: 4px; flex: none; }
+.view-prompt {
+  width: 100%; margin: 6px 0; padding: 6px 8px; font-size: 11px; line-height: 1.5;
+  color: var(--text); background: #0b0e13; border: 1px solid var(--line); border-radius: 6px;
+  resize: vertical; box-sizing: border-box;
+}
+.view-prompt:focus { border-color: var(--accent); outline: none; }

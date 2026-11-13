@@ -422,6 +422,60 @@ export function setResourceViewOp(
   }));
 }
 
+/** 在分组视图里再挂一层图片（二层的图片容器）。 */
+export function addResourceChildOp(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  groupId: string,
+  child: ResourceItem,
+): Graph {
+  return mapResource(g, nodeId, resourceId, (r) => ({
+    ...r,
+    views: (r.views ?? []).map((v) =>
+      v.id === groupId ? { ...v, views: [...(v.views ?? []), child] } : v,
+    ),
+  }));
+}
+
+export function setResourceChildOp(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  groupId: string,
+  childId: string,
+  patch: Partial<Omit<ResourceItem, 'id'>>,
+): Graph {
+  return mapResource(g, nodeId, resourceId, (r) => ({
+    ...r,
+    views: (r.views ?? []).map((v) =>
+      v.id === groupId
+        ? { ...v, views: (v.views ?? []).map((c) => (c.id === childId ? { ...c, ...patch, id: childId } : c)) }
+        : v,
+    ),
+  }));
+}
+
+export function removeResourceChildOp(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  groupId: string,
+  childId: string,
+): Graph {
+  return mapResource(g, nodeId, resourceId, (r) => ({
+    ...r,
+    views: (r.views ?? []).map((v) => {
+      if (v.id !== groupId) return v;
+      const views = (v.views ?? []).filter((c) => c.id !== childId);
+      const copy = { ...v };
+      if (views.length) copy.views = views;
+      else delete copy.views;
+      return copy;
+    }),
+  }));
+}
+
 export function removeResourceViewOp(
   g: Graph,
   nodeId: string,

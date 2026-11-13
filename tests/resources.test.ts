@@ -84,3 +84,55 @@ describe('assetUrl', () => {
     expect(assetUrl('')).toBe('');
   });
 });
+
+describe('图片容器：分组与子图片', () => {
+  it('分组自带描述词，图片挂在分组下，删除与撤销可用', () => {
+    useGraph.getState().addNode({ x: 0, y: 0 });
+    const id = graphOf(useGraph.getState()).nodes[0].id;
+    useGraph.getState().addResource(id, 'model');
+    const rid = graphOf(useGraph.getState()).nodes[0].resources![0].id;
+
+    useGraph.getState().addResourceGroup(id, rid);
+    let group = graphOf(useGraph.getState()).nodes[0].resources![0].views![0];
+    expect(group.group).toBe(true);
+    expect(group.views).toEqual([]);
+
+    useGraph.getState().setResourceView(id, rid, group.id, { label: '三视图', prompt: '正/侧/背，白底' });
+    group = graphOf(useGraph.getState()).nodes[0].resources![0].views![0];
+    expect(group.label).toBe('三视图');
+    expect(group.prompt).toBe('正/侧/背，白底');
+
+    useGraph.getState().addResourceChild(id, rid, group.id);
+    const child = graphOf(useGraph.getState()).nodes[0].resources![0].views![0].views![0];
+    expect(child.type).toBe('image');
+
+    useGraph.getState().setResourceChild(id, rid, group.id, child.id, { label: '正面' });
+    expect(graphOf(useGraph.getState()).nodes[0].resources![0].views![0].views![0].label).toBe('正面');
+
+    useGraph.getState().removeResourceChild(id, rid, group.id, child.id);
+    expect(graphOf(useGraph.getState()).nodes[0].resources![0].views![0].views).toBeUndefined();
+    useGraph.getState().undo();
+    expect(graphOf(useGraph.getState()).nodes[0].resources![0].views![0].views![0].label).toBe('正面');
+  });
+});
+
+describe('模型描述生成的概念图', () => {
+  it('第一次生成会建「概念图」分组，后续图片追加进同一分组', () => {
+    useGraph.getState().addNode({ x: 0, y: 0 });
+    const id = graphOf(useGraph.getState()).nodes[0].id;
+    useGraph.getState().addResource(id, 'model');
+    const rid = graphOf(useGraph.getState()).nodes[0].resources![0].id;
+
+    const file = (name: string) => new File([new Uint8Array([1, 2, 3])], name, { type: 'image/png' });
+    useGraph.getState().applyGeneratedView(id, rid, file('concept-1.png'), '概念图 1');
+    let views = graphOf(useGraph.getState()).nodes[0].resources![0].views!;
+    expect(views).toHaveLength(1);
+    expect(views[0].label).toBe('概念图');
+    expect(views[0].views![0].path).toBe('assets/concept-1.png');
+
+    useGraph.getState().applyGeneratedView(id, rid, file('concept-2.png'), '概念图 2');
+    views = graphOf(useGraph.getState()).nodes[0].resources![0].views!;
+    expect(views).toHaveLength(1);
+    expect(views[0].views!.map((v) => v.label)).toEqual(['概念图 1', '概念图 2']);
+  });
+});

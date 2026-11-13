@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFS } from '../src/fs/memory';
 import { joinPath } from '../src/fs/types';
-import { graphDirName, nodeDirName, readProject, writeProject } from '../src/model/folder';
+import { graphDirName, nodeDirName, readProject, resourceFileName, writeProject } from '../src/model/folder';
 import { projectFromGraph } from '../src/model/project';
 import type { Graph, UnitNode } from '../src/model/types';
 
@@ -206,5 +206,60 @@ describe('目录项目：扫描与序列化', () => {
     const bad = new MemoryFS();
     await bad.writeText('project.json', '{"version":2,"graphs":[]}');
     await expect(readProject(bad)).rejects.toThrow('缺少 project.json');
+  });
+});
+
+describe('目录项目：嵌套图片容器', () => {
+  it('分组里的每张图片都落进节点 resources/，并能读回分组与描述词', async () => {
+    const fs = new MemoryFS();
+    const doc = project();
+    const target = doc.graphs[0].graph.nodes.find((n) => n.id === 'n_ingot')!;
+    target.resources = [
+      {
+        id: 'rm',
+        type: 'model',
+        label: '高炉模型',
+        path: 'assets/models/furnace.gltf',
+        prompt: '砖砌高炉，锈铁底座',
+        views: [
+          {
+            id: 'g1',
+            type: 'other',
+            label: '三视图',
+            path: '',
+            group: true,
+            prompt: '正/侧/背，正交投影，白底',
+            views: [
+              { id: 'c1', type: 'image', label: '正面', path: 'assets/front.png' },
+              { id: 'c2', type: 'image', label: '侧面', path: 'assets/side.png' },
+            ],
+          },
+        ],
+      },
+    ];
+
+    await writeProject(fs, doc, {
+      readResource: async (_n, r) => (r.id.startsWith('c') ? new TextEncoder().encode(`bytes-${r.id}`) : null),
+    });
+
+    const dir = joinPath(
+      'graphs',
+      graphDirName('主图', doc.graphs[0].id),
+      'nodes',
+      nodeDirName(target),
+      'resources',
+    );
+    const front = joinPath(dir, resourceFileName({ id: 'c1', type: 'image', label: '正面', path: 'assets/front.png' }));
+    const side = joinPath(dir, resourceFileName({ id: 'c2', type: 'image', label: '侧面', path: 'assets/side.png' }));
+    expect(new TextDecoder().decode((await fs.readBytes(front))!)).toBe('bytes-c1');
+    expect(new TextDecoder().decode((await fs.readBytes(side))!)).toBe('bytes-c2');
+
+    const back = await readProject(fs);
+    const node = back.graphs[0].graph.nodes.find((n) => n.id === 'n_ingot')!;
+    const group = node.resources!.find((r) => r.id === 'rm')!.views![0];
+    expect(group.group).toBe(true);
+    expect(group.prompt).toBe('正/侧/背，正交投影，白底');
+    expect(group.views!.map((c) => c.label)).toEqual(['正面', '侧面']);
+    expect(group.views!.every((c) => c.file?.startsWith('resources/'))).toBe(true);
   });
 });

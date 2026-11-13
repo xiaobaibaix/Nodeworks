@@ -9,9 +9,10 @@ import { slotOf, templateResources, isRigged } from './model/modelTemplate';
 import { EMPTY_FILTER, type GraphFilter } from './model/query';
 import { emptySubgraph, parseGraph } from './model/schema';
 import {
-  addEdgeOp, addNodeOp, addPortOp, addResourceOp, addResourceViewOp, createEdge, createNode,
-  createNodeFromKind, createPort, createResource, removeResourceOp, removeResourceViewOp,
-  setResourceOp, setResourceViewOp,
+  addEdgeOp, addNodeOp, addPortOp, addResourceChildOp, addResourceOp, addResourceViewOp,
+  createEdge, createNode, createNodeFromKind, createPort, createResource,
+  removeResourceChildOp, removeResourceOp, removeResourceViewOp,
+  setResourceChildOp, setResourceOp, setResourceViewOp,
   findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp,
   removePortEdgesOp, removePortOp, removePropOp, renameNodeOp, replaceNodeOp,
   replacePortInEdgesOp, setEdgeLabelOp, setKindOp, setNodePosOp, setPortOp,
@@ -128,8 +129,8 @@ interface Store {
   removeProvider(id: string): void;
   activateProvider(id: string): void;
   /** 正在为哪条资源打开生成对话框 */
-  generateTarget: { nodeId: string; resourceId: string } | null;
-  openGenerate(nodeId: string, resourceId: string): void;
+  generateTarget: { nodeId: string; resourceId: string; groupId?: string } | null;
+  openGenerate(nodeId: string, resourceId: string, groupId?: string): void;
   closeGenerate(): void;
   /** 本地版本快照（最新在前，最多 SNAPSHOT_LIMIT 份） */
   snapshots: Snapshot[];
@@ -175,6 +176,25 @@ interface Store {
   importResourceFile(nodeId: string, resourceId: string, file: File): Promise<void>;
   /** 资源项的子资源（图片容器里的视图） */
   addResourceView(nodeId: string, resourceId: string): void;
+  /** 在图片容器里新建分组（分组自己装描述词与图片子项） */
+  addResourceGroup(nodeId: string, resourceId: string): void;
+  addResourceChild(nodeId: string, resourceId: string, groupId: string): void;
+  setResourceChild(
+    nodeId: string,
+    resourceId: string,
+    groupId: string,
+    childId: string,
+    patch: Partial<Omit<ResourceItem, 'id'>>,
+  ): void;
+  removeResourceChild(nodeId: string, resourceId: string, groupId: string, childId: string): void;
+  importResourceChildFile(nodeId: string, resourceId: string, groupId: string, childId: string, file: File): void;
+  applyGeneratedChild(
+    nodeId: string,
+    resourceId: string,
+    groupId: string,
+    file: File,
+    label?: string,
+  ): void;
   setResourceView(nodeId: string, resourceId: string, viewId: string, patch: Partial<Omit<ResourceItem, 'id'>>): void;
   removeResourceView(nodeId: string, resourceId: string, viewId: string): void;
   importResourceViewFile(nodeId: string, resourceId: string, viewId: string, file: File): void;
@@ -675,6 +695,84 @@ export const useGraph = create<Store>((set, get) => ({
     });
   },
 
+  addResourceGroup: (nodeId, resourceId) => {
+    const resource = findNode(graphOf(get()), nodeId)?.resources?.find((r) => r.id === resourceId);
+    if (!resource) return;
+    const group = createResource('other', `分组 ${(resource.views?.length ?? 0) + 1}`);
+    group.path = '';
+    group.group = true;
+    group.views = [];
+    get().commit({
+      label: '添加分组',
+      run: (g) => addResourceViewOp(g, nodeId, resourceId, group),
+      revert: (g) => removeResourceViewOp(g, nodeId, resourceId, group.id),
+    });
+  },
+
+  addResourceChild: (nodeId, resourceId, groupId) => {
+    const group = findNode(graphOf(get()), nodeId)?.resources
+      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId);
+    if (!group) return;
+    const child = createResource('image', `图 ${(group.views?.length ?? 0) + 1}`);
+    get().commit({
+      label: '添加分组图片',
+      run: (g) => addResourceChildOp(g, nodeId, resourceId, groupId, child),
+      revert: (g) => removeResourceChildOp(g, nodeId, resourceId, groupId, child.id),
+    });
+  },
+
+  setResourceChild: (nodeId, resourceId, groupId, childId, patch) => {
+    const old = findNode(graphOf(get()), nodeId)?.resources
+      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId)
+      ?.views?.find((c) => c.id === childId);
+    if (!old) return;
+    get().commit({
+      label: '改分组图片',
+      mergeKey: `child:${nodeId}:${resourceId}:${groupId}:${childId}:${Object.keys(patch).join(',')}`,
+      run: (g) => setResourceChildOp(g, nodeId, resourceId, groupId, childId, patch),
+      revert: (g) => setResourceChildOp(g, nodeId, resourceId, groupId, childId, old),
+    });
+  },
+
+  removeResourceChild: (nodeId, resourceId, groupId, childId) => {
+    const old = findNode(graphOf(get()), nodeId)?.resources
+      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId)
+      ?.views?.find((c) => c.id === childId);
+    if (!old) return;
+    get().commit({
+      label: '删除分组图片',
+      run: (g) => removeResourceChildOp(g, nodeId, resourceId, groupId, childId),
+      revert: (g) => addResourceChildOp(g, nodeId, resourceId, groupId, old),
+    });
+  },
+
+  importResourceChildFile: (nodeId, resourceId, groupId, childId, file) => {
+    const old = findNode(graphOf(get()), nodeId)?.resources
+      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId)
+      ?.views?.find((c) => c.id === childId);
+    if (!old) return;
+    resourceFiles.set(`${nodeId}:${childId}`, file);
+    get().commit({
+      label: '导入分组图片',
+      run: (g) => setResourceChildOp(g, nodeId, resourceId, groupId, childId, { path: `assets/${file.name}`, file: undefined }),
+      revert: (g) => setResourceChildOp(g, nodeId, resourceId, groupId, childId, old),
+    });
+  },
+
+  applyGeneratedChild: (nodeId, resourceId, groupId, file, label) => {
+    const group = findNode(graphOf(get()), nodeId)?.resources
+      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId);
+    if (!group) return;
+    const child = createResource('image', label || `图 ${(group.views?.length ?? 0) + 1}`);
+    child.path = `assets/${file.name}`;
+    resourceFiles.set(`${nodeId}:${child.id}`, file);
+    get().commit({
+      label: '添加生成图片',
+      run: (g) => addResourceChildOp(g, nodeId, resourceId, groupId, child),
+      revert: (g) => removeResourceChildOp(g, nodeId, resourceId, groupId, child.id),
+    });
+  },
+
   importResourceViewFile: (nodeId, resourceId, viewId, file) => {
     const node = findNode(graphOf(get()), nodeId);
     const old = node?.resources?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === viewId);
@@ -697,10 +795,23 @@ export const useGraph = create<Store>((set, get) => ({
     view.path = `assets/${file.name}`;
     // 生成结果的字节先进会话缓存，保存目录项目时由 readResource 落盘
     resourceFiles.set(`${nodeId}:${view.id}`, file);
+    const concept = resource.views?.find((v) => v.group && v.label === '概念图');
+    if (concept) {
+      get().commit({
+        label: '添加概念图',
+        run: (g) => addResourceChildOp(g, nodeId, resourceId, concept.id, view),
+        revert: (g) => removeResourceChildOp(g, nodeId, resourceId, concept.id, view.id),
+      });
+      return;
+    }
+    const group = createResource('other', '概念图');
+    group.path = '';
+    group.group = true;
+    group.views = [view];
     get().commit({
-      label: '添加生成视图',
-      run: (g) => addResourceViewOp(g, nodeId, resourceId, view),
-      revert: (g) => removeResourceViewOp(g, nodeId, resourceId, view.id),
+      label: '添加概念图',
+      run: (g) => addResourceViewOp(g, nodeId, resourceId, group),
+      revert: (g) => removeResourceViewOp(g, nodeId, resourceId, group.id),
     });
   },
 
@@ -856,7 +967,7 @@ export const useGraph = create<Store>((set, get) => ({
     saveProviders(list);
   },
 
-  openGenerate: (nodeId, resourceId) => set({ generateTarget: { nodeId, resourceId } }),
+  openGenerate: (nodeId, resourceId, groupId) => set({ generateTarget: { nodeId, resourceId, groupId } }),
   closeGenerate: () => set({ generateTarget: null }),
 
   setProjectStyle: (patch) => {

@@ -33,6 +33,7 @@ export const ResourceSchema: z.ZodType<ResourceItem> = z.lazy(() =>
     slot: z.string().optional(),
     prompt: z.string().optional(),
     views: z.array(ResourceSchema).optional(),
+    group: z.boolean().optional(),
     meta: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   }),
 ) as unknown as z.ZodType<ResourceItem>;

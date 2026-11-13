@@ -24,6 +24,7 @@ export default function GenerateDialog() {
   const openProviders = useGraph((s) => s.openProviders);
   const importResourceFile = useGraph((s) => s.importResourceFile);
   const applyGeneratedView = useGraph((s) => s.applyGeneratedView);
+  const applyGeneratedChild = useGraph((s) => s.applyGeneratedChild);
   const toastOf = useGraph((s) => s.toastOf);
   const graph = useCurrentGraph();
 
@@ -37,6 +38,9 @@ export default function GenerateDialog() {
 
   const node = target ? graph.nodes.find((n) => n.id === target.nodeId) : undefined;
   const resource = node?.resources?.find((r) => r.id === target?.resourceId);
+  const group = target?.groupId
+    ? resource?.views?.find((v) => v.id === target.groupId)
+    : undefined;
 
   const clearResults = () => {
     for (const url of urlsRef.current) URL.revokeObjectURL(url);
@@ -50,7 +54,16 @@ export default function GenerateDialog() {
 
   useEffect(() => {
     if (!target || !resource || !node) return;
-    setPrompt(composePrompt(style, resource, node.title));
+    if (group) {
+      const subject = [node.title, resource.label].filter(Boolean).join(' · ');
+      setPrompt(composePrompt(style, {
+        label: group.label || '分组',
+        type: 'image',
+        prompt: [resource.prompt, group.prompt].filter((t) => t && t.trim()).join('\n\n'),
+      }, subject));
+    } else {
+      setPrompt(composePrompt(style, resource, node.title));
+    }
     setSize('');
     setError('');
     setBusy(false);
@@ -97,12 +110,12 @@ export default function GenerateDialog() {
 
   const applyAsView = (file: GeneratedFile, index: number) => {
     const chosen = new File([toBlob(file)], file.name, { type: file.mime });
-    applyGeneratedView(
-      target.nodeId,
-      target.resourceId,
-      chosen,
-      items.length > 1 ? `生成视图 ${index + 1}` : '生成视图',
-    );
+    const label = items.length > 1 ? `生成视图 ${index + 1}` : '生成视图';
+    if (target.groupId) {
+      applyGeneratedChild(target.nodeId, target.resourceId, target.groupId, chosen, label);
+    } else {
+      applyGeneratedView(target.nodeId, target.resourceId, chosen, label);
+    }
     close();
   };
 
@@ -122,9 +135,9 @@ export default function GenerateDialog() {
       <div className="generate-box">
         <header>
           <div>
-            <h2>生成 · {resource.label || resource.type}</h2>
+            <h2>生成 · {group ? `${resource.label || resource.type} / ${group.label || '分组'}` : resource.label || resource.type}</h2>
             <div className="hint">
-              {node.title} · {resource.type} · 提示词已拼上全局「资源风格」
+              {node.title} · {group ? '分组' : resource.type} · 提示词已拼上全局「资源风格」{group ? '与模型描述' : ''}
             </div>
           </div>
           <div className="asset-actions">

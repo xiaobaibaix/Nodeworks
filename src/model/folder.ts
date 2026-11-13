@@ -145,9 +145,13 @@ async function writeNodeDir(
   if (resources?.length) {
     // 顶层资源与它挂的视图都要写文件，清理时也都要算作「在用」
     const flattened: ResourceItem[] = [];
-    for (const resource of resources) {
-      flattened.push(resource, ...(resource.views ?? []));
-    }
+    const walk = (items: ResourceItem[]): void => {
+      for (const item of items) {
+        flattened.push(item);
+        if (item.views?.length) walk(item.views);
+      }
+    };
+    walk(resources);
     for (const resource of flattened) {
       const target = resource.file ?? joinPath(RESOURCES_DIR, resourceFileName(resource));
       if (options.readResource) {

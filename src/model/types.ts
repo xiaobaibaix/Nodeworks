@@ -35,6 +35,8 @@ export interface ResourceItem {
   prompt?: string;
   /** 子资源（图片容器）：模型的各角度视图等，结构同资源项，文件随父资源一起落盘 */
   views?: ResourceItem[];
+  /** 分组容器：自身不放图片，只装子视图与描述词（如「三视图」「概念图」） */
+  group?: boolean;
   meta?: Record<string, string | number | boolean>;
 }
 
