@@ -36,6 +36,7 @@ export default function Sidebar() {
   const activeGraphId = useGraph((s) => s.activeGraphId);
   const switchGraph = useGraph((s) => s.switchGraph);
   const addGraph = useGraph((s) => s.addGraph);
+  const importGraph = useGraph((s) => s.importGraph);
   const folderName = useGraph((s) => s.folderName);
   const fileName = useGraph((s) => s.fileName);
   const unbindFolder = useGraph((s) => s.unbindFolder);
@@ -131,6 +132,14 @@ export default function Sidebar() {
           disabled={projectGraphs.length <= 1}
         >
           −
+        </button>
+        <button
+          className="icon tip"
+          data-tip="导入图（选择一份 graph JSON，作为新图加入当前项目）"
+          aria-label="导入图"
+          onClick={() => void importGraph()}
+        >
+          ⤓
         </button>
       </div>
 

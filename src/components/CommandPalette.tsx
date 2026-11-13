@@ -124,6 +124,14 @@ export default function CommandPalette() {
       run: () => useGraph.getState().setExportOpen(true),
     });
     list.push({
+      id: 'graph-import',
+      label: '导入图…',
+      hint: '选择 graph JSON，加入当前项目',
+      group: '命令',
+      mutates: true,
+      run: () => void useGraph.getState().importGraph(),
+    });
+    list.push({
       id: 'graph-new',
       label: '新建图',
       hint: '同一 project，模板共享',

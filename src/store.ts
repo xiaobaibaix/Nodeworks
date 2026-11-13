@@ -24,7 +24,7 @@ import {
 import {
   activeGraph as projectActiveGraph, addGraph as projectAddGraph,
   projectFromGraph, removeGraph as projectRemoveGraph, renameGraph as projectRenameGraph,
-  parseProjectDoc, syncActive, switchGraph as switchProjectGraph, type ProjectGraph,
+  parseProjectDoc, syncActive, switchGraph as switchProjectGraph, unifyKinds, type ProjectGraph,
 } from './model/project';
 import { EMPTY_STYLE, type ProjectStyle } from './model/style';
 import {
@@ -201,6 +201,7 @@ interface Store {
   deleteSnapshot(id: string): void;
   switchGraph(id: string): void;
   addGraph(name?: string): void;
+  importGraph(name?: string): Promise<void>;
   renameGraph(name: string): void;
   removeGraph(): void;
   addPort(nodeId: string, dir: 'in' | 'out'): void;
@@ -1322,6 +1323,57 @@ export const useGraph = create<Store>((set, get) => ({
       toast: `已新建「${active.name}」`,
     });
     saveProjectDoc(created.project);
+  },
+
+  importGraph: async (name) => {
+    let imported;
+    try {
+      imported = await pickGraphFile();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      if (detail !== '没有选择文件') set({ toast: `导入图失败：${detail}` });
+      return;
+    }
+    const { graph, projectGraphs, activeGraphId } = get();
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    if (synced.graphs.length >= 24) {
+      set({ toast: '一个 project 最多 24 张图' });
+      return;
+    }
+    const created = projectAddGraph(synced, name?.trim() || undefined);
+    const importedId = created.project.active;
+    const unified = unifyKinds({
+      ...created.project,
+      graphs: created.project.graphs.map((pg) =>
+        pg.id === importedId
+          ? { ...pg, graph: { ...imported, kinds: { ...pg.graph.kinds, ...imported.kinds } } }
+          : pg,
+      ),
+    });
+    const active = projectActiveGraph(unified);
+    set({
+      graph: active.graph,
+      projectGraphs: unified.graphs,
+      activeGraphId: active.id,
+      past: [],
+      future: [],
+      selectedNodes: [],
+      selectedEdge: null,
+      pendingPort: null,
+      path: [],
+      preview: false,
+      filter: EMPTY_FILTER,
+      focus: null,
+      impactOn: false,
+      tableSort: null,
+      hiddenColumns: [],
+      toast: `已导入「${active.name}」· ${active.graph.nodes.length} 个单元`,
+    });
+    saveProjectDoc(unified);
   },
 
   renameGraph: (name) => {
