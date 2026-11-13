@@ -3,6 +3,7 @@ import { useCurrentGraph, useGraph } from '../store';
 import type { ResourceItem, ResourceType, UnitNode } from '../model/types';
 import { hasSceneSlots, isRigged, modelChecklist } from '../model/modelTemplate';
 import { wantsPrompt } from '../model/style';
+import ResourceThumb from './ResourceThumb';
 import AssetPreview from './AssetPreview';
 import ResourceViews from './ResourceViews';
 
@@ -567,6 +568,9 @@ export default function Inspector() {
                   onCommit={(v) => setResource(node.id, r.id, { prompt: v })}
                 />
               </div>
+            )}
+            {r.type === 'image' && (
+              <ResourceThumb nodeId={node.id} resource={r} onOpen={() => setPreviewRes(r)} />
             )}
             {(r.type === 'model' || (r.views?.length ?? 0) > 0) && (
               <ResourceViews node={node} resource={r} onPreview={setPreviewRes} />

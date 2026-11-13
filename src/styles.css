@@ -1239,6 +1239,14 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 /* 资源描述词：图片/模型各一行，占满整行；⎘ 复制拼好的提示词 */
 .res-prompt { grid-column: 1 / -1; display: flex; gap: 6px; align-items: flex-start; margin-top: 2px; }
 .res-prompt textarea { flex: 1; min-height: 38px; font-size: 12px; line-height: 1.45; }
+.res-thumb {
+  grid-column: 1 / -1; height: 104px; padding: 0; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  border: 1px solid #2c323d; border-radius: 8px; background: #0f1217; cursor: zoom-in;
+}
+.res-thumb:hover { border-color: #3a4250; }
+.res-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.res-thumb span { color: #5f6a7b; font-size: 12px; }
 
 /* 资源风格对话框 */
 .style-box {
