@@ -303,13 +303,20 @@ const tools: Tool[] = [
   {
     name: 'create_graph',
     description: '新建一张图（继承共享 kinds）并设为当前图。',
-    inputSchema: S.obj('参数', { name: S.str('图名，默认“图 N”') }),
-    run: async ({ name }) => {
+    inputSchema: S.obj('参数', {
+      name: S.str('图名，默认“图 N”'),
+      level: S.num('层级：1 一级矿、2+ 产物层级、0 其它；省略则继承当前图'),
+    }),
+    run: async ({ name, level }) => {
       let id = '';
       await mutate('新建图', (d) => {
         const res = addGraph(d, typeof name === 'string' ? name : undefined);
         id = res.id;
         Object.assign(d, res.project);
+        if (typeof level === 'number' && Number.isFinite(level)) {
+          const lv = Math.max(0, Math.round(level));
+          Object.assign(d, { graphs: d.graphs.map((g) => (g.id === id ? { ...g, level: lv } : g)) });
+        }
       });
       return { id, active: loadDoc().active };
     },
