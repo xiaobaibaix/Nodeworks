@@ -26,10 +26,12 @@ import {
   formatTime, loadSnapshots, newSnapshot, persistSnapshots, pushSnapshot, type Snapshot,
 } from './model/snapshot';
 import {
-  activeGraph as projectActiveGraph, addGraph as projectAddGraph,
-  projectFromGraph, removeGraph as projectRemoveGraph, renameGraph as projectRenameGraph,
-  parseProjectDoc, PROJECT_LIMIT, syncActive, switchGraph as switchProjectGraph, unifyKinds,
-  type ProjectGraph,
+  activeGraph as projectActiveGraph, addGraph as projectAddGraph, addFolder as projectAddFolder,
+  moveGraphToFolder as projectMoveGraph, projectFromGraph, removeFolder as projectRemoveFolder,
+  removeGraph as projectRemoveGraph, renameFolder as projectRenameFolder,
+  renameGraph as projectRenameGraph, parseProjectDoc, PROJECT_LIMIT, syncActive,
+  switchGraph as switchProjectGraph, unifyKinds,
+  type ProjectFolder, type ProjectGraph,
 } from './model/project';
 import { EMPTY_STYLE, type ProjectStyle } from './model/style';
 import {
@@ -162,6 +164,7 @@ interface Store {
   clearFolderError(): void;
   /** 多图容器：一个 project 下的所有根图（当前图另外存在 graph 里） */
   projectGraphs: ProjectGraph[];
+  folders: ProjectFolder[];
   activeGraphId: string;
   /** 资源全局风格：所有图标/模型的描述词都继承它 */
   projectStyle: ProjectStyle;
@@ -248,7 +251,11 @@ interface Store {
   restoreSnapshot(id: string): void;
   deleteSnapshot(id: string): void;
   switchGraph(id: string): void;
-  addGraph(name?: string): void;
+  addGraph(name?: string, folderId?: string | null): void;
+  addFolder(name: string, parentId?: string | null): void;
+  renameFolder(id: string, name: string): void;
+  removeFolder(id: string): void;
+  moveGraphToFolder(graphId: string, folderId: string | null): void;
   importGraph(name?: string): Promise<void>;
   renameGraph(name: string): void;
   removeGraph(): void;
@@ -332,6 +339,7 @@ async function restoreFolder() {
     useGraph.setState({
       graph: active.graph,
       projectGraphs: project.graphs,
+      folders: project.folders ?? [],
       activeGraphId: active.id,
       projectStyle: project.style ?? { ...EMPTY_STYLE },
       folderName: handle.name,
@@ -377,6 +385,7 @@ export const useGraph = create<Store>((set, get) => ({
   folderError: null,
   newProjectOpen: false,
   projectGraphs: [],
+  folders: [],
   activeGraphId: '',
   projectStyle: { ...EMPTY_STYLE },
 
@@ -392,6 +401,7 @@ export const useGraph = create<Store>((set, get) => ({
       set({
         graph: active.graph,
         projectGraphs: project.graphs,
+        folders: project.folders ?? [],
         activeGraphId: active.id,
         projectStyle: project.style ?? { ...EMPTY_STYLE },
         booted: true,
@@ -1419,6 +1429,7 @@ export const useGraph = create<Store>((set, get) => ({
         const seeded = projectFromGraph(g);
         return {
           projectGraphs: seeded.graphs,
+          folders: seeded.folders ?? [],
           activeGraphId: seeded.active,
           projectStyle: seeded.style ?? { ...EMPTY_STYLE },
         };
@@ -1445,6 +1456,7 @@ export const useGraph = create<Store>((set, get) => ({
       set({
         graph: active.graph,
         projectGraphs: project.graphs,
+        folders: project.folders ?? [],
         activeGraphId: project.active,
         projectStyle: project.style ?? { ...EMPTY_STYLE },
         assetPrompt: fileCount,
@@ -1465,10 +1477,10 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   switchGraph: (id) => {
-    const { graph, projectGraphs, activeGraphId } = get();
+    const { graph, projectGraphs, folders, activeGraphId } = get();
     if (id === activeGraphId) return;
     const synced = syncActive(
-      { version: 1, active: activeGraphId, graphs: projectGraphs, style: get().projectStyle },
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
       graph,
       activeGraphId,
     );
@@ -1478,6 +1490,7 @@ export const useGraph = create<Store>((set, get) => ({
     set({
       graph: active.graph,
       projectGraphs: next.graphs,
+      folders: next.folders ?? [],
       activeGraphId: next.active,
       past: [],
       future: [],
@@ -1495,10 +1508,10 @@ export const useGraph = create<Store>((set, get) => ({
     });
   },
 
-  addGraph: (name) => {
-    const { graph, projectGraphs, activeGraphId } = get();
+  addGraph: (name, folderId) => {
+    const { graph, projectGraphs, folders, activeGraphId } = get();
     const synced = syncActive(
-      { version: 1, active: activeGraphId, graphs: projectGraphs, style: get().projectStyle },
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
       graph,
       activeGraphId,
     );
@@ -1506,11 +1519,12 @@ export const useGraph = create<Store>((set, get) => ({
       set({ toast: `一个 project 最多 ${PROJECT_LIMIT} 张图` });
       return;
     }
-    const created = projectAddGraph(synced, name);
+    const created = projectAddGraph(synced, name, folderId ?? null);
     const active = projectActiveGraph(created.project);
     set({
       graph: active.graph,
       projectGraphs: created.project.graphs,
+      folders: created.project.folders ?? [],
       activeGraphId: active.id,
       past: [],
       future: [],
@@ -1538,9 +1552,9 @@ export const useGraph = create<Store>((set, get) => ({
       if (detail !== '没有选择文件') set({ toast: `导入图失败：${detail}` });
       return;
     }
-    const { graph, projectGraphs, activeGraphId } = get();
+    const { graph, projectGraphs, folders, activeGraphId } = get();
     const synced = syncActive(
-      { version: 1, active: activeGraphId, graphs: projectGraphs, style: get().projectStyle },
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
       graph,
       activeGraphId,
     );
@@ -1562,6 +1576,7 @@ export const useGraph = create<Store>((set, get) => ({
     set({
       graph: active.graph,
       projectGraphs: unified.graphs,
+      folders: unified.folders ?? [],
       activeGraphId: active.id,
       past: [],
       future: [],
@@ -1580,6 +1595,62 @@ export const useGraph = create<Store>((set, get) => ({
     saveProjectDoc(unified);
   },
 
+  addFolder: (name, parentId = null) => {
+    const { graph, projectGraphs, folders, activeGraphId } = get();
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    const created = projectAddFolder(synced, name, parentId);
+    set({
+      projectGraphs: created.project.graphs,
+      folders: created.project.folders ?? [],
+      toast: `已新建分组「${name.trim() || '新建分组'}」`,
+    });
+    saveProjectDoc(created.project);
+  },
+
+  renameFolder: (id, name) => {
+    const { graph, projectGraphs, folders, activeGraphId } = get();
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    const project = projectRenameFolder(synced, id, name);
+    set({ projectGraphs: project.graphs, folders: project.folders ?? [] });
+    saveProjectDoc(project);
+  },
+
+  removeFolder: (id) => {
+    const { graph, projectGraphs, folders, activeGraphId } = get();
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    const project = projectRemoveFolder(synced, id);
+    set({
+      projectGraphs: project.graphs,
+      folders: project.folders ?? [],
+      toast: '已删除分组，里面的图移到上一级',
+    });
+    saveProjectDoc(project);
+  },
+
+  moveGraphToFolder: (graphId, folderId) => {
+    const { graph, projectGraphs, folders, activeGraphId } = get();
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    const project = projectMoveGraph(synced, graphId, folderId);
+    set({ projectGraphs: project.graphs, folders: project.folders ?? [] });
+    saveProjectDoc(project);
+  },
+
   renameGraph: (name) => {
     const { projectGraphs, activeGraphId } = get();
     const before = projectGraphs.find((pg) => pg.id === activeGraphId);
@@ -1589,12 +1660,12 @@ export const useGraph = create<Store>((set, get) => ({
       activeGraphId,
       name,
     );
-    set({ projectGraphs: project.graphs, toast: `已重命名为「${name.trim() || before.name}」` });
+    set({ projectGraphs: project.graphs, folders: project.folders ?? [], toast: `已重命名为「${name.trim() || before.name}」` });
     saveProjectDoc(project);
   },
 
   removeGraph: () => {
-    const { graph, projectGraphs, activeGraphId } = get();
+    const { graph, projectGraphs, folders, activeGraphId } = get();
     if (projectGraphs.length <= 1) {
       set({ toast: '至少保留一张图' });
       return;
@@ -1603,7 +1674,7 @@ export const useGraph = create<Store>((set, get) => ({
       return;
     }
     const synced = syncActive(
-      { version: 1, active: activeGraphId, graphs: projectGraphs, style: get().projectStyle },
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
       graph,
       activeGraphId,
     );
@@ -1612,6 +1683,7 @@ export const useGraph = create<Store>((set, get) => ({
     set({
       graph: active.graph,
       projectGraphs: next.graphs,
+      folders: next.folders ?? [],
       activeGraphId: active.id,
       past: [],
       future: [],
@@ -1631,15 +1703,15 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   saveToCache: () => {
-    const { graph, projectGraphs, activeGraphId } = get();
+    const { graph, projectGraphs, folders, activeGraphId } = get();
     saveCached(graph);
     if (!projectGraphs.length) return;
     const project = syncActive(
-      { version: 1, active: activeGraphId, graphs: projectGraphs, style: get().projectStyle },
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
       graph,
       activeGraphId,
     );
-    set({ projectGraphs: project.graphs });
+    set({ projectGraphs: project.graphs, folders: project.folders ?? folders });
     saveProjectDoc(project);
   },
 
@@ -1656,6 +1728,7 @@ export const useGraph = create<Store>((set, get) => ({
     set({
       graph: seeded.graphs[0].graph,
       projectGraphs: seeded.graphs,
+      folders: seeded.folders ?? [],
       activeGraphId: seeded.active,
       projectStyle: seeded.style ?? { ...EMPTY_STYLE },
       folderName: null,
@@ -1841,6 +1914,7 @@ export const useGraph = create<Store>((set, get) => ({
       set({
         graph: projectActiveGraph(project).graph,
         projectGraphs: project.graphs,
+        folders: project.folders ?? [],
         activeGraphId: project.active,
         projectStyle: project.style ?? { ...EMPTY_STYLE },
         folderName: handle.name,
@@ -1870,6 +1944,7 @@ export const useGraph = create<Store>((set, get) => ({
       set({
         graph: projectActiveGraph(project).graph,
         projectGraphs: project.graphs,
+        folders: project.folders ?? [],
         activeGraphId: project.active,
         projectStyle: project.style ?? { ...EMPTY_STYLE },
         toast: '已从目录重新载入',
@@ -1922,10 +1997,10 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   currentProject: () => {
-    const { graph, projectGraphs, activeGraphId, projectStyle } = get();
+    const { graph, projectGraphs, folders, activeGraphId, projectStyle } = get();
     if (!projectGraphs.length) return { ...projectFromGraph(graph), style: { ...projectStyle } };
     return syncActive(
-      { version: 1, active: activeGraphId, graphs: projectGraphs, style: { ...projectStyle } },
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: { ...projectStyle } },
       graph,
       activeGraphId,
     );

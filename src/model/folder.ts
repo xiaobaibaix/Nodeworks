@@ -15,7 +15,9 @@ interface ProjectFile {
   version: 1;
   active: string;
   kinds: Graph['kinds'];
-  graphs: { id: string; name: string; dir: string; level?: number }[];
+  graphs: { id: string; name: string; dir: string; level?: number; folderId?: string | null }[];
+  folders?: { id: string; name: string; parentId: string | null }[];
+  grouped?: boolean;
   /** 资源全局风格（图标/模型描述词的公共部分） */
   style?: ProjectStyle;
 }
@@ -96,7 +98,7 @@ export async function writeProject(fs: ProjectFS, project: ProjectDoc, options: 
   for (const pg of project.graphs) {
     const dir = joinPath(graphLevelFolder(pg.level), graphDirName(pg.name, pg.id));
     expectedGraphDirs.add(dir);
-    index.push({ id: pg.id, name: pg.name, dir, level: pg.level ?? 0 });
+    index.push({ id: pg.id, name: pg.name, dir, level: pg.level ?? 0, folderId: pg.folderId ?? null });
     await writeGraphDir(fs, joinPath('graphs', dir), pg.graph, pg.id, pg.name, options);
   }
 
@@ -105,6 +107,8 @@ export async function writeProject(fs: ProjectFS, project: ProjectDoc, options: 
     active: project.active,
     kinds,
     graphs: index,
+    folders: project.folders ?? [],
+    grouped: project.grouped === true,
     style: project.style ?? EMPTY_STYLE,
   };
   await fs.writeText(PROJECT_FILE, `${JSON.stringify(file, null, 2)}\n`);
@@ -202,7 +206,7 @@ export async function readProject(fs: ProjectFS): Promise<ProjectDoc> {
   const kinds = project.kinds ?? {};
 
   const diskDirs = await listDirs(fs, 'graphs');
-  const order: { id: string; name: string; dir: string; level?: number }[] = [];
+  const order: { id: string; name: string; dir: string; level?: number; folderId?: string | null }[] = [];
   const seen = new Set<string>();
 
   for (const entry of project.graphs) {
@@ -241,12 +245,15 @@ export async function readProject(fs: ProjectFS): Promise<ProjectDoc> {
       name: entry.name || read.name,
       graph: read.graph,
       level: typeof entry.level === 'number' ? entry.level : 0,
+      folderId: typeof entry.folderId === 'string' ? entry.folderId : null,
     });
   }
   if (!graphs.length) throw new Error('目录项目里没有可读取的图');
 
   const active = graphs.some((pg) => pg.id === project.active) ? project.active : graphs[0].id;
-  const parsed = parseProjectDoc({ version: 1, active, graphs, style: project.style });
+  const parsed = parseProjectDoc({
+    version: 1, active, graphs, folders: project.folders ?? [], grouped: project.grouped, style: project.style,
+  });
   if (!parsed) {
     throw new Error(`目录项目校验失败：检查 ${NODE_FILE} / ${GRAPH_FILE} 里的端口与连线引用`);
   }
@@ -268,6 +275,13 @@ async function readProjectFile(fs: ProjectFS): Promise<ProjectFile | null> {
         (entry): entry is ProjectFile['graphs'][number] =>
           !!entry && typeof entry.dir === 'string' && typeof entry.id === 'string',
       ),
+      grouped: raw.grouped === true,
+      folders: Array.isArray(raw.folders)
+        ? raw.folders.filter(
+          (f): f is { id: string; name: string; parentId: string | null } =>
+            !!f && typeof f.id === 'string' && typeof f.name === 'string',
+        ).map((f) => ({ id: f.id, name: f.name, parentId: typeof f.parentId === 'string' ? f.parentId : null }))
+        : [],
     };
   } catch {
     return null;

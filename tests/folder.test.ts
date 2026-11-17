@@ -3,7 +3,7 @@ import { MemoryFS } from '../src/fs/memory';
 import { joinPath } from '../src/fs/types';
 import { graphDirName, graphLevelFolder, nodeDirName, readProject, resourceFileName, writeProject } from '../src/model/folder';
 import { RESOURCES_DIR } from '../src/model/folder';
-import { projectFromGraph } from '../src/model/project';
+import { addFolder, addGraph, projectFromGraph } from '../src/model/project';
 import type { Graph, UnitNode } from '../src/model/types';
 
 function node(id: string, title: string, extra: Partial<UnitNode> = {}): UnitNode {
@@ -301,5 +301,20 @@ describe('资源字节保护', () => {
     expect(await fs.readBytes(path)).toEqual(bytes);
     await writeProject(fs, doc);
     expect(await fs.readBytes(path)).toEqual(bytes);
+  });
+});
+
+
+describe('目录项目的分组', () => {
+  it('folders / folderId / grouped 随 project.json 往返', async () => {
+    const fs = new MemoryFS();
+    const base = projectFromGraph(graph(), '主图');
+    const folder = addFolder(base, '产线');
+    const created = addGraph(folder.project, '钢', folder.id);
+    await writeProject(fs, created.project);
+    const back = await readProject(fs);
+    expect(back.grouped).toBe(true);
+    expect(back.folders?.map((f) => f.name)).toContain('产线');
+    expect(back.graphs.find((g) => g.id === created.id)?.folderId).toBe(folder.id);
   });
 });

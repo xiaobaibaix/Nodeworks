@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addGraph, graphLevelLabel, mergeKinds, normalizeProject, parseProjectDoc, projectFromGraph, removeGraph,
-  renameGraph, syncActive, switchGraph, unifyKinds, type ProjectDoc,
+  addFolder, addGraph, graphLevelLabel, mergeKinds, moveGraphToFolder, normalizeProject,
+  parseProjectDoc, projectFromGraph, removeFolder, removeGraph, renameFolder, renameGraph,
+  syncActive, switchGraph, unifyKinds, type ProjectDoc,
 } from '../src/model/project';
 import type { Graph } from '../src/model/types';
 
@@ -128,5 +129,38 @@ describe('图的产物层级', () => {
     });
     const created = addGraph(input);
     expect(created.project.graphs.find((g) => g.id === created.id)?.level).toBe(3);
+  });
+});
+
+
+describe('图分组（文件树）', () => {
+  it('新建分组可嵌套，重命名保留结构', () => {
+    const root = addFolder(doc(), '产线');
+    const folder = root.project.folders!.find((f) => f.name === '产线')!;
+    const child = addFolder(root.project, '炼钢', folder.id);
+    const renamed = renameFolder(child.project, child.id, '转炉');
+    const kids = renamed.folders!.filter((f) => f.parentId === folder.id);
+    expect(kids).toHaveLength(1);
+    expect(kids[0].name).toBe('转炉');
+  });
+
+  it('图可在分组里新建、移动，删除分组时图回到上一级', () => {
+    const project = addFolder(doc(), '产线').project;
+    const folder = project.folders![0];
+    const created = addGraph(project, '钢', folder.id);
+    expect(created.project.graphs.find((g) => g.id === created.id)?.folderId).toBe(folder.id);
+    const moved = moveGraphToFolder(created.project, 'a', folder.id);
+    expect(moved.graphs.find((g) => g.id === 'a')?.folderId).toBe(folder.id);
+    const removed = removeFolder(moved, folder.id);
+    expect(removed.folders).toHaveLength(0);
+    expect(removed.graphs.every((g) => g.folderId === null)).toBe(true);
+    expect(removed.graphs.map((g) => g.id).sort()).toEqual(['a', 'b', created.id].sort());
+  });
+
+  it('旧项目按 level 自动补分组', () => {
+    const project = normalizeProject(doc());
+    expect(project.folders?.length).toBe(1);
+    expect(project.graphs.every((g) => g.folderId === project.folders![0].id)).toBe(true);
+    expect(project.folders![0].name).toBe('其它');
   });
 });

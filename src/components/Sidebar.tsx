@@ -4,7 +4,7 @@ import {
   groupByKind, isolatedNodeIds, kindOptions, nodeMatches, orphanNodeIds, visibleNodes,
 } from '../model/query';
 import { useCurrentGraph, useGraph } from '../store';
-import { graphLevelLabel } from '../model/project';
+import { graphLevelLabel, type ProjectFolder } from '../model/project';
 
 function highlight(text: string, query: string) {
   const needle = query.trim().toLowerCase();
@@ -46,21 +46,37 @@ export default function Sidebar() {
   const { fitView } = useReactFlow();
   const activeName = projectGraphs.find((pg) => pg.id === activeGraphId)?.name ?? '';
   const activeLevel = projectGraphs.find((pg) => pg.id === activeGraphId)?.level ?? 0;
-  const levels = useMemo(() => {
-    const map = new Map<number, typeof projectGraphs>();
-    for (const pg of projectGraphs) {
-      const level = pg.level ?? 0;
-      const list = map.get(level) ?? [];
-      list.push(pg);
-      map.set(level, list);
+  const folders = useGraph((s) => s.folders);
+  const addFolder = useGraph((s) => s.addFolder);
+  const renameFolder = useGraph((s) => s.renameFolder);
+  const removeFolder = useGraph((s) => s.removeFolder);
+
+  const activeFolderId = projectGraphs.find((pg) => pg.id === activeGraphId)?.folderId ?? null;
+  const folderChildren = (parentId: string | null) =>
+    folders
+      .filter((f) => f.parentId === parentId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+  const graphsIn = (folderId: string) =>
+    projectGraphs
+      .filter((pg) => pg.folderId === folderId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+  const folderPath = (folderId: string) => {
+    const names: string[] = [];
+    let cur = folders.find((f) => f.id === folderId);
+    let guard = 0;
+    while (cur && guard++ < 20) {
+      names.unshift(cur.name);
+      cur = folders.find((f) => f.id === cur?.parentId);
     }
-    return [...map.entries()].sort((a, b) => (a[0] || 99) - (b[0] || 99));
-  }, [projectGraphs]);
+    return names.join(' / ');
+  };
+  const countIn = (folderId: string): number =>
+    graphsIn(folderId).length + folderChildren(folderId).reduce((n, f) => n + countIn(f.id), 0);
 
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [graphTreeOpen, setGraphTreeOpen] = useState(true);
-  const [openLevels, setOpenLevels] = useState<Set<number>>(() => new Set([activeLevel]));
-  const [stuckLevel, setStuckLevel] = useState<number | null>(null);
+  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+  const [stuckFolder, setStuckFolder] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,26 +96,49 @@ export default function Sidebar() {
   }, [filter.query, filter.kinds, filter.onlyIsolated, filter.onlyOrphan]);
 
   useEffect(() => {
-    setOpenLevels((prev) => (prev.has(activeLevel) ? prev : new Set(prev).add(activeLevel)));
-  }, [activeLevel]);
+    setOpenFolders((prev) => {
+      if (prev.size) return prev;
+      return new Set(folders.filter((f) => !f.parentId).map((f) => f.id));
+    });
+  }, [folders]);
+
+  useEffect(() => {
+    if (!activeFolderId) return;
+    setOpenFolders((prev) => {
+      const next = new Set(prev);
+      let cur = folders.find((f) => f.id === activeFolderId);
+      let guard = 0;
+      while (cur && guard++ < 20) {
+        next.add(cur.id);
+        cur = folders.find((f) => f.id === cur?.parentId);
+      }
+      return next;
+    });
+  }, [activeFolderId, folders]);
+
+  const toggleFolder = (id: string) => {
+    setOpenFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const syncStuck = () => {
     const el = treeRef.current;
     if (!el) return;
-    if (el.scrollTop < 4) { setStuckLevel(null); return; }
+    if (el.scrollTop < 4) { setStuckFolder(null); return; }
     const top = el.getBoundingClientRect().top;
-    let current: number | null = null;
-    el.querySelectorAll<HTMLDetailsElement>('details[data-level]').forEach((d) => {
-      const head = d.querySelector('summary');
-      if (!head) return;
-      const headTop = head.getBoundingClientRect().top;
-      const boxBottom = d.getBoundingClientRect().bottom;
-      if (headTop <= top + 2 && boxBottom > top + 2) current = Number(d.dataset.level);
+    let current: string | null = null;
+    el.querySelectorAll<HTMLElement>('.graph-folder-head').forEach((head) => {
+      const rect = head.getBoundingClientRect();
+      if (rect.top <= top + 2 && rect.bottom > top + 2) current = head.dataset.fid ?? null;
     });
-    setStuckLevel(current);
+    setStuckFolder(current);
   };
 
-  useEffect(() => { syncStuck(); }, [openLevels, projectGraphs, graphTreeOpen]);
+  useEffect(() => { syncStuck(); }, [openFolders, folders, graphTreeOpen]);
 
   const focusNode = (id: string) => {
     select([id], null);
@@ -121,6 +160,79 @@ export default function Sidebar() {
   };
 
   const filtering = filter.kinds.length > 0 || filter.onlyIsolated || filter.onlyOrphan;
+
+  const renderFolder = (folder: ProjectFolder, depth: number) => {
+    const kids = folderChildren(folder.id);
+    const gs = graphsIn(folder.id);
+    const open = openFolders.has(folder.id);
+    return (
+      <div key={folder.id} className="graph-folder">
+        <div
+          className={`graph-folder-head${folder.id === activeFolderId ? ' active' : ''}`}
+          data-fid={folder.id}
+          style={{ paddingLeft: 6 + depth * 14 }}
+          onClick={() => toggleFolder(folder.id)}
+        >
+          <span className="graph-folder-caret">{open ? '▾' : '▸'}</span>
+          <span className="graph-folder-name">{folder.name}</span>
+          <span className="graph-tree-count">{countIn(folder.id)}</span>
+          <span className="graph-folder-actions" onClick={(e) => e.stopPropagation()}>
+            <button
+              title="新建子分组"
+              onClick={() => {
+                const name = window.prompt('新建子分组名称', '新分组');
+                if (name?.trim()) addFolder(name.trim(), folder.id);
+              }}
+            >
+              ＋
+            </button>
+            <button
+              title="重命名分组"
+              onClick={() => {
+                const name = window.prompt('分组名称', folder.name);
+                if (name?.trim()) renameFolder(folder.id, name.trim());
+              }}
+            >
+              ✎
+            </button>
+            <button
+              title="删除分组（里面的图移到上一级）"
+              onClick={() => {
+                if (window.confirm(`删除分组「${folder.name}」？里面的图会移到上一级，不会被删除。`)) {
+                  removeFolder(folder.id);
+                }
+              }}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+        {open && (
+          <div className="graph-folder-body">
+            {kids.map((k) => renderFolder(k, depth + 1))}
+            {gs.map((pg) => (
+              <button
+                key={pg.id}
+                className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
+                style={{ paddingLeft: 10 + (depth + 1) * 14 }}
+                title={pg.name}
+                onClick={() => switchGraph(pg.id)}
+              >
+                {pg.name}
+              </button>
+            ))}
+            <button
+              className="graph-tree-new"
+              style={{ marginLeft: (depth + 1) * 14 }}
+              onClick={() => addGraph(undefined, folder.id)}
+            >
+              ＋ 新建图
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <aside className="sidebar">
@@ -173,64 +285,43 @@ export default function Sidebar() {
 
       {graphTreeOpen && (
         <div className="graph-tree" role="tree" aria-label="图列表" ref={treeRef} onScroll={syncStuck}>
-          {stuckLevel !== null && (() => {
-            const hit = levels.find(([level]) => level === stuckLevel);
+          {stuckFolder && (() => {
+            const hit = folders.find((f) => f.id === stuckFolder);
             if (!hit) return null;
-            const [level, list] = hit;
             return (
-              <div
-                className="graph-level-head graph-tree-sticky"
-                data-level={level}
-                onClick={() => setOpenLevels((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(level)) next.delete(level); else next.add(level);
-                  return next;
-                })}
+              <button
+                className="graph-folder-sticky"
+                onClick={() => toggleFolder(hit.id)}
+                title="点击折叠/展开这一组"
               >
-                <span className="graph-level-tag">{level ? `L${level}` : '—'}</span>
-                <span>{graphLevelLabel(level)}</span>
-                <span className="graph-tree-count">{list.length}</span>
-              </div>
+                <span className="graph-folder-caret">▾</span>
+                <span className="graph-folder-sticky-name">{folderPath(hit.id)}</span>
+                <span className="graph-tree-count">{countIn(hit.id)}</span>
+              </button>
             );
           })()}
-          {levels.map(([level, list]) => (
-            <details
-              key={level}
-              data-level={level}
-              open={openLevels.has(level)}
-              onToggle={(e) => {
-                const isOpen = (e.target as HTMLDetailsElement).open;
-                setOpenLevels((prev) => {
-                  const next = new Set(prev);
-                  if (isOpen) next.add(level);
-                  else next.delete(level);
-                  return next;
-                });
-              }}
-            >
-              <summary className="graph-level-head" data-level={level}>
-                <span className="graph-level-tag">{level ? `L${level}` : '—'}</span>
-                <span>{graphLevelLabel(level)}</span>
-                <span className="graph-tree-count">{list.length}</span>
-              </summary>
-              <div className="graph-tree-items">
-                {list.map((pg) => (
-                  <button
-                    key={pg.id}
-                    className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
-                    onClick={() => switchGraph(pg.id)}
-                  >
-                    {pg.name}
-                  </button>
-                ))}
-              </div>
-            </details>
-          ))}
+          {folderChildren(null).map((f) => renderFolder(f, 0))}
+          {projectGraphs
+            .filter((pg) => !pg.folderId)
+            .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
+            .map((pg) => (
+              <button
+                key={pg.id}
+                className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
+                title={pg.name}
+                onClick={() => switchGraph(pg.id)}
+              >
+                {pg.name}
+              </button>
+            ))}
           <button
             className="graph-tree-new"
-            onClick={() => addGraph()}
+            onClick={() => {
+              const name = window.prompt('新建分组名称', '新分组');
+              if (name?.trim()) addFolder(name.trim(), null);
+            }}
           >
-            ＋ 新建图
+            ＋ 新建分组
           </button>
         </div>
       )}

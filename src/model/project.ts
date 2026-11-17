@@ -9,6 +9,15 @@ export interface ProjectGraph {
   graph: Graph;
   /** 产物层级：1 = 一级原料，2 = 二级产物……0/缺省 = 未分层（机器、索引等）。 */
   level?: number;
+  /** 所在分组（逻辑文件夹）；缺省按 level 归到默认分组。 */
+  folderId?: string | null;
+}
+
+/** 图列表里的逻辑分组，可嵌套，类似文件夹。 */
+export interface ProjectFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
 }
 
 /** 一个 project 管多张根图；图之间共享顶层 kinds（子图内部仍各存一份）。 */
@@ -16,6 +25,9 @@ export interface ProjectDoc {
   version: 1;
   active: string;
   graphs: ProjectGraph[];
+  folders?: ProjectFolder[];
+  /** 已启用分组（避免删空后被层级迁移重新建组） */
+  grouped?: boolean;
   /** 资源全局风格：所有图标/模型的生成描述词都挂在它下面 */
   style?: ProjectStyle;
 }
@@ -57,13 +69,57 @@ export function normalizeProject(project: ProjectDoc): ProjectDoc {
     const lb = b.level ?? 0;
     return (la || 99) - (lb || 99) || a.name.localeCompare(b.name, 'zh');
   });
+
+  const grouped = project.grouped === true || (project.folders?.length ?? 0) > 0;
+  const folders: ProjectFolder[] = [];
+  const seen = new Set<string>();
+  for (const f of project.folders ?? []) {
+    if (!f || typeof f.id !== 'string' || !f.id || seen.has(f.id)) continue;
+    seen.add(f.id);
+    folders.push({
+      id: f.id,
+      name: (typeof f.name === 'string' && f.name.trim()) || '未命名分组',
+      parentId: typeof f.parentId === 'string' ? f.parentId : null,
+    });
+  }
+  for (const f of folders) {
+    if (f.parentId && !seen.has(f.parentId)) f.parentId = null;
+  }
+  for (const f of folders) {
+    let cur = f.parentId;
+    let guard = 0;
+    while (cur && guard++ < folders.length) {
+      if (cur === f.id) { f.parentId = null; break; }
+      cur = folders.find((x) => x.id === cur)?.parentId ?? null;
+    }
+  }
+
+  for (const pg of graphs) {
+    const level = pg.level ?? 0;
+    const has = pg.folderId && folders.some((f) => f.id === pg.folderId);
+    if (!has) {
+      if (!grouped) {
+        const id = `f_lv_${level}`;
+        if (!folders.some((f) => f.id === id)) {
+          folders.push({ id, name: graphLevelLabel(level), parentId: null });
+        }
+        pg.folderId = id;
+      } else {
+        pg.folderId = null;
+      }
+    }
+  }
+
   const active = graphs.some((pg) => pg.id === project.active) ? project.active : graphs[0].id;
-  return unifyKinds({ version: 1, active, graphs, style: normalizeStyle(project.style) });
+  return unifyKinds({
+    version: 1, active, graphs, folders, grouped: grouped || folders.length > 0,
+    style: normalizeStyle(project.style),
+  });
 }
 
 export function projectFromGraph(graph: Graph, name = '主图'): ProjectDoc {
   const id = projectGraphId();
-  return { version: 1, active: id, graphs: [{ id, name, graph }], style: { ...EMPTY_STYLE } };
+  return { version: 1, active: id, graphs: [{ id, name, graph }], folders: [], style: { ...EMPTY_STYLE } };
 }
 
 /** 取项目风格；老项目没有这一段时给空风格。 */
@@ -81,7 +137,7 @@ export function activeGraph(project: ProjectDoc): ProjectGraph {
   return project.graphs.find((pg) => pg.id === project.active) ?? project.graphs[0];
 }
 
-export function addGraph(project: ProjectDoc, name?: string): { project: ProjectDoc; id: string } {
+export function addGraph(project: ProjectDoc, name?: string, folderId?: string | null): { project: ProjectDoc; id: string } {
   if (project.graphs.length >= PROJECT_LIMIT) return { project, id: project.active };
   const id = projectGraphId();
   const kinds = mergeKinds(project.graphs);
@@ -96,10 +152,65 @@ export function addGraph(project: ProjectDoc, name?: string): { project: Project
         name: name?.trim() || `图 ${project.graphs.length + 1}`,
         graph,
         level: project.graphs.find((pg) => pg.id === project.active)?.level ?? 1,
+        folderId: folderId ?? project.graphs.find((pg) => pg.id === project.active)?.folderId ?? null,
       },
     ],
   };
   return { project: unifyKinds(next), id };
+}
+
+export function projectFolderId(): string {
+  return `f_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export function addFolder(
+  project: ProjectDoc,
+  name: string,
+  parentId: string | null = null,
+): { project: ProjectDoc; id: string } {
+  const folders = project.folders ?? [];
+  const id = projectFolderId();
+  const parent = parentId && folders.some((f) => f.id === parentId) ? parentId : null;
+  return {
+    project: normalizeProject({
+      ...project,
+      folders: [...folders, { id, name: name.trim() || '新建分组', parentId: parent }],
+      grouped: true,
+    }),
+    id,
+  };
+}
+
+export function renameFolder(project: ProjectDoc, id: string, name: string): ProjectDoc {
+  const trimmed = name.trim();
+  if (!trimmed) return project;
+  return normalizeProject({
+    ...project,
+    folders: (project.folders ?? []).map((f) => (f.id === id ? { ...f, name: trimmed } : f)),
+  });
+}
+
+export function removeFolder(project: ProjectDoc, id: string): ProjectDoc {
+  const folder = (project.folders ?? []).find((f) => f.id === id);
+  if (!folder) return project;
+  const parent = folder.parentId;
+  const folders = (project.folders ?? [])
+    .filter((f) => f.id !== id)
+    .map((f) => (f.parentId === id ? { ...f, parentId: parent } : f));
+  const graphs = project.graphs.map((pg) =>
+    pg.folderId === id ? { ...pg, folderId: parent ?? null } : pg,
+  );
+  return normalizeProject({ ...project, folders, graphs, grouped: true });
+}
+
+export function moveGraphToFolder(project: ProjectDoc, graphId: string, folderId: string | null): ProjectDoc {
+  return normalizeProject({
+    grouped: true,
+    ...project,
+    graphs: project.graphs.map((pg) =>
+      pg.id === graphId ? { ...pg, folderId } : pg,
+    ),
+  });
 }
 
 export function renameGraph(project: ProjectDoc, id: string, name: string): ProjectDoc {
@@ -138,12 +249,15 @@ export function parseProjectDoc(raw: unknown): ProjectDoc | null {
       name: typeof item.name === 'string' && item.name ? item.name : '未命名图',
       graph: result.data as Graph,
       level: typeof item.level === 'number' ? item.level : 0,
+      folderId: typeof item.folderId === 'string' ? item.folderId : null,
     });
   }
   return normalizeProject({
     version: 1,
     active: typeof doc.active === 'string' ? doc.active : graphs[0].id,
     graphs,
+    folders: Array.isArray(doc.folders) ? doc.folders : [],
+    grouped: doc.grouped === true,
     style: normalizeStyle(doc.style),
   });
 }
