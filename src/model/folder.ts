@@ -338,6 +338,7 @@ async function readNodeDir(
     ports: raw.ports ?? [],
     pos: raw.pos ?? { x: 0, y: 0 },
     resources: raw.resources,
+    linkGraph: raw.linkGraph,
     subgraphMap: raw.subgraphMap,
     boundaryPos: raw.boundaryPos,
   };

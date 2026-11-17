@@ -618,8 +618,12 @@ function Canvas() {
       nodesConnectable={!preview}
       elementsSelectable
       onNodeDoubleClick={(_, node) => {
-        const inner = (node.data as { node?: { subgraph?: unknown } } | undefined)?.node?.subgraph;
-        if (inner) enterSubgraph(node.id);
+        const model = (node.data as { node?: { subgraph?: unknown; linkGraph?: string } } | undefined)?.node;
+        if (model?.linkGraph) {
+          useGraph.getState().switchGraph(model.linkGraph);
+          return;
+        }
+        if (model?.subgraph) enterSubgraph(node.id);
       }}
       deleteKeyCode={preview ? null : ['Backspace', 'Delete']}
       proOptions={{ hideAttribution: true }}

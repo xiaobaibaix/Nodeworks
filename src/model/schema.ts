@@ -46,6 +46,7 @@ const NodeBase = z.object({
   ports: z.array(PortSchema),
   pos: z.object({ x: z.number(), y: z.number() }),
   subgraph: z.lazy(() => GraphSchema).optional(),
+  linkGraph: z.string().optional(),
   subgraphMap: z.record(z.string(), EndpointSchema).optional(),
   resources: z.array(ResourceSchema).optional(),
   boundaryPos: z

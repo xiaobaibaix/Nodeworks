@@ -49,6 +49,8 @@ export interface UnitNode {
   pos: { x: number; y: number };
   /** 嵌套子图；坐标与 id 都在子图内部作用域 */
   subgraph?: Graph;
+  /** 双击卡片时直接切换到的图 id（不进入内嵌副本） */
+  linkGraph?: string;
   /** 父端口 id → 子图内部端点，用于子图边界映射 */
   subgraphMap?: Record<string, Endpoint>;
   /** 资源项容器：可动态增删的图片/模型/音频等外部资产登记 */
