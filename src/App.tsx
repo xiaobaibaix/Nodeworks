@@ -124,8 +124,18 @@ function Canvas() {
   useEffect(() => {
     if (!nodesInitialized || didFit.current || graph.nodes.length === 0) return;
     didFit.current = true;
-    void fitView({ padding: 0.25, duration: 200 });
+    void fitView({ padding: 0.25, duration: 200, minZoom: 0.12 });
   }, [nodesInitialized, fitView, graph.nodes.length]);
+
+  // 打开目录/切换图后，节点已经换了一批，需要重新适应视图（首屏只 fit 一次）。
+  const activeGraphId = useGraph((s) => s.activeGraphId);
+  const lastGraphId = useRef(activeGraphId);
+  useEffect(() => {
+    if (lastGraphId.current === activeGraphId) return;
+    lastGraphId.current = activeGraphId;
+    const timer = setTimeout(() => void fitView({ padding: 0.2, duration: 250, maxZoom: 1.2, minZoom: 0.12 }), 120);
+    return () => clearTimeout(timer);
+  }, [activeGraphId, fitView]);
 
   const lastPath = useRef(path.join('/'));
   useEffect(() => {
