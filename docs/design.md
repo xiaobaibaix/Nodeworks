@@ -475,8 +475,8 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 目录结构：
 
 ```
-project.json                       # version / active / kinds / graphs:[{id,name,dir}]
-graphs/<图名>__<图 id>/
+project.json                       # version / active / kinds / graphs:[{id,name,dir,level}]
+graphs/<层级>/<图名>__<图 id>/      # 层级：一级矿 / 二级产物 / … / 其它
   graph.json                       # nodeOrder + edges + 图级元数据
   nodes/<节点标题>__<节点 id>/
     node.json                      # 节点（不含 subgraph）
@@ -486,6 +486,7 @@ graphs/<图名>__<图 id>/
 验收：
 
 - 写出 `project.json`、`graph.json`、三个 `node.json`；加节点立即多一个目录，改标题目录随之改名，删节点/删图清理旧目录；
+- 图目录按 `level` 放进对应层级文件夹（一级矿 / 二级产物 / … / 其它），调层级后旧目录被清理、新目录生成；MCP 新建图同样落在对应层级；
 - 手工重命名文件夹后仍按 `node.json` 里的 id 读回；缺 `project.json` 的目录给出明确提示；
 - 刷新后「打开目录」恢复同样的节点/连线/子图/资源；绑定后在侧栏显示目录名，可一键取消绑定；
 - 只在 Chromium 系浏览器可用（`showDirectoryPicker`）；没有文件监听，外部改动需要重新打开；同一目录不要同时开两个窗口。

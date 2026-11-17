@@ -1,5 +1,5 @@
 import type { ProjectDoc, ProjectGraph } from './project';
-import { parseProjectDoc } from './project';
+import { graphLevelLabel, parseProjectDoc } from './project';
 import { EMPTY_STYLE, normalizeStyle, type ProjectStyle } from './style';
 import type { Graph, ResourceItem, UnitEdge, UnitNode } from './types';
 import { baseName, extName, joinPath, type DirEntry, type ProjectFS } from '../fs/types';
@@ -44,6 +44,18 @@ export function graphDirName(name: string, id: string): string {
   return `${slugify(name, 'graph')}__${id}`;
 }
 
+/** 图在 graphs/ 下的层级文件夹：一级矿 / 二级产物 / … / 其它。 */
+export function graphLevelFolder(level?: number): string {
+  return graphLevelLabel(level ?? 0);
+}
+
+function levelFromFolder(name: string): number {
+  if (name === '其它') return 0;
+  if (name === '一级矿') return 1;
+  const m = /^(\d+)级产物$/.exec(name);
+  return m ? Number(m[1]) : 0;
+}
+
 export function nodeDirName(node: Pick<UnitNode, 'id' | 'title'>): string {
   return `${slugify(node.title, 'node')}__${node.id}`;
 }
@@ -82,7 +94,7 @@ export async function writeProject(fs: ProjectFS, project: ProjectDoc, options: 
   const kinds = project.graphs[0]?.graph.kinds ?? {};
 
   for (const pg of project.graphs) {
-    const dir = graphDirName(pg.name, pg.id);
+    const dir = joinPath(graphLevelFolder(pg.level), graphDirName(pg.name, pg.id));
     expectedGraphDirs.add(dir);
     index.push({ id: pg.id, name: pg.name, dir, level: pg.level ?? 0 });
     await writeGraphDir(fs, joinPath('graphs', dir), pg.graph, pg.id, pg.name, options);
@@ -198,10 +210,26 @@ export async function readProject(fs: ProjectFS): Promise<ProjectDoc> {
     seen.add(entry.dir);
     if (await fs.exists(joinPath('graphs', entry.dir, GRAPH_FILE))) order.push(entry);
   }
+  const discovered: string[] = [];
   for (const dir of diskDirs) {
-    if (seen.has(dir.name)) continue;
-    if (!(await fs.exists(joinPath('graphs', dir.name, GRAPH_FILE)))) continue;
-    order.push({ id: idFromDir(dir.name), name: '', dir: dir.name });
+    const first = dir.name;
+    if (await fs.exists(joinPath('graphs', first, GRAPH_FILE))) {
+      discovered.push(first);
+      continue;
+    }
+    for (const nested of await listDirs(fs, joinPath('graphs', first))) {
+      if (await fs.exists(joinPath('graphs', first, nested.name, GRAPH_FILE))) {
+        discovered.push(joinPath(first, nested.name));
+      }
+    }
+  }
+  for (const dir of discovered) {
+    if (seen.has(dir)) continue;
+    if (await fs.exists(joinPath('graphs', dir, GRAPH_FILE))) {
+      const base = dir.includes('/') ? baseName(dir) : dir;
+      const folder = dir.includes('/') ? dir.slice(0, dir.indexOf('/')) : '';
+      order.push({ id: idFromDir(base), name: '', dir, level: levelFromFolder(folder) });
+    }
   }
 
   const graphs: ProjectGraph[] = [];

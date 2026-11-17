@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFS } from '../src/fs/memory';
 import { joinPath } from '../src/fs/types';
-import { graphDirName, nodeDirName, readProject, resourceFileName, writeProject } from '../src/model/folder';
+import { graphDirName, graphLevelFolder, nodeDirName, readProject, resourceFileName, writeProject } from '../src/model/folder';
 import { RESOURCES_DIR } from '../src/model/folder';
 import { projectFromGraph } from '../src/model/project';
 import type { Graph, UnitNode } from '../src/model/types';
@@ -88,7 +88,7 @@ describe('目录项目：扫描与序列化', () => {
     const res = back.graphs[0].graph.nodes.find((n) => n.id === 'n_ingot')!.resources![0];
     expect(res.file).toMatch(/^resources\//);
     expect(res.file!.endsWith('.png')).toBe(true);
-    const gdir = graphDirName('主图', doc.active);
+    const gdir = joinPath(graphLevelFolder(doc.graphs[0].level), graphDirName('主图', doc.active));
     const ndir = nodeDirName({ id: 'n_ingot', title: '钛锭' });
     const saved = await fs.readBytes(joinPath('graphs', gdir, 'nodes', ndir, res.file!));
     expect([...(saved ?? [])]).toEqual([1, 2, 3, 4]);
@@ -98,7 +98,7 @@ describe('目录项目：扫描与序列化', () => {
     const fs = new MemoryFS();
     const doc = project();
     await writeProject(fs, doc);
-    const gdir = graphDirName('主图', doc.active);
+    const gdir = joinPath(graphLevelFolder(doc.graphs[0].level), graphDirName('主图', doc.active));
     const ndir = nodeDirName({ id: 'n_ingot', title: '钛锭' });
     expect(await fs.exists(joinPath('graphs', gdir, 'nodes', ndir, 'resources'))).toBe(false);
   });
@@ -107,18 +107,32 @@ describe('目录项目：扫描与序列化', () => {
     const fs = new MemoryFS();
     const doc = project();
     await writeProject(fs, doc);
-    const gdir = `graphs/${graphDirName('主图', doc.active)}`;
+    const gdir = joinPath('graphs', graphLevelFolder(doc.graphs[0].level), graphDirName('主图', doc.active));
     expect(await fs.exists('project.json')).toBe(true);
     expect(await fs.exists(`${gdir}/graph.json`)).toBe(true);
     expect(await fs.exists(`${gdir}/nodes/${nodeDirName({ id: 'n_ore', title: '钛矿' })}/node.json`)).toBe(true);
     expect(await fs.exists(`${gdir}/nodes/${nodeDirName({ id: 'n_line', title: '冶炼产线' })}/subgraph/graph.json`)).toBe(true);
   });
 
+  it('图按层级放进 graphs/<层级文件夹>，改层级会迁移目录', async () => {
+    const fs = new MemoryFS();
+    const doc = project();
+    doc.graphs[0].level = 2;
+    await writeProject(fs, doc);
+    const nested = joinPath('graphs', '二级产物', graphDirName('主图', doc.active));
+    expect(await fs.exists(joinPath(nested, 'graph.json'))).toBe(true);
+
+    doc.graphs[0].level = 4;
+    await writeProject(fs, doc);
+    expect(await fs.exists(nested)).toBe(false);
+    expect(await fs.exists(joinPath('graphs', '四级产物', graphDirName('主图', doc.active), 'graph.json'))).toBe(true);
+  });
+
   it('重命名节点会改文件夹名并清掉旧的', async () => {
     const fs = new MemoryFS();
     const doc = project();
     await writeProject(fs, doc);
-    const gdir = `graphs/${graphDirName('主图', doc.active)}`;
+    const gdir = joinPath('graphs', graphLevelFolder(doc.graphs[0].level), graphDirName('主图', doc.active));
     const oldDir = `${gdir}/nodes/${nodeDirName({ id: 'n_ore', title: '钛矿' })}`;
 
     const renamed = projectFromGraph({
@@ -126,7 +140,7 @@ describe('目录项目：扫描与序列化', () => {
       nodes: graph().nodes.map((n) => (n.id === 'n_ore' ? { ...n, title: '铁矿石' } : n)),
     }, '主图');
     await writeProject(fs, renamed);
-    const newGdir = `graphs/${graphDirName('主图', renamed.active)}`;
+    const newGdir = joinPath('graphs', graphLevelFolder(renamed.graphs[0].level), graphDirName('主图', renamed.active));
 
     expect(await fs.exists(oldDir)).toBe(false);
     expect(await fs.exists(`${newGdir}/nodes/${nodeDirName({ id: 'n_ore', title: '铁矿石' })}/node.json`)).toBe(true);
@@ -136,7 +150,7 @@ describe('目录项目：扫描与序列化', () => {
     const fs = new MemoryFS();
     const doc = project();
     await writeProject(fs, doc);
-    const gdir = `graphs/${graphDirName('主图', doc.active)}`;
+    const gdir = joinPath('graphs', graphLevelFolder(doc.graphs[0].level), graphDirName('主图', doc.active));
 
     const trimmed = projectFromGraph({
       ...graph(),
@@ -147,7 +161,7 @@ describe('目录项目：扫描与序列化', () => {
 
     const other = projectFromGraph(graph(), '副图');
     await writeProject(fs, other);
-    expect(await fs.exists(`graphs/${graphDirName('主图', doc.active)}`)).toBe(false);
+    expect(await fs.exists(joinPath('graphs', graphLevelFolder(doc.graphs[0].level), graphDirName('主图', doc.active)))).toBe(false);
     expect((await readProject(fs)).graphs[0].name).toBe('副图');
   });
 
@@ -155,7 +169,7 @@ describe('目录项目：扫描与序列化', () => {
     const fs = new MemoryFS();
     const doc = project();
     await writeProject(fs, doc);
-    const gdir = `graphs/${graphDirName('主图', doc.active)}`;
+    const gdir = joinPath('graphs', graphLevelFolder(doc.graphs[0].level), graphDirName('主图', doc.active));
     const oldPath = `${gdir}/nodes/${nodeDirName({ id: 'n_ore', title: '钛矿' })}`;
     const text = await fs.readText(`${oldPath}/node.json`);
     await fs.writeText(`${gdir}/nodes/随便改的名字__n_ore/node.json`, text ?? '');
@@ -182,7 +196,7 @@ describe('目录项目：扫描与序列化', () => {
     expect(res.views?.[0].label).toBe('正面');
     expect(res.views?.[0].file).toMatch(/^resources\//);
 
-    const gdir = graphDirName('主图', doc.active);
+    const gdir = joinPath(graphLevelFolder(doc.graphs[0].level), graphDirName('主图', doc.active));
     const ndir = nodeDirName({ id: 'n_ingot', title: '钛锭' });
     const saved = await fs.readBytes(joinPath('graphs', gdir, 'nodes', ndir, res.views![0].file!));
     expect([...(saved ?? [])]).toEqual([9, 8, 7]);
@@ -245,6 +259,7 @@ describe('目录项目：嵌套图片容器', () => {
 
     const dir = joinPath(
       'graphs',
+      graphLevelFolder(doc.graphs[0].level),
       graphDirName('主图', doc.graphs[0].id),
       'nodes',
       nodeDirName(target),
@@ -276,6 +291,7 @@ describe('资源字节保护', () => {
     const resource = ingot.resources![0];
     const path = joinPath(
       'graphs',
+      graphLevelFolder(graph.level),
       graphDirName(graph.name, graph.id),
       'nodes',
       nodeDirName(ingot),
