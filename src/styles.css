@@ -1629,3 +1629,45 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   background: #ffc24d;
   box-shadow: 0 0 0 3px rgba(240, 162, 92, .3);
 }
+
+/* 层级分区：ViewportPortal 里的区域框与可点击标题 */
+.lane-band {
+  position: absolute;
+  z-index: -1;
+  border: 2px dashed rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: rgba(148, 163, 184, 0.028);
+  pointer-events: none;
+}
+.lane-head {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 10px;
+  transform-origin: left bottom;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid #2a2f39;
+  border-radius: 999px;
+  background: #14171d;
+  color: #98a1b3;
+  font: 600 12px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lane-head:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.lane-head span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #1c2129;
+  color: #6f788a;
+  font-size: 10px;
+  letter-spacing: 0;
+}

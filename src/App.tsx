@@ -17,6 +17,7 @@ import GenerateDialog from './components/GenerateDialog';
 import ImpactPanel from './components/ImpactPanel';
 import Inspector from './components/Inspector';
 import MultiBar from './components/MultiBar';
+import LaneOverlay from './components/LaneOverlay';
 import OrphanBanner from './components/OrphanBanner';
 import ReconnectWizard from './components/ReconnectWizard';
 import Sidebar from './components/Sidebar';
@@ -82,6 +83,7 @@ function Canvas() {
   const rootGraph = useGraph((s) => s.graph);
   const impactOn = useGraph((s) => s.impactOn);
   const impactDepth = useGraph((s) => s.impactDepth);
+  const lanesOn = useGraph((s) => s.lanesOn);
   const focus = useGraph((s) => s.focus);
   const setFocus = useGraph((s) => s.setFocus);
   const { fitView, screenToFlowPosition, getNodes } = useReactFlow();
@@ -623,6 +625,7 @@ function Canvas() {
       proOptions={{ hideAttribution: true }}
     >
       <Background gap={24} size={1} />
+      {lanesOn && !preview && <LaneOverlay graph={graph} />}
       <Controls showInteractive={false} />
       <MiniMap
         pannable

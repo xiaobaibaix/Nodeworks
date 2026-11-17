@@ -205,6 +205,17 @@ export default function CommandPalette() {
       mutates: true,
       run: () => useGraph.getState().autoLayout(),
     });
+    list.push({
+      id: 'lanes',
+      label: '按层级分区（原矿 / 材料 / 部件…）',
+      hint: '需节点有「层级」属性',
+      group: '命令',
+      mutates: true,
+      run: () => {
+        useGraph.getState().arrangeLanes();
+        setTimeout(() => void fitView({ padding: 0.18, duration: 350, maxZoom: 1.1 }), 80);
+      },
+    });
     list.push({ id: 'fit', label: '适应视图', group: '命令', run: () => { useGraph.getState().setView('graph'); void fitView({ padding: 0.25, duration: 300 }); } });
     list.push({ id: 'view-graph', label: '切换到画布视图', group: '命令', run: () => useGraph.getState().setView('graph') });
     list.push({ id: 'view-table', label: '切换到表格视图', hint: '批量编辑属性', group: '命令', run: () => useGraph.getState().setView('table') });

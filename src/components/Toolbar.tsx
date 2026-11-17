@@ -84,6 +84,14 @@ const IconFit = () => (
     <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
   </TIcon>
 );
+const IconLanes = () => (
+  <TIcon>
+    <rect x="2" y="2" width="3.4" height="12" rx=".8" />
+    <rect x="6.8" y="2" width="3.4" height="12" rx=".8" />
+    <rect x="11.6" y="2" width="2.4" height="12" rx=".8" />
+  </TIcon>
+);
+
 const IconLayout = () => (
   <TIcon>
     <rect x="6" y="2" width="4" height="3" rx=".6" />
@@ -207,6 +215,9 @@ export default function Toolbar() {
   const openProviders = useGraph((s) => s.openProviders);
   const openSnapshots = useGraph((s) => s.openSnapshots);
   const autoLayout = useGraph((s) => s.autoLayout);
+  const arrangeLanes = useGraph((s) => s.arrangeLanes);
+  const lanesOn = useGraph((s) => s.lanesOn);
+  const setLanesOn = useGraph((s) => s.setLanesOn);
   const view = useGraph((s) => s.view);
   const setView = useGraph((s) => s.setView);
   const impactOn = useGraph((s) => s.impactOn);
@@ -344,6 +355,20 @@ export default function Toolbar() {
           disabled={preview}
         >
           <IconLayout />
+        </IconButton>
+        <IconButton
+          className={lanesOn ? '' : 'quiet'}
+          tip={lanesOn ? '关闭层级分区' : '按层级分区（原矿 / 材料 / 部件…）'}
+          onClick={() => {
+            if (lanesOn) setLanesOn(false);
+            else {
+              arrangeLanes();
+              setTimeout(() => fitView({ padding: 0.18, duration: 350, maxZoom: 1.1 }), 80);
+            }
+          }}
+          disabled={preview}
+        >
+          <IconLanes />
         </IconButton>
         {view === 'graph' && (
           <IconButton

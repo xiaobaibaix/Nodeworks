@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { layeredLayout } from './model/autolayout';
+import { laneLayout } from './model/lanes';
 import { DEFAULT_MAPPING, validateMapping, type ExportMapping } from './model/mapping';
 import { copySelection, pasteClip, type ClipPayload } from './model/clipboard';
 import { pushEntry, type Entry, type EntryInput } from './model/history';
@@ -185,6 +186,10 @@ interface Store {
   commitMoveBoundary(side: 'in' | 'out', from: Pos, to: Pos): void;
   moveNodes(moves: Record<string, Pos>, label: string): void;
   autoLayout(): void;
+  /** 按节点「层级」属性分列排列，并在画布上显示分区框。 */
+  arrangeLanes(): void;
+  lanesOn: boolean;
+  setLanesOn(on: boolean): void;
   addProp(nodeId: string, name: string, type: string, value: unknown): void;
   addResource(nodeId: string, type: ResourceType, init?: Partial<Pick<ResourceItem, 'label' | 'path'>>): void;
   /** 往固定类型容器里加一项；容器不存在时先建容器（一个节点每种类型最多一个容器）。 */
@@ -353,6 +358,7 @@ export const useGraph = create<Store>((set, get) => ({
   view: 'graph',
   impactOn: false,
   impactDepth: 2,
+  lanesOn: false,
   tableSort: null,
   hiddenColumns: [],
   focus: null,
@@ -591,6 +597,16 @@ export const useGraph = create<Store>((set, get) => ({
     };
     set({ graph: afterGraph, past: pushEntry(state.past, entry), future: [] });
   },
+
+  arrangeLanes: () => {
+    const graph = graphOf(get());
+    if (!graph.nodes.length) return;
+    const { positions } = laneLayout(graph);
+    get().moveNodes(positions, '按层级分区');
+    set({ lanesOn: true, toast: '已按层级分区 · 点分区标题可聚焦' });
+  },
+
+  setLanesOn: (on) => set({ lanesOn: on }),
 
   autoLayout: () => {
     const graph = graphOf(get());
