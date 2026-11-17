@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, SelectionMode, useNodesInitialized, useReactFlow, useStoreApi,
+  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useNodesInitialized, useReactFlow, useStoreApi,
   type Connection, type Edge, type EdgeChange, type Node, type NodeChange,
 } from '@xyflow/react';
 import BoundaryNode from './components/BoundaryNode';
@@ -84,7 +84,12 @@ function Canvas() {
   const impactDepth = useGraph((s) => s.impactDepth);
   const focus = useGraph((s) => s.focus);
   const setFocus = useGraph((s) => s.setFocus);
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const { fitView, screenToFlowPosition, getNodes } = useReactFlow();
+  const flowRef = useRef<HTMLDivElement>(null);
+  const dragBox = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  // 框选后 React Flow 会把「点击空白清空选择」也发过来，短暂忽略取消选择事件。
+  const suppressClear = useRef(0);
 
   const flowStore = useStoreApi();
   const nodesInitialized = useNodesInitialized();
@@ -232,6 +237,7 @@ function Canvas() {
         type: 'default',
         animated: false,
         selected: selectedEdge === e.id,
+        interactionWidth: 64,
         hidden: filtering && (!visibleIds.has(e.from.node) || !visibleIds.has(e.to.node)),
         ...(impact
           ? { style: impactEdges.has(e.id) ? { stroke: '#f0a25c', strokeWidth: 2 } : { opacity: 0.12 } }
@@ -426,9 +432,12 @@ function Canvas() {
         (c): c is Extract<NodeChange, { type: 'select' }> => c.type === 'select',
       );
       if (!selections.length) return;
+      const usable =
+        performance.now() < suppressClear.current ? selections.filter((c) => c.selected) : selections;
+      if (!usable.length) return;
       const state = useGraph.getState();
       const next = new Set(state.selectedNodes);
-      for (const c of selections) {
+      for (const c of usable) {
         if (c.selected) next.add(c.id);
         else next.delete(c.id);
       }
@@ -471,8 +480,66 @@ function Canvas() {
     return () => window.removeEventListener('nodeworks:create-node', onCreate);
   }, [screenToFlowPosition]);
 
+  // 自绘框选：左→右只选完全包含的单元，右→左选相交的单元；连线不参与框选（避免只是穿过就被选中）。
+  useEffect(() => {
+    const el = flowRef.current;
+    if (!el) return;
+    const down = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement;
+      if (!target.classList.contains('react-flow__pane')) return;
+      dragBox.current = { x: e.clientX, y: e.clientY, moved: false };
+      const move = (ev: MouseEvent) => {
+        const d = dragBox.current;
+        if (!d) return;
+        const dx = ev.clientX - d.x;
+        const dy = ev.clientY - d.y;
+        if (!d.moved && Math.hypot(dx, dy) < 4) return;
+        d.moved = true;
+        setMarquee({
+          x: Math.min(d.x, ev.clientX),
+          y: Math.min(d.y, ev.clientY),
+          w: Math.abs(dx),
+          h: Math.abs(dy),
+        });
+      };
+      const up = (ev: MouseEvent) => {
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+        const d = dragBox.current;
+        dragBox.current = null;
+        setMarquee(null);
+        if (!d || !d.moved) return;
+        suppressClear.current = performance.now() + 500;
+        const leftToRight = ev.clientX >= d.x;
+        const box = {
+          left: Math.min(d.x, ev.clientX),
+          top: Math.min(d.y, ev.clientY),
+          right: Math.max(d.x, ev.clientX),
+          bottom: Math.max(d.y, ev.clientY),
+        };
+        const picked: string[] = [];
+        // 用节点的屏幕矩形比较，避免把 client 坐标再换算到 flow 坐标时受容器偏移影响。
+        for (const nodeEl of el.querySelectorAll<HTMLElement>('.react-flow__node')) {
+          const id = nodeEl.dataset.id ?? '';
+          if (!id || id.startsWith('__')) continue;
+          const b = nodeEl.getBoundingClientRect();
+          const inside = b.left >= box.left && b.top >= box.top && b.right <= box.right && b.bottom <= box.bottom;
+          const hit = b.left < box.right && b.right > box.left && b.top < box.bottom && b.bottom > box.top;
+          if (leftToRight ? inside : hit) picked.push(id);
+        }
+        select(picked, null);
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    };
+    el.addEventListener('mousedown', down, true);
+    return () => el.removeEventListener('mousedown', down, true);
+  }, [getNodes, screenToFlowPosition, select]);
+
   return (
     <>
+    <div className="flow-wrap" ref={flowRef}>
     <ReactFlow
       nodes={nodes}
       edges={edges}
@@ -486,9 +553,7 @@ function Canvas() {
       onSelectionDragStart={onSelectionDragStart}
       onSelectionDrag={onSelectionDrag}
       onSelectionDragStop={onSelectionDragStop}
-      // 左键在空白处拖 = 框选（碰到即选中）；中键/右键拖 = 平移画布
-      selectionOnDrag
-      selectionMode={SelectionMode.Partial}
+      // 左键框选由下方自绘逻辑接管；中键/右键拖 = 平移画布
       panOnDrag={[1, 2]}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
@@ -528,6 +593,13 @@ function Canvas() {
         maskColor="rgba(9, 11, 14, 0.72)"
       />
     </ReactFlow>
+    {marquee && (
+      <div
+        className="marquee-box"
+        style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }}
+      />
+    )}
+    </div>
     <CrossLinkDialog source={crossSource} onClose={() => setCrossSource(null)} />
     </>
   );
