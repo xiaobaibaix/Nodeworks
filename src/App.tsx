@@ -442,7 +442,11 @@ function Canvas() {
       const detail = (event as CustomEvent).detail as { graphId: string; clientX: number; clientY: number };
       if (useGraph.getState().preview) return;
       const pos = screenToFlowPosition({ x: detail.clientX, y: detail.clientY });
-      useGraph.getState().addGraphRef(detail.graphId, pos);
+      const state = useGraph.getState();
+      // 先选中本图的一个产物，再把消费方拖进来 → 直接作为下游（输入口）并自动接线；
+      // 没有选中时按“被使用”（输出口）放置，之后手动连线。
+      const autoFrom = state.selectedNodes.length === 1 ? state.selectedNodes[0] : undefined;
+      state.addGraphRef(detail.graphId, pos, autoFrom ? 'in' : 'out', autoFrom);
     };
     window.addEventListener('nodeworks:create-graph', onGraph);
     return () => {
