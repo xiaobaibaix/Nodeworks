@@ -1687,7 +1687,7 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .graph-tree {
   margin: 0 10px 8px; border: 1px solid #2a3038; border-radius: 8px;
   background: #0f1318; max-height: min(52vh, 560px); overflow: auto;
-  position: relative; padding: 0;
+  position: relative; padding: 0; display: flex; flex-direction: column;
 }
 .graph-folder-head {
   display: grid; grid-template-columns: 12px 1fr auto auto; gap: 6px; align-items: center;
@@ -1718,15 +1718,16 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .graph-tree-items { display: flex; flex-direction: column; padding-left: 8px; }
 .graph-tree-items { padding-left: 4px; }
 .graph-tree-item {
-  margin: 1px 6px; text-align: left; border: 0; background: transparent; color: #c7cedb; font-size: 12px;
+  margin: 1px 0; text-align: left; border: 0; background: transparent; color: #c7cedb; font-size: 12px;
   padding: 4px 8px; border-radius: 5px; cursor: pointer; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
 .graph-tree-item:hover { background: #171c23; }
 .graph-tree-item.on { background: #2a2418; color: #f0a25c; }
 .graph-tree-new {
-  width: 100%; margin-top: 4px; border: 1px dashed #2f3641; background: transparent;
-  color: #8b98a8; font-size: 11px; padding: 5px; border-radius: 6px; cursor: pointer;
+  width: auto; align-self: flex-start; margin: 4px 8px; border: 1px dashed #2f3641;
+  background: transparent; color: #8b98a8; font-size: 10px; padding: 3px 8px;
+  border-radius: 5px; cursor: pointer;
 }
 .graph-tree-new:hover { color: #f0a25c; border-color: #4a3a22; }
 

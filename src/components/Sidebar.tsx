@@ -170,7 +170,7 @@ export default function Sidebar() {
         <div
           className={`graph-folder-head${folder.id === activeFolderId ? ' active' : ''}`}
           data-fid={folder.id}
-          style={{ paddingLeft: 6 + depth * 14 }}
+          style={{ paddingLeft: 8 + depth * 16 }}
           onClick={() => toggleFolder(folder.id)}
         >
           <span className="graph-folder-caret">{open ? '▾' : '▸'}</span>
@@ -214,7 +214,7 @@ export default function Sidebar() {
               <button
                 key={pg.id}
                 className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
-                style={{ paddingLeft: 10 + (depth + 1) * 14 }}
+                style={{ paddingLeft: 22 + (depth + 1) * 16 }}
                 title={pg.name}
                 onClick={() => switchGraph(pg.id)}
               >
@@ -223,7 +223,7 @@ export default function Sidebar() {
             ))}
             <button
               className="graph-tree-new"
-              style={{ marginLeft: (depth + 1) * 14 }}
+              style={{ marginLeft: 22 + (depth + 1) * 16 }}
               onClick={() => addGraph(undefined, folder.id)}
             >
               ＋ 新建图
@@ -308,6 +308,7 @@ export default function Sidebar() {
               <button
                 key={pg.id}
                 className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
+                style={{ paddingLeft: 22 }}
                 title={pg.name}
                 onClick={() => switchGraph(pg.id)}
               >
