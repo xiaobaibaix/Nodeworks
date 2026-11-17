@@ -16,7 +16,7 @@ import {
   renameNodeOp, setKindOp, setNodePosOp, setPropOp, validateConnection,
 } from '../src/model/ops';
 import {
-  activeGraph, addGraph, parseProjectDoc, projectFromGraph,
+  activeGraph, addGraph, parseProjectDoc, projectFromGraph, removeGraph,
   switchGraph, type ProjectDoc,
 } from '../src/model/project';
 import { GraphSchema } from '../src/model/schema';
@@ -320,12 +320,26 @@ const tools: Tool[] = [
     inputSchema: S.obj('参数', { graph: S.str('图 id 或名称') }, ['graph']),
     run: async ({ graph }) => {
       await mutate('切换图', (d) => {
-        const next = switchGraph(d, String(graph));
+        const card = graphCard(d, String(graph));
+        const next = switchGraph(d, card.id);
         if (!next) throw new Error(`找不到图「${graph}」`);
         Object.assign(d, next);
       });
       const d = loadDoc();
       return { active: d.active, name: graphCard(d).name };
+    },
+  },
+  {
+    name: 'delete_graph',
+    description: '删除一张图（至少保留一张）。',
+    inputSchema: S.obj('参数', { graph: S.str('图 id 或名称') }, ['graph']),
+    run: async ({ graph }) => {
+      await mutate('删除图', (d) => {
+        const card = graphCard(d, String(graph));
+        Object.assign(d, removeGraph(d, card.id));
+      });
+      const d = loadDoc();
+      return { active: d.active, graphs: d.graphs.map((g) => g.name) };
     },
   },
   {

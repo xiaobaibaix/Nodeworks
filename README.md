@@ -112,7 +112,7 @@ MCP 客户端配置（Claude Code / 任意 stdio 客户端）：
 }
 ```
 
-工具（19 个）：`project_info`、`get_graph`、`create_graph`、`set_active_graph`、`define_kind`、`find_nodes`、`add_node`、`update_node`、`remove_nodes`、`add_edge`、`remove_edges`、`auto_layout`、`export_project`、`validate_project`、`list_snapshots`、`create_snapshot`、`restore_snapshot`、`delete_snapshot`、`undo`。
+工具（20 个）：`project_info`、`get_graph`、`create_graph`、`set_active_graph`、`delete_graph`、`define_kind`、`find_nodes`、`add_node`、`update_node`、`remove_nodes`、`add_edge`、`remove_edges`、`auto_layout`、`export_project`、`validate_project`、`list_snapshots`、`create_snapshot`、`restore_snapshot`、`delete_snapshot`、`undo`。
 
 目录模式：`--file` 指向一个已存在的目录时，MCP 直接读写目录项目（`project.json` + `graphs/` + `nodes/`），每次写操作整份回写，快照存 `<目录>/snapshots.json`。
 
