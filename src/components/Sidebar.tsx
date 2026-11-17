@@ -73,10 +73,16 @@ export default function Sidebar() {
   const removeFolder = useGraph((s) => s.removeFolder);
 
   const activeFolderId = projectGraphs.find((pg) => pg.id === activeGraphId)?.folderId ?? null;
+  const folderRank = (f: ProjectFolder) => {
+    const m = /^f_lv_(\d+)$/.exec(f.id);
+    if (!m) return 1000;
+    const level = Number(m[1]);
+    return level === 0 ? 999 : level;
+  };
   const folderChildren = (parentId: string | null) =>
     folders
       .filter((f) => f.parentId === parentId)
-      .sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+      .sort((a, b) => folderRank(a) - folderRank(b) || a.name.localeCompare(b.name, 'zh'));
   const graphsIn = (folderId: string) =>
     projectGraphs
       .filter((pg) => pg.folderId === folderId)
@@ -294,7 +300,6 @@ export default function Sidebar() {
           <button title="新建分组（在当前选中的分组里）" aria-label="新建分组" onClick={createFolderHere}>
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4.3h4l1.1 1.4h6.7v6.6H2z" /><path d="M6.4 8.8h3.2M8 7.2v3.2" /></svg>
           </button>
-          <span className="tree-tools-gap" />
           <button title="全部折叠" aria-label="全部折叠" onClick={collapseAll}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.6L8 10l5-4.4" fill="none" stroke="currentColor" strokeWidth="1.3" /></svg>
           </button>

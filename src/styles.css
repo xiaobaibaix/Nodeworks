@@ -1692,7 +1692,7 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .graph-folder-head {
   display: grid; grid-template-columns: 12px 16px 1fr auto auto; gap: 6px; align-items: center;
   padding: 5px 8px; font-size: 11px; color: #c7cedb; cursor: pointer;
-  border-left: 2px solid transparent; user-select: none;
+  border-left: 2px solid transparent; user-select: none; min-height: 26px;
 }
 .graph-folder-head:hover { background: #151a21; }
 .graph-folder-head.sel { background: #12304a; border-left-color: #4c8dff; }
@@ -1702,8 +1702,8 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .tree-ic.folder { color: #6ea8fe; }
 .tree-ic.file { color: #8b98a8; }
 .graph-folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.graph-folder-actions { display: none; gap: 2px; }
-.graph-folder-head:hover .graph-folder-actions { display: inline-flex; }
+.graph-folder-actions { display: inline-flex; gap: 2px; visibility: hidden; }
+.graph-folder-head:hover .graph-folder-actions, .graph-folder-head:focus-within .graph-folder-actions { visibility: visible; }
 .graph-folder-actions button {
   border: 0; background: transparent; color: #8b98a8; font-size: 11px; line-height: 16px;
   width: 18px; height: 18px; border-radius: 4px; cursor: pointer; padding: 0;
@@ -1745,6 +1745,8 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   width: 22px; height: 22px; border: 0; background: transparent; color: #8b98a8;
   border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0;
 }
+.tree-tools button:focus { outline: none; }
+.tree-tools button:focus-visible { outline: 1px solid #4c8dff; outline-offset: -1px; }
 .tree-tools button:hover:not(:disabled) { background: #1b222b; color: #e6edf3; }
 .tree-tools button:disabled { opacity: .35; cursor: default; }
 .tree-tools button svg { width: 15px; height: 15px; }
