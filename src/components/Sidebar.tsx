@@ -60,6 +60,8 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [graphTreeOpen, setGraphTreeOpen] = useState(true);
   const [openLevels, setOpenLevels] = useState<Set<number>>(() => new Set([activeLevel]));
+  const [stuckLevel, setStuckLevel] = useState<number | null>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +82,24 @@ export default function Sidebar() {
   useEffect(() => {
     setOpenLevels((prev) => (prev.has(activeLevel) ? prev : new Set(prev).add(activeLevel)));
   }, [activeLevel]);
+
+  const syncStuck = () => {
+    const el = treeRef.current;
+    if (!el) return;
+    if (el.scrollTop < 4) { setStuckLevel(null); return; }
+    const top = el.getBoundingClientRect().top;
+    let current: number | null = null;
+    el.querySelectorAll<HTMLDetailsElement>('details[data-level]').forEach((d) => {
+      const head = d.querySelector('summary');
+      if (!head) return;
+      const headTop = head.getBoundingClientRect().top;
+      const boxBottom = d.getBoundingClientRect().bottom;
+      if (headTop <= top + 2 && boxBottom > top + 2) current = Number(d.dataset.level);
+    });
+    setStuckLevel(current);
+  };
+
+  useEffect(() => { syncStuck(); }, [openLevels, projectGraphs, graphTreeOpen]);
 
   const focusNode = (id: string) => {
     select([id], null);
@@ -152,7 +172,27 @@ export default function Sidebar() {
       </div>
 
       {graphTreeOpen && (
-        <div className="graph-tree" role="tree" aria-label="图列表">
+        <div className="graph-tree" role="tree" aria-label="图列表" ref={treeRef} onScroll={syncStuck}>
+          {stuckLevel !== null && (() => {
+            const hit = levels.find(([level]) => level === stuckLevel);
+            if (!hit) return null;
+            const [level, list] = hit;
+            return (
+              <div
+                className="graph-level-head graph-tree-sticky"
+                data-level={level}
+                onClick={() => setOpenLevels((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(level)) next.delete(level); else next.add(level);
+                  return next;
+                })}
+              >
+                <span className="graph-level-tag">{level ? `L${level}` : '—'}</span>
+                <span>{graphLevelLabel(level)}</span>
+                <span className="graph-tree-count">{list.length}</span>
+              </div>
+            );
+          })()}
           {levels.map(([level, list]) => (
             <details
               key={level}
@@ -168,7 +208,7 @@ export default function Sidebar() {
                 });
               }}
             >
-              <summary>
+              <summary className="graph-level-head" data-level={level}>
                 <span className="graph-level-tag">{level ? `L${level}` : '—'}</span>
                 <span>{graphLevelLabel(level)}</span>
                 <span className="graph-tree-count">{list.length}</span>

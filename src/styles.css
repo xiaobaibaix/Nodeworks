@@ -1685,34 +1685,42 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 }
 .graph-caret { color: #6b7686; font-size: 10px; }
 .graph-tree {
-  margin: 0 10px 8px; padding: 4px; border: 1px solid #2a3038; border-radius: 8px;
+  margin: 0 10px 8px; border: 1px solid #2a3038; border-radius: 8px;
   background: #0f1318; max-height: min(52vh, 560px); overflow: auto;
+  position: relative; padding: 0;
 }
-.graph-tree details { margin: 2px 0; }
+.graph-tree details { margin: 0; padding: 0; border: 0; }
 .graph-tree summary {
   display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center;
-  cursor: pointer; padding: 4px 6px; font-size: 11px; color: #8b98a8; border-radius: 5px;
+  cursor: pointer; padding: 5px 8px; font-size: 11px; color: #8b98a8;
   list-style: none; text-align: left;
-  position: sticky; top: 0; z-index: 3;
   background: #12171d; border-bottom: 1px solid #1d242d;
 }
 .graph-tree summary::-webkit-details-marker { display: none; }
 .graph-tree summary:hover { background: #151a21; }
-.graph-tree details {
-  border-left: 1px solid #232a33;
-  padding-left: 8px;
+.graph-tree [data-level="1"] { --lv: #7ee787; }
+.graph-tree [data-level="2"] { --lv: #79c0ff; }
+.graph-tree [data-level="3"] { --lv: #d2a8ff; }
+.graph-tree [data-level="4"] { --lv: #f0a25c; }
+.graph-tree [data-level="5"] { --lv: #ff9bce; }
+.graph-tree [data-level="6"] { --lv: #56d4dd; }
+.graph-tree [data-level="7"] { --lv: #e3b341; }
+.graph-tree [data-level="0"] { --lv: #8b98a8; }
+.graph-tree .graph-level-head { border-left: 3px solid var(--lv); }
+.graph-tree .graph-level-head > span:nth-child(2) { color: var(--lv); }
+.graph-tree .graph-level-head .graph-level-tag {
+  color: var(--lv); border-color: color-mix(in srgb, var(--lv) 45%, #2a3038);
+  background: color-mix(in srgb, var(--lv) 12%, #12171d);
 }
-.graph-tree details[data-level="1"] { --lv: #7ee787; }
-.graph-tree details[data-level="2"] { --lv: #79c0ff; }
-.graph-tree details[data-level="3"] { --lv: #d2a8ff; }
-.graph-tree details[data-level="4"] { --lv: #f0a25c; }
-.graph-tree details[data-level="5"] { --lv: #ff9bce; }
-.graph-tree details[data-level="6"] { --lv: #56d4dd; }
-.graph-tree details[data-level="7"] { --lv: #e3b341; }
-.graph-tree details[data-level="0"] { --lv: #8b98a8; }
-.graph-tree details[data-level] > summary { border-left: 3px solid var(--lv); padding-left: 8px; }
-.graph-tree details[data-level] > summary > span:nth-child(2) { color: var(--lv); }
-.graph-tree details[data-level] > summary .graph-level-tag {
+.graph-tree-sticky {
+  position: sticky; top: 0; z-index: 6;
+  margin-bottom: -28px; height: 28px;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center;
+  padding: 0 8px; font-size: 11px; color: #8b98a8; cursor: pointer;
+  background: #12171d; border-bottom: 1px solid #1d242d;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.graph-level-tag {
   color: var(--lv); border-color: color-mix(in srgb, var(--lv) 45%, #2a3038); background: color-mix(in srgb, var(--lv) 12%, #12171d);
 }
 .graph-level-tag {
