@@ -1534,3 +1534,80 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .react-flow__edge:hover .react-flow__edge-path { stroke: #cbd5e1; }
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge.selected:hover .react-flow__edge-path { stroke: var(--accent); stroke-width: 2.5; }
+
+/* 资源栏：图标 / 模型 / 音频 三种固定容器，容器内树状展示 */
+.res-tree-wrap { display: flex; flex-direction: column; gap: 8px; }
+.res-tree {
+  border: 1px solid #2a303b;
+  border-radius: 8px;
+  background: #151a21;
+  overflow: hidden;
+}
+.res-tree > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.res-tree > summary::-webkit-details-marker { display: none; }
+.res-tree-caret { color: #6b7688; font-size: 10px; transition: transform .15s ease; }
+.res-tree[open] > summary .res-tree-caret { transform: rotate(90deg); }
+.res-tree-name { flex: 1; min-width: 0; }
+.res-tree-name input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #e6ebf2;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.res-tree-name input:hover, .res-tree-name input:focus { border-color: #333b48; background: #10141a; }
+.res-tree-actions { display: flex; gap: 2px; }
+.res-tree-actions .icon { padding: 0 4px; }
+.res-tree-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 8px 10px 10px;
+  margin-left: 14px;
+  border-left: 1px solid #2a303b;
+}
+.res-badge {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #1d242e;
+  border: 1px solid #2f3845;
+  font-size: 11px;
+  color: #9fb0c6;
+}
+.res-badge.image { color: #f0a25c; }
+.res-badge.model { color: #7aa2f7; }
+.res-badge.audio { color: #4ade80; }
+.res-node { display: flex; flex-direction: column; gap: 4px; }
+.res-node-row { display: flex; align-items: center; gap: 6px; }
+.res-node-row > .res-thumb { width: 46px; height: 34px; margin: 0; flex: none; font-size: 9px; }
+.res-node-name { flex: 1; min-width: 0; }
+.res-node-name input {
+  width: 100%;
+  background: #10141a;
+  border: 1px solid #262e39;
+  border-radius: 4px;
+  color: #dfe6ef;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+.res-node-actions { display: flex; gap: 2px; flex: none; }
+.res-node .view-prompt { margin-left: 24px; }
+.res-node .res-views { margin-left: 24px; }
+.res-audio-hint { font-size: 11px; color: #8391a5; padding-left: 24px; word-break: break-all; }
+.res-add-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.res-add-buttons .chip { cursor: pointer; }

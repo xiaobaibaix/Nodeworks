@@ -1,11 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useCurrentGraph, useGraph } from '../store';
-import type { ResourceItem, ResourceType, UnitNode } from '../model/types';
+import type { ResourceItem, UnitNode } from '../model/types';
 import { hasSceneSlots, isRigged, modelChecklist } from '../model/modelTemplate';
-import { wantsPrompt } from '../model/style';
-import ImageGallery from './ImageGallery';
 import AssetPreview from './AssetPreview';
-import ResourceViews from './ResourceViews';
+import ResourceTree from './ResourceTree';
+import { flattenResources } from '../model/resources';
 
 const TYPES = ['string', 'number', 'boolean', 'json'];
 
@@ -28,32 +27,6 @@ function IconBase({ children }: { children: ReactNode }) {
 }
 
 const IconPlus = () => <IconBase><path d="M8 3v10M3 8h10" /></IconBase>;
-const IconImage = () => (
-  <IconBase>
-    <rect x="2" y="3" width="12" height="10" rx="1.5" />
-    <circle cx="5.5" cy="6.5" r="1.2" />
-    <path d="M3 12l3.4-3.4 2.4 2.4 2.1-2.1L14 12" />
-  </IconBase>
-);
-const IconModel = () => (
-  <IconBase>
-    <path d="M8 2.2l5 2.9v5.8l-5 2.9-5-2.9V5.1z" />
-    <path d="M3 5.1l5 2.9 5-2.9M8 8v5.8" />
-  </IconBase>
-);
-const IconAudio = () => (
-  <IconBase>
-    <path d="M2.5 6h2.2L7.5 3.5v9L4.7 10H2.5z" />
-    <path d="M10 5.5a3.5 3.5 0 010 5" />
-    <path d="M12 3.3a6.5 6.5 0 010 9.4" />
-  </IconBase>
-);
-const IconOther = () => (
-  <IconBase>
-    <path d="M4 2.5h5l3 3v8H4z" />
-    <path d="M9 2.5v3h3" />
-  </IconBase>
-);
 const IconIn = () => (
   <IconBase>
     <path d="M2.5 8h8M7.5 5l3 3-3 3" />
@@ -115,25 +88,6 @@ function TipButton({
   );
 }
 
-const RES_TYPE_LABEL: Record<ResourceType, string> = {
-  image: '图片',
-  model: '模型',
-  audio: '音频',
-  other: '其它',
-};
-
-/** 已添加的资源只显示类型图标（类型在添加时已确定，不再给下拉框）。 */
-function ResourceTypeIcon({ type }: { type: ResourceType }) {
-  return (
-    <span className={`res-type-icon ${type} tip`} data-tip={RES_TYPE_LABEL[type]} aria-label={RES_TYPE_LABEL[type]}>
-      {type === 'image' ? <IconImage />
-        : type === 'model' ? <IconModel />
-          : type === 'audio' ? <IconAudio />
-            : <IconOther />}
-    </span>
-  );
-}
-
 function TextCommit({
   value,
   onCommit,
@@ -159,31 +113,6 @@ function TextCommit({
 }
 
 /** 多行文本：本地草稿，失焦时提交，避免每敲一个字就进一次历史。 */
-function TextAreaCommit({
-  value,
-  onCommit,
-  placeholder,
-}: {
-  value: string;
-  onCommit: (next: string) => void;
-  placeholder?: string;
-}) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  return (
-    <textarea
-      rows={2}
-      value={draft}
-      placeholder={placeholder}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => draft !== value && onCommit(draft)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) (e.target as HTMLTextAreaElement).blur();
-      }}
-    />
-  );
-}
-
 function ValueEditor({
   value,
   type,
@@ -274,53 +203,6 @@ function AddProp({ nodeId }: { nodeId: string }) {
   );
 }
 
-/** 资源添加表单：先选类型、填名称/路径，再点「+」真正加进列表。 */
-function AddResource({ nodeId }: { nodeId: string }) {
-  const addResource = useGraph((s) => s.addResource);
-  const [type, setType] = useState<ResourceType>('image');
-  const [label, setLabel] = useState('');
-  const [path, setPath] = useState('');
-
-  const submit = () => {
-    addResource(nodeId, type, { label, path });
-    setLabel('');
-    setPath('');
-  };
-
-  return (
-    <div className="res-add">
-      <select
-        value={type}
-        title="资源类型"
-        onChange={(e) => setType(e.target.value as ResourceType)}
-      >
-        <option value="image">图片</option>
-        <option value="model">模型</option>
-        <option value="audio">音频</option>
-        <option value="other">其它</option>
-      </select>
-      <input
-        autoFocus
-        placeholder="名称（可留空）"
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
-        }}
-      />
-      <input
-        placeholder="路径（可留空）"
-        value={path}
-        onChange={(e) => setPath(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
-        }}
-      />
-      <button type="button" title="添加资源" onClick={submit}>+</button>
-    </div>
-  );
-}
-
 function ModelTemplate({ node }: { node: UnitNode }) {
   const apply = useGraph((s) => s.applyModelTemplate);
   const [rig, setRig] = useState(isRigged(node));
@@ -370,8 +252,6 @@ export default function Inspector() {
   const setKind = useGraph((s) => s.setKind);
   const setProp = useGraph((s) => s.setProp);
   const removeProp = useGraph((s) => s.removeProp);
-  const setResource = useGraph((s) => s.setResource);
-  const removeResource = useGraph((s) => s.removeResource);
   const addPort = useGraph((s) => s.addPort);
   const setPort = useGraph((s) => s.setPort);
   const requestRemovePort = useGraph((s) => s.requestRemovePort);
@@ -383,8 +263,6 @@ export default function Inspector() {
   const setSubgraphMap = useGraph((s) => s.setSubgraphMap);
   const [previewRes, setPreviewRes] = useState<ResourceItem | null>(null);
   const [showAddProp, setShowAddProp] = useState(false);
-  const [showAddRes, setShowAddRes] = useState(false);
-  const openGenerate = useGraph((s) => s.openGenerate);
 
   const edge = edgeId ? graph.edges.find((e) => e.id === edgeId) : undefined;
   const node = selectedNodes.length === 1
@@ -485,7 +363,7 @@ export default function Inspector() {
   const ins = node.ports.filter((p) => p.dir === 'in');
   const outs = node.ports.filter((p) => p.dir === 'out');
   // 通配清单只挂在第一条模型资源卡片里
-  const modelResId = (node.resources ?? []).find((r) => r.type === 'model')?.id;
+  const modelRes = flattenResources(node).map((x) => x.resource).find((r) => r.type === 'model');
 
   return (
     <aside className="inspector">
@@ -533,54 +411,9 @@ export default function Inspector() {
       </section>
 
       <section className="sec">
-        <SectionHead title="资源" count={node.resources?.length ?? 0}>
-          <TipButton
-            tip={showAddRes ? '收起添加资源' : '添加资源'}
-            className={showAddRes ? 'on' : ''}
-            onClick={() => setShowAddRes((v) => !v)}
-          >
-            <IconPlus />
-          </TipButton>
-        </SectionHead>
-        <div className="res-list">
-        {(node.resources ?? []).map((r) => (
-          <div className={`res-row${wantsPrompt(r.type) ? '' : ' no-gen'}`} key={r.id}>
-            <ResourceTypeIcon type={r.type} />
-            <TextCommit value={r.label} onCommit={(v) => setResource(node.id, r.id, { label: v })} />
-            <button className="icon" title="预览资源" onClick={() => setPreviewRes(r)}>◎</button>
-            {wantsPrompt(r.type) && (
-              <button
-                className="icon res-gen"
-                title="生成资源…（用全局服务与这条描述词）"
-                onClick={() => openGenerate(node.id, r.id)}
-              >
-                ✦
-              </button>
-            )}
-            <button className="icon" title="删除资源项" onClick={() => removeResource(node.id, r.id)}>×</button>
-            {wantsPrompt(r.type) && r.type !== 'image' && (
-              <div className="res-prompt">
-                <TextAreaCommit
-                  value={r.prompt ?? ''}
-                  placeholder={r.type === 'model'
-                    ? `描述这个模型：主体、结构、比例、材质…（会拼上全局「资源风格」）`
-                    : `描述图标内容：主体、构图、配色…（会拼上全局「资源风格」）`}
-                  onCommit={(v) => setResource(node.id, r.id, { prompt: v })}
-                />
-              </div>
-            )}
-            {r.type === 'image' && (
-              <ImageGallery node={node} resource={r} onPreview={setPreviewRes} />
-            )}
-            {(r.type === 'model' || (r.type !== 'image' && (r.views?.length ?? 0) > 0)) && (
-              <ResourceViews node={node} resource={r} onPreview={setPreviewRes} />
-            )}
-            {r.id === modelResId && <ModelTemplate node={node} />}
-          </div>
-        ))}
-        {(node.resources ?? []).length === 0 && <div className="hint">还没有资源项</div>}
-      </div>
-      {showAddRes && <AddResource nodeId={node.id} />}
+        <SectionHead title="资源" count={flattenResources(node).length} />
+        <ResourceTree node={node} onPreview={setPreviewRes} />
+        {modelRes && <ModelTemplate node={node} />}
       </section>
 
       <section className="sec">

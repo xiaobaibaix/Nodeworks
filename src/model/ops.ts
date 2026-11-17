@@ -423,6 +423,18 @@ export function setResourceViewOp(
 }
 
 /** 在分组视图里再挂一层图片（二层的图片容器）。 */
+export function appendResourceViewOp(
+  g: Graph,
+  nodeId: string,
+  resourceId: string,
+  child: ResourceItem,
+): Graph {
+  return mapResource(g, nodeId, resourceId, (r) => ({
+    ...r,
+    views: [...(r.views ?? []), child],
+  }));
+}
+
 export function addResourceChildOp(
   g: Graph,
   nodeId: string,

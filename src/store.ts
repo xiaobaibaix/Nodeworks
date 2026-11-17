@@ -7,13 +7,14 @@ import { graphAtPath, normalizePath, updateAtPath } from './model/path';
 import { planCrossLink, type CrossTarget } from './model/cross';
 import { slotOf, templateResources, isRigged } from './model/modelTemplate';
 import { EMPTY_FILTER, type GraphFilter } from './model/query';
+import { containerLabel, containerOf, withResourceContainers } from './model/resources';
 import { emptySubgraph, parseGraph } from './model/schema';
 import {
-  addEdgeOp, addNodeOp, addPortOp, addResourceChildOp, addResourceOp, addResourceViewOp,
+  addEdgeOp, addNodeOp, addPortOp, addResourceChildOp, addResourceOp, addResourceViewOp, appendResourceViewOp,
   createEdge, createNode, createNodeFromKind, createPort, createResource,
   removeResourceChildOp, removeResourceOp, removeResourceViewOp,
   setResourceChildOp, setResourceOp, setResourceViewOp,
-  findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp,
+  findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp, uid,
   removePortEdgesOp, removePortOp, removePropOp, renameNodeOp, replaceNodeOp,
   replacePortInEdgesOp, setEdgeLabelOp, setKindOp, setNodePosOp, setPortOp,
   setBoundaryPosOp, setPropOp, setSubgraphMapOp, validateConnection, withKindDefaults,
@@ -171,6 +172,8 @@ interface Store {
   autoLayout(): void;
   addProp(nodeId: string, name: string, type: string, value: unknown): void;
   addResource(nodeId: string, type: ResourceType, init?: Partial<Pick<ResourceItem, 'label' | 'path'>>): void;
+  /** 往固定类型容器里加一项；容器不存在时先建容器（一个节点每种类型最多一个容器）。 */
+  addResourceItem(nodeId: string, type: ResourceType): void;
   setResource(nodeId: string, resourceId: string, patch: Partial<Omit<ResourceItem, 'id'>>): void;
   removeResource(nodeId: string, resourceId: string): void;
   importResourceFile(nodeId: string, resourceId: string, file: File): Promise<void>;
@@ -357,8 +360,12 @@ export const useGraph = create<Store>((set, get) => ({
 
   boot: () => {
     if (get().booted) return;
-    const project = loadProject();
-    if (project) {
+    const stored = loadProject();
+    if (stored) {
+      const project = {
+        ...stored,
+        graphs: stored.graphs.map((pg) => ({ ...pg, graph: withResourceContainers(pg.graph) })),
+      };
       const active = projectActiveGraph(project);
       set({
         graph: active.graph,
@@ -622,6 +629,34 @@ export const useGraph = create<Store>((set, get) => ({
       label: '添加资源项',
       run: (g) => addResourceOp(g, nodeId, item),
       revert: (g) => removeResourceOp(g, nodeId, item.id),
+    });
+  },
+
+  addResourceItem: (nodeId, type) => {
+    const node = findNode(graphOf(get()), nodeId);
+    if (!node) return;
+    const container = containerOf(node, type);
+    const child = createResource(type);
+    if (container) {
+      get().commit({
+        label: '添加资源',
+        run: (g) => appendResourceViewOp(g, nodeId, container.id, child),
+        revert: (g) => removeResourceViewOp(g, nodeId, container.id, child.id),
+      });
+      return;
+    }
+    const root: ResourceItem = {
+      id: uid('r'),
+      type,
+      label: containerLabel(type),
+      path: '',
+      group: true,
+      views: [child],
+    };
+    get().commit({
+      label: '添加资源容器',
+      run: (g) => addResourceOp(g, nodeId, root),
+      revert: (g) => removeResourceOp(g, nodeId, root.id),
     });
   },
 
@@ -1332,9 +1367,10 @@ export const useGraph = create<Store>((set, get) => ({
     });
   },
 
-  load: (g) =>
+  load: (g) => {
+    const graph = withResourceContainers(g);
     set({
-      graph: g,
+      graph,
       past: [],
       future: [],
       selectedNodes: [],
@@ -1364,14 +1400,19 @@ export const useGraph = create<Store>((set, get) => ({
           projectStyle: seeded.style ?? { ...EMPTY_STYLE },
         };
       })(),
-    }),
+    });
+  },
 
   loadFile: (raw, handle) => {
     get().unbindFolder();
     projectFileHandle = handle ?? null;
     set({ fileName: handle?.name ?? null });
-    const project = parseProjectDoc(raw);
-    if (project) {
+    const parsed = parseProjectDoc(raw);
+    if (parsed) {
+      const project = {
+        ...parsed,
+        graphs: parsed.graphs.map((pg) => ({ ...pg, graph: withResourceContainers(pg.graph) })),
+      };
       const active = projectActiveGraph(project);
       get().load(active.graph);
       const fileCount = project.graphs.reduce(
@@ -1761,7 +1802,11 @@ export const useGraph = create<Store>((set, get) => ({
         fs = candidates[0].fs;
         via = `（子目录「${candidates[0].name}」）`;
       }
-      const project = await readProject(fs);
+      const loaded = await readProject(fs);
+      const project = {
+        ...loaded,
+        graphs: loaded.graphs.map((pg) => ({ ...pg, graph: withResourceContainers(pg.graph) })),
+      };
       get().load(projectActiveGraph(project).graph);
       set({
         graph: projectActiveGraph(project).graph,
