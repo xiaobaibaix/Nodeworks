@@ -282,6 +282,17 @@ export default function Sidebar() {
     );
   };
 
+  const TREE_H_KEY = 'nodeworks.treeheight.v1';
+  const [treeH, setTreeH] = useState(() => {
+    if (typeof window === 'undefined') return 360;
+    const saved = Number(localStorage.getItem(TREE_H_KEY));
+    return Number.isFinite(saved) && saved > 100 ? saved : Math.round(window.innerHeight * 0.42);
+  });
+  const dragRef = useRef<{ y: number; h: number } | null>(null);
+  const treeHRef = useRef(treeH);
+  const applyTreeH = (h: number) => { treeHRef.current = h; setTreeH(h); };
+  const clampTree = (h: number) => Math.max(120, Math.min(h, (typeof window === 'undefined' ? 900 : window.innerHeight) - 260));
+
   return (
     <aside className="sidebar">
       <header className="sidebar-head">
@@ -313,7 +324,7 @@ export default function Sidebar() {
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v7.2M5.2 6.6L8 9.4l2.8-2.8" /><path d="M3 10.5v2.7h10v-2.7" /></svg>
           </button>
         </div>
-      <div className="graph-tree" role="tree" aria-label="图列表" ref={treeRef} onScroll={syncStuck}>
+      <div className="graph-tree" role="tree" aria-label="图列表" ref={treeRef} onScroll={syncStuck} style={{ height: treeH }}>
           {projectGraphs
             .filter((pg) => !pg.folderId)
             .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
@@ -369,6 +380,32 @@ export default function Sidebar() {
         </div>
 
 
+      <div
+        className="sidebar-resizer"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="调整大纲与搜索区高度"
+        title="拖动调整两栏占比，双击复位"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          dragRef.current = { y: e.clientY, h: treeH };
+        }}
+        onPointerMove={(e) => {
+          if (!dragRef.current) return;
+          applyTreeH(clampTree(dragRef.current.h + (e.clientY - dragRef.current.y)));
+        }}
+        onPointerUp={() => {
+          if (!dragRef.current) return;
+          dragRef.current = null;
+          localStorage.setItem(TREE_H_KEY, String(treeHRef.current));
+        }}
+        onDoubleClick={() => {
+          const h = Math.round(window.innerHeight * 0.42);
+          applyTreeH(h);
+          localStorage.setItem(TREE_H_KEY, String(h));
+        }}
+      />
+      <div className="sidebar-lower">
       <div className="search-box">
         <span className="search-icon" aria-hidden="true">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -487,6 +524,7 @@ export default function Sidebar() {
             </section>
           );
         })}
+      </div>
       </div>
     </aside>
   );
