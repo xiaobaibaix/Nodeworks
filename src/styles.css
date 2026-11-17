@@ -1805,3 +1805,19 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   font-size: 10px;
   color: #66707e;
 }
+
+
+.tree-menu {
+  position: fixed; z-index: 120; min-width: 150px; padding: 4px;
+  background: #141a21; border: 1px solid #2b3440; border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+}
+.tree-menu button {
+  display: block; width: 100%; text-align: left; padding: 6px 9px; border: 0;
+  border-radius: 5px; background: transparent; color: #c7cedb; font-size: 12px; cursor: pointer;
+}
+.tree-menu button:hover { background: #1e2833; color: #e6edf3; }
+.tree-menu button.danger { color: #f28b82; }
+.tree-menu button.danger:hover { background: #3a1d1d; color: #ffb4ab; }
+.tree-menu-sep { height: 1px; margin: 4px 6px; background: #232c37; }
+.graph-tree:focus { outline: none; }

@@ -102,6 +102,7 @@ export default function Sidebar() {
   const [stuckFolder, setStuckFolder] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState(-1);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folderId: string | null; graphId?: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const visible = useMemo(() => visibleNodes(graph, filter), [graph, filter]);
@@ -158,14 +159,32 @@ export default function Sidebar() {
     if (el.scrollTop < 4) { setStuckFolder(null); return; }
     const top = el.getBoundingClientRect().top;
     let current: string | null = null;
+    let best = -Infinity;
     el.querySelectorAll<HTMLElement>('.graph-folder-head').forEach((head) => {
       const rect = head.getBoundingClientRect();
-      if (rect.top <= top + 2 && rect.bottom > top + 2) current = head.dataset.fid ?? null;
+      if (rect.top <= top + 1 && rect.top > best) {
+        best = rect.top;
+        current = head.dataset.fid ?? null;
+      }
     });
     setStuckFolder(current);
   };
 
   useEffect(() => { syncStuck(); }, [openFolders, folders]);
+
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('blur', close);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('blur', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [ctxMenu]);
 
   const focusNode = (id: string) => {
     select([id], null);
@@ -228,8 +247,15 @@ export default function Sidebar() {
           data-fid={folder.id}
           style={{ paddingLeft: 8 + depth * 16 }}
           onClick={() => {
+            treeRef.current?.focus();
             setSelFolder(folder.id);
             toggleFolder(folder.id);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setSelFolder(folder.id);
+            setCtxMenu({ x: e.clientX, y: e.clientY, folderId: folder.id });
           }}
         >
           <span className="graph-folder-caret">{open ? '▾' : '▸'}</span>
@@ -268,8 +294,14 @@ export default function Sidebar() {
                 style={{ paddingLeft: 22 + (depth + 1) * 16 }}
                 title={pg.name}
                 onClick={() => {
+                  treeRef.current?.focus();
                   switchGraph(pg.id);
                   setSelFolder(pg.folderId ?? null);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCtxMenu({ x: e.clientX, y: e.clientY, folderId: pg.folderId ?? null, graphId: pg.id });
                 }}
               >
                 <IconFile />
@@ -292,6 +324,44 @@ export default function Sidebar() {
   const treeHRef = useRef(treeH);
   const applyTreeH = (h: number) => { treeHRef.current = h; setTreeH(h); };
   const clampTree = (h: number) => Math.max(120, Math.min(h, (typeof window === 'undefined' ? 900 : window.innerHeight) - 260));
+
+  const createGraphIn = (folderId: string | null) => {
+    setSelFolder(folderId);
+    addGraph(undefined, folderId ?? undefined);
+    setCtxMenu(null);
+  };
+  const createFolderIn = (folderId: string | null) => {
+    const name = window.prompt('分组名称', '新分组');
+    setCtxMenu(null);
+    if (!name?.trim()) return;
+    setSelFolder(folderId);
+    addFolder(name.trim(), folderId);
+  };
+  const renameGraphById = (id: string) => {
+    const pg = projectGraphs.find((g) => g.id === id);
+    const name = window.prompt('图名称', pg?.name ?? '');
+    setCtxMenu(null);
+    if (!name?.trim()) return;
+    if (id !== activeGraphId) switchGraph(id);
+    renameGraph(name.trim());
+  };
+  const deleteGraphById = (id: string) => {
+    setCtxMenu(null);
+    if (id !== activeGraphId) switchGraph(id);
+    removeGraph();
+  };
+  const renameFolderById = (id: string) => {
+    const folder = folders.find((f) => f.id === id);
+    const name = window.prompt('分组名称', folder?.name ?? '');
+    setCtxMenu(null);
+    if (name?.trim()) renameFolder(id, name.trim());
+  };
+  const deleteFolderById = (id: string) => {
+    setCtxMenu(null);
+    if (!window.confirm('删除这个分组？里面的图会移到上一级。')) return;
+    removeFolder(id);
+    setSelFolder((cur) => (cur === id ? null : cur));
+  };
 
   return (
     <aside className="sidebar">
@@ -324,7 +394,29 @@ export default function Sidebar() {
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v7.2M5.2 6.6L8 9.4l2.8-2.8" /><path d="M3 10.5v2.7h10v-2.7" /></svg>
           </button>
         </div>
-      <div className="graph-tree" role="tree" aria-label="图列表" ref={treeRef} onScroll={syncStuck} style={{ height: treeH }}>
+      <div
+        className="graph-tree"
+        role="tree"
+        aria-label="图列表"
+        tabIndex={0}
+        ref={treeRef}
+        onScroll={syncStuck}
+        style={{ height: treeH }}
+        onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, folderId: null }); }}
+        onKeyDown={(e) => {
+          const tag = (e.target as HTMLElement).tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          if (e.key === 'Escape') { setCtxMenu(null); return; }
+          if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (selFolder) {
+            deleteFolderById(selFolder);
+          } else if (projectGraphs.length > 1) {
+            removeGraph();
+          }
+        }}
+      >
           {projectGraphs
             .filter((pg) => !pg.folderId)
             .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
@@ -335,8 +427,14 @@ export default function Sidebar() {
                 style={{ paddingLeft: 22 }}
                 title={pg.name}
                 onClick={() => {
+                  treeRef.current?.focus();
                   switchGraph(pg.id);
                   setSelFolder(null);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCtxMenu({ x: e.clientX, y: e.clientY, folderId: pg.folderId ?? null, graphId: pg.id });
                 }}
               >
                 <IconFile />
@@ -369,8 +467,14 @@ export default function Sidebar() {
                 style={{ paddingLeft: 22 }}
                 title={pg.name}
                 onClick={() => {
+                  treeRef.current?.focus();
                   switchGraph(pg.id);
                   setSelFolder(null);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCtxMenu({ x: e.clientX, y: e.clientY, folderId: pg.folderId ?? null, graphId: pg.id });
                 }}
               >
                 <IconFile />
@@ -526,6 +630,29 @@ export default function Sidebar() {
         })}
       </div>
       </div>
+      {ctxMenu && (
+        <div
+          className="tree-menu"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {ctxMenu.graphId ? (
+            <>
+              <button onClick={() => renameGraphById(ctxMenu.graphId!)}>重命名图</button>
+              <button className="danger" onClick={() => deleteGraphById(ctxMenu.graphId!)}>删除图</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => createGraphIn(ctxMenu.folderId)}>新建图</button>
+              <button onClick={() => createFolderIn(ctxMenu.folderId)}>新建分组</button>
+              {ctxMenu.folderId && <div className="tree-menu-sep" />}
+              {ctxMenu.folderId && <button onClick={() => renameFolderById(ctxMenu.folderId!)}>重命名分组</button>}
+              {ctxMenu.folderId && <button className="danger" onClick={() => deleteFolderById(ctxMenu.folderId!)}>删除分组</button>}
+            </>
+          )}
+        </div>
+      )}
     </aside>
   );
 }
