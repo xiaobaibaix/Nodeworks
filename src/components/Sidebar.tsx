@@ -120,6 +120,7 @@ export default function Sidebar() {
           onClick={() => setGraphTreeOpen((open) => !open)}
         >
           <span className="graph-current-name">{activeName}</span>
+          <span className="graph-current-level">{graphLevelLabel(activeLevel)}</span>
           <span className="graph-caret">▾</span>
         </button>
         <button
@@ -155,8 +156,13 @@ export default function Sidebar() {
       {graphTreeOpen && (
         <div className="graph-tree" role="tree" aria-label="图列表">
           {levels.map(([level, list]) => (
-            <details key={level} open={level === activeLevel}>
+            <details
+              key={level}
+              open={level === activeLevel}
+              style={{ marginLeft: Math.max(0, level - 1) * 10 }}
+            >
               <summary>
+                <span className="graph-level-tag">{level ? `L${level}` : '—'}</span>
                 <span>{graphLevelLabel(level)}</span>
                 <span className="graph-tree-count">{list.length}</span>
               </summary>

@@ -1695,6 +1695,21 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 }
 .graph-tree summary::-webkit-details-marker { display: none; }
 .graph-tree summary:hover { background: #151a21; }
+.graph-tree details {
+  border-left: 1px solid #232a33;
+  padding-left: 8px;
+}
+.graph-level-tag {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #1d2733;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
 .graph-tree-count { color: #5f6a7b; }
 .graph-tree-items { display: flex; flex-direction: column; padding-left: 8px; }
 .graph-tree-item {
