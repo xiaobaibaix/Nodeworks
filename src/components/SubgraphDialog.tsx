@@ -33,6 +33,7 @@ export function SubgraphDialog({ at, onClose }: Props) {
   const [query, setQuery] = useState('');
   const [name, setName] = useState('');
   const [folderId, setFolderId] = useState<string>('');
+  const [dir, setDir] = useState<'in' | 'out'>('in');
 
   const pos = useMemo(
     () => screenToFlowPosition({ x: at.x, y: at.y }),
@@ -48,13 +49,13 @@ export function SubgraphDialog({ at, onClose }: Props) {
     });
 
   const place = (graphId: string) => {
-    addGraphRef(graphId, pos, 'in', autoFrom);
+    addGraphRef(graphId, pos, dir, dir === 'in' ? autoFrom : undefined);
     onClose();
   };
   const create = () => {
     const label = name.trim();
     if (!label) return;
-    createDownstream(label, pos, folderId || null);
+    createDownstream(label, pos, folderId || null, dir);
     onClose();
   };
 
@@ -62,12 +63,18 @@ export function SubgraphDialog({ at, onClose }: Props) {
     <div className="subgraph-modal" role="dialog" aria-label="选择子图" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="subgraph-card">
         <header className="subgraph-head">
-          <h3>下游子图</h3>
+          <h3>放置子图</h3>
           <button className="icon" onClick={onClose} title="关闭">×</button>
         </header>
+        <div className="subgraph-dir" role="group" aria-label="子图方向">
+          <button className={dir === 'in' ? 'on' : ''} onClick={() => setDir('in')}>作为下游（输入口）</button>
+          <button className={dir === 'out' ? 'on' : ''} onClick={() => setDir('out')}>作为上游（输出口）</button>
+        </div>
         <p className="subgraph-hint">
-          下游是“消费本图产物”的图：这里放下的子图节点带一个「产物」输入口
-          {autoFrom ? '，会自动从当前选中的单元接一条线。' : '。选中一个单元后再打开，可自动接线。'}
+          {dir === 'in'
+            ? '下游是“消费本图产物”的图：放下的节点带一个「产物」输入口。'
+            : '上游是“本图要用的产物”来源：放下的节点带一个「产物」输出口。'}
+          {autoFrom ? ' 会自动从当前选中的单元接一条线。' : ' 选中一个单元后再打开，可自动接线。'}
         </p>
         <input
           className="subgraph-search"

@@ -442,11 +442,8 @@ function Canvas() {
       const detail = (event as CustomEvent).detail as { graphId: string; clientX: number; clientY: number };
       if (useGraph.getState().preview) return;
       const pos = screenToFlowPosition({ x: detail.clientX, y: detail.clientY });
-      const state = useGraph.getState();
-      // 先选中本图的一个产物，再把消费方拖进来 → 直接作为下游（输入口）并自动接线；
-      // 没有选中时按“被使用”（输出口）放置，之后手动连线。
-      const autoFrom = state.selectedNodes.length === 1 ? state.selectedNodes[0] : undefined;
-      state.addGraphRef(detail.graphId, pos, autoFrom ? 'in' : 'out', autoFrom);
+      // 文件树拖进来的是完整子图卡片：输入口 + 输出口都带，方向由用户连线决定。
+      useGraph.getState().addGraphRef(detail.graphId, pos, 'both');
     };
     window.addEventListener('nodeworks:create-graph', onGraph);
     return () => {

@@ -1878,3 +1878,7 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   background: #0f1318; border: 1px solid #2a323d; color: #e6edf3; border-radius: 6px;
   padding: 6px 8px; font-size: 11px;
 }
+
+.subgraph-dir { display: inline-flex; gap: 4px; margin-bottom: 8px; padding: 3px; background: #0f1318; border: 1px solid #232b35; border-radius: 7px; }
+.subgraph-dir button { border: 0; background: transparent; color: #8b98a8; font-size: 11px; padding: 4px 9px; border-radius: 5px; cursor: pointer; }
+.subgraph-dir button.on { background: #1f2c3f; color: #dbe7ff; }

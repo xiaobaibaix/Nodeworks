@@ -32,7 +32,7 @@ import {
   removeGraph as projectRemoveGraph, renameFolder as projectRenameFolder,
   renameGraph as projectRenameGraph, parseProjectDoc, PROJECT_LIMIT, syncActive,
   switchGraph as switchProjectGraph, unifyKinds,
-  type ProjectFolder, type ProjectGraph,
+  type ProjectDoc, type ProjectFolder, type ProjectGraph,
 } from './model/project';
 import { EMPTY_STYLE, type ProjectStyle } from './model/style';
 import {
@@ -300,9 +300,9 @@ interface Store {
   setPreview(on: boolean): void;
   addSubgraphNode(pos?: Pos): void;
   /** 从文件树拖入一张图，作为当前图的子图节点（黑盒：只暴露产物出口与产率）。 */
-  addGraphRef(graphId: string, pos: Pos, dir?: 'in' | 'out', autoFrom?: string): void;
+  addGraphRef(graphId: string, pos: Pos, dir?: 'in' | 'out' | 'both', autoFrom?: string): void;
   /** 新建一张下游子图（空图），并在当前图放下一个输入口子图节点。 */
-  createDownstream(name: string, pos: Pos, folderId?: string | null): void;
+  createDownstream(name: string, pos: Pos, folderId?: string | null, dir?: 'in' | 'out'): void;
   setSubgraphMap(nodeId: string, portId: string, endpoint: Endpoint | null): void;
   /** 在子图层内映射“外层端口 → 本层端点”，历史挂在父层操作上。 */
   setOuterMap(portId: string, endpoint: Endpoint | null): void;
@@ -367,6 +367,26 @@ async function restoreFolder() {
   } catch {
     /* 目录不存在或结构变了：保持单文件状态 */
   }
+}
+
+/** 保存到目录前，把画布上还没有 linkGraph 的无名子图提升为独立图，分配 id 与文件位置。 */
+function materializeSubgraphs(doc: ProjectDoc): { doc: ProjectDoc; created: number } {
+  const graphs = doc.graphs.map((pg) => ({ ...pg, graph: { ...pg.graph, nodes: pg.graph.nodes.map((n) => ({ ...n })) } }));
+  const extra: ProjectGraph[] = [];
+  for (const pg of graphs) {
+    for (const node of pg.graph.nodes) {
+      if (!node.subgraph || node.linkGraph) continue;
+      const id = uid('g');
+      node.linkGraph = id;
+      const base = (node.title || '子图').trim() || '子图';
+      const used = new Set(graphs.map((g) => g.name));
+      let name = base;
+      let i = 2;
+      while (used.has(name)) name = `${base} ${i++}`;
+      extra.push({ id, name, graph: structuredClone(node.subgraph), level: 0, folderId: null });
+    }
+  }
+  return { doc: { ...doc, graphs: [...graphs, ...extra] }, created: extra.length };
 }
 
 export const useGraph = create<Store>((set, get) => ({
@@ -1888,7 +1908,13 @@ export const useGraph = create<Store>((set, get) => ({
       void saveFolderHandle(handle);
       set({ folderName: handle.name });
       const fsOut = new DiskFS(handle);
-      await writeProject(fsOut, get().currentProject(), { readResource });
+      const materialized = materializeSubgraphs(get().currentProject());
+      if (materialized.created) {
+        set({ projectGraphs: materialized.doc.graphs, folders: materialized.doc.folders ?? [] });
+        saveProjectDoc(materialized.doc);
+        get().toastOf(`已为 ${materialized.created} 个无名子图生成图文件`);
+      }
+      await writeProject(fsOut, materialized.doc, { readResource });
       if (!(await fsOut.exists('project.json'))) {
         throw new Error('写入完成但目录里没有 project.json（可能只读，或文件被系统拦截）');
       }
@@ -2111,11 +2137,14 @@ export const useGraph = create<Store>((set, get) => ({
     node.title = card.name;
     node.linkGraph = graphId;
     node.subgraph = inner;
-    node.ports = dir === 'in' ? [createPort('in', '产物', 'many')] : [createPort('out', '产物', 'many')];
+    node.ports =
+      dir === 'both'
+        ? [createPort('in', '产物', 'many'), createPort('out', '产物', 'many')]
+        : [createPort(dir, '产物', 'many')];
     const rate = subgraphRateOf(inner);
     if (rate != null) node.props['速率'] = { value: rate, type: 'number', unit: '每分钟' };
     const edge =
-      dir === 'in' && autoFrom
+      (dir === 'in' || dir === 'both') && autoFrom
         ? (() => {
             const from = graphOf(state).nodes.find((n) => n.id === autoFrom);
             const port = from?.ports.find((p) => p.dir === 'out');
@@ -2123,7 +2152,7 @@ export const useGraph = create<Store>((set, get) => ({
             return {
               id: uid('e'),
               from: { node: from.id, port: port.id },
-              to: { node: node.id, port: node.ports[0].id },
+              to: { node: node.id, port: node.ports.find((p) => p.dir === 'in')!.id },
               label: '下游',
               props: { amount: { value: 1, type: 'number' } },
             } as UnitEdge;
@@ -2137,7 +2166,7 @@ export const useGraph = create<Store>((set, get) => ({
     get().select([node.id], null);
   },
 
-  createDownstream: (name, pos, folderId) => {
+  createDownstream: (name, pos, folderId, dir = 'in') => {
     const { graph, projectGraphs, folders, activeGraphId, selectedNodes } = get();
     const synced = syncActive(
       { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
@@ -2152,7 +2181,7 @@ export const useGraph = create<Store>((set, get) => ({
     set({ projectGraphs: created.project.graphs, folders: created.project.folders ?? [] });
     saveProjectDoc(created.project);
     scheduleFolderSync();
-    get().addGraphRef(created.id, pos, 'in', selectedNodes.length === 1 ? selectedNodes[0] : undefined);
+    get().addGraphRef(created.id, pos, dir, selectedNodes.length === 1 ? selectedNodes[0] : undefined);
   },
 
   setOuterMap: (portId, endpoint) => {
