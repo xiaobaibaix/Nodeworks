@@ -160,3 +160,25 @@ describe('图标容器（一个图片资源多张图）', () => {
     expect(graphOf(useGraph.getState()).nodes[0].resources![0].views ?? []).toHaveLength(0);
   });
 });
+
+describe('嵌套资源', () => {
+  it('模型容器里的资源也能改名、加分组、加图片', () => {
+    useGraph.getState().addNode({ x: 0, y: 0 });
+    const id = graphOf(useGraph.getState()).nodes[0].id;
+    useGraph.getState().addResourceItem(id, 'model');
+    const container = graphOf(useGraph.getState()).nodes[0].resources![0];
+    const child = container.views![0];
+
+    useGraph.getState().setResource(id, child.id, { label: '高炉模型' });
+    useGraph.getState().addResourceGroup(id, child.id);
+    useGraph.getState().addResourceView(id, child.id);
+
+    const model = graphOf(useGraph.getState()).nodes[0].resources![0].views![0];
+    expect(model.label).toBe('高炉模型');
+    expect(model.views).toHaveLength(2);
+    expect(model.views![0].group).toBe(true);
+
+    useGraph.getState().undo();
+    expect(graphOf(useGraph.getState()).nodes[0].resources![0].views![0].views).toHaveLength(1);
+  });
+});

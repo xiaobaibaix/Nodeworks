@@ -352,50 +352,94 @@ export function setResourceOp(
   resourceId: string,
   patch: Partial<Omit<ResourceItem, 'id'>>,
 ): Graph {
-  return {
-    ...g,
-    nodes: g.nodes.map((n) => {
-      if (n.id !== nodeId) return n;
-      return {
-        ...n,
-        resources: (n.resources ?? []).map((r) =>
-          r.id === resourceId ? { ...r, ...patch, id: resourceId } : r,
-        ),
-      };
-    }),
-  };
+  return mapResource(g, nodeId, resourceId, (r) => ({ ...r, ...patch, id: resourceId }));
+}
+
+function removeResourcesDeep(
+  items: ResourceItem[],
+  id: string,
+): { items: ResourceItem[]; found: boolean } {
+  let found = false;
+  const next: ResourceItem[] = [];
+  for (const r of items) {
+    if (r.id === id) {
+      found = true;
+      continue;
+    }
+    if (r.views?.length) {
+      const res = removeResourcesDeep(r.views, id);
+      if (res.found) {
+        found = true;
+        next.push({ ...r, views: res.items });
+        continue;
+      }
+    }
+    next.push(r);
+  }
+  return { items: found ? next : items, found };
 }
 
 export function removeResourceOp(g: Graph, nodeId: string, resourceId: string): Graph {
-  return {
-    ...g,
-    nodes: g.nodes.map((n) => {
-      if (n.id !== nodeId) return n;
-      const next = (n.resources ?? []).filter((r) => r.id !== resourceId);
-      const copy = { ...n };
-      if (next.length) copy.resources = next;
-      else delete copy.resources;
-      return copy;
-    }),
-  };
+  let changed = false;
+  const nodes = g.nodes.map((n) => {
+    if (n.id !== nodeId || !n.resources) return n;
+    const res = removeResourcesDeep(n.resources, resourceId);
+    if (!res.found) return n;
+    changed = true;
+    const copy = { ...n };
+    if (res.items.length) copy.resources = res.items;
+    else delete copy.resources;
+    return copy;
+  });
+  return changed ? { ...g, nodes } : g;
 }
 
-/** 只改某个节点下的某条资源项，其它节点/资源原样保留。 */
+/** 在资源树里递归找 id 并替换；找不到时原数组不动。 */
+function mapResourcesDeep(
+  items: ResourceItem[],
+  id: string,
+  fn: (r: ResourceItem) => ResourceItem,
+): { items: ResourceItem[]; found: boolean } {
+  let found = false;
+  const next = items.map((r) => {
+    if (r.id === id) {
+      found = true;
+      return fn(r);
+    }
+    if (r.views?.length) {
+      const res = mapResourcesDeep(r.views, id, fn);
+      if (res.found) {
+        found = true;
+        return { ...r, views: res.items };
+      }
+    }
+    return r;
+  });
+  return { items: found ? next : items, found };
+}
+
+/** 只改某个节点下的某条资源项（含容器里嵌套的资源），其它节点/资源原样保留。 */
 function mapResource(
   g: Graph,
   nodeId: string,
   resourceId: string,
   fn: (r: ResourceItem) => ResourceItem,
 ): Graph {
+  let changed = false;
+  const nodes = g.nodes.map((n) => {
+    if (n.id !== nodeId || !n.resources) return n;
+    const res = mapResourcesDeep(n.resources, resourceId, fn);
+    if (!res.found) return n;
+    changed = true;
+    return { ...n, resources: res.items };
+  });
+  return changed ? { ...g, nodes } : g;
+}
+
+export function setResourcesOp(g: Graph, nodeId: string, resources: ResourceItem[]): Graph {
   return {
     ...g,
-    nodes: g.nodes.map((n) => {
-      if (n.id !== nodeId || !n.resources) return n;
-      return {
-        ...n,
-        resources: n.resources.map((r) => (r.id === resourceId ? fn(r) : r)),
-      };
-    }),
+    nodes: g.nodes.map((n) => (n.id === nodeId ? { ...n, resources } : n)),
   };
 }
 
@@ -418,7 +462,9 @@ export function setResourceViewOp(
 ): Graph {
   return mapResource(g, nodeId, resourceId, (r) => ({
     ...r,
-    views: (r.views ?? []).map((v) => (v.id === viewId ? { ...v, ...patch, id: viewId } : v)),
+    views: (r.views ?? []).map((v: ResourceItem) =>
+      v.id === viewId ? { ...v, ...patch, id: viewId } : v,
+    ),
   }));
 }
 

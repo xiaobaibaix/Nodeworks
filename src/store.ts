@@ -15,7 +15,7 @@ import {
   createEdge, createNode, createNodeFromKind, createPort, createResource,
   removeResourceChildOp, removeResourceOp, removeResourceViewOp,
   setResourceChildOp, setResourceOp, setResourceViewOp,
-  findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp, uid,
+  findNode, isPortEndpoint, moveNodesOp, orphanEdges, removeEdgeOp, removeNodeOp, removeNodesOp, setResourcesOp, uid,
   removePortEdgesOp, removePortOp, removePropOp, renameNodeOp, replaceNodeOp,
   replacePortInEdgesOp, setEdgeLabelOp, setKindOp, setNodePosOp, setPortOp,
   setBoundaryPosOp, setPropOp, setSubgraphMapOp, validateConnection, withKindDefaults,
@@ -41,6 +41,20 @@ import { clearFolderHandle, loadFolderHandle, saveFolderHandle } from './fs/hand
 import { joinPath } from './fs/types';
 import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitNode, UnitPort } from './model/types';
 import type { SortDir } from './model/table';
+
+/** 资源可能嵌在容器里，查找必须递归。 */
+function findResourceDeep(node: UnitNode | undefined, id: string): ResourceItem | undefined {
+  if (!node?.resources) return undefined;
+  const walk = (items: ResourceItem[]): ResourceItem | undefined => {
+    for (const r of items) {
+      if (r.id === id) return r;
+      const hit = walk(r.views ?? []);
+      if (hit) return hit;
+    }
+    return undefined;
+  };
+  return walk(node.resources);
+}
 
 export type ViewMode = 'graph' | 'table';
 
@@ -663,7 +677,7 @@ export const useGraph = create<Store>((set, get) => ({
 
   setResource: (nodeId, resourceId, patch) => {
     const node = findNode(graphOf(get()), nodeId);
-    const old = node?.resources?.find((r) => r.id === resourceId);
+    const old = findResourceDeep(node, resourceId);
     if (!node || !old) return;
     const field = Object.keys(patch).join(',');
     get().commit({
@@ -676,18 +690,19 @@ export const useGraph = create<Store>((set, get) => ({
 
   removeResource: (nodeId, resourceId) => {
     const node = findNode(graphOf(get()), nodeId);
-    const old = node?.resources?.find((r) => r.id === resourceId);
+    const old = findResourceDeep(node, resourceId);
     if (!old) return;
+    const snapshot = node!.resources!;
     get().commit({
       label: '删除资源项',
       run: (g) => removeResourceOp(g, nodeId, resourceId),
-      revert: (g) => addResourceOp(g, nodeId, old),
+      revert: (g) => setResourcesOp(g, nodeId, snapshot),
     });
   },
 
   importResourceFile: async (nodeId, resourceId, file) => {
     const node = findNode(graphOf(get()), nodeId);
-    const old = node?.resources?.find((r) => r.id === resourceId);
+    const old = findResourceDeep(node, resourceId);
     if (!node || !old) return;
     resourceFiles.set(`${nodeId}:${resourceId}`, file);
     const patch = { path: `assets/${file.name}`, file: undefined };
@@ -701,7 +716,7 @@ export const useGraph = create<Store>((set, get) => ({
 
   addResourceView: (nodeId, resourceId) => {
     const node = findNode(graphOf(get()), nodeId);
-    const resource = node?.resources?.find((r) => r.id === resourceId);
+    const resource = findResourceDeep(node, resourceId);
     if (!resource) return;
     const view = createResource('image', `视图 ${(resource.views?.length ?? 0) + 1}`);
     get().commit({
@@ -713,7 +728,7 @@ export const useGraph = create<Store>((set, get) => ({
 
   setResourceView: (nodeId, resourceId, viewId, patch) => {
     const node = findNode(graphOf(get()), nodeId);
-    const old = node?.resources?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === viewId);
+    const old = findResourceDeep(node, resourceId)?.views?.find((v) => v.id === viewId);
     if (!old) return;
     const field = Object.keys(patch).join(',');
     get().commit({
@@ -726,7 +741,7 @@ export const useGraph = create<Store>((set, get) => ({
 
   removeResourceView: (nodeId, resourceId, viewId) => {
     const node = findNode(graphOf(get()), nodeId);
-    const old = node?.resources?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === viewId);
+    const old = findResourceDeep(node, resourceId)?.views?.find((v) => v.id === viewId);
     if (!old) return;
     get().commit({
       label: '删除视图',
@@ -736,7 +751,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   addResourceGroup: (nodeId, resourceId) => {
-    const resource = findNode(graphOf(get()), nodeId)?.resources?.find((r) => r.id === resourceId);
+    const resource = findResourceDeep(findNode(graphOf(get()), nodeId), resourceId);
     if (!resource) return;
     const group = createResource('other', `分组 ${(resource.views?.length ?? 0) + 1}`);
     group.path = '';
@@ -750,8 +765,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   addResourceChild: (nodeId, resourceId, groupId) => {
-    const group = findNode(graphOf(get()), nodeId)?.resources
-      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId);
+    const group = findResourceDeep(findNode(graphOf(get()), nodeId), resourceId)?.views?.find((v) => v.id === groupId);
     if (!group) return;
     const child = createResource('image', `图 ${(group.views?.length ?? 0) + 1}`);
     get().commit({
@@ -764,7 +778,7 @@ export const useGraph = create<Store>((set, get) => ({
   resourceFile: (nodeId, resourceId) => resourceFiles.get(`${nodeId}:${resourceId}`) ?? null,
 
   addResourceImageView: (nodeId, resourceId, file) => {
-    const res = findNode(graphOf(get()), nodeId)?.resources?.find((r) => r.id === resourceId);
+    const res = findResourceDeep(findNode(graphOf(get()), nodeId), resourceId);
     if (!res) return;
     const child = createResource('image', file.name.replace(/\.[^.]+$/, '') || '图标');
     const next = { ...child, path: `assets/${file.name}` };
@@ -778,8 +792,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   setResourceChild: (nodeId, resourceId, groupId, childId, patch) => {
-    const old = findNode(graphOf(get()), nodeId)?.resources
-      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId)
+    const old = findResourceDeep(findNode(graphOf(get()), nodeId), resourceId)?.views?.find((v) => v.id === groupId)
       ?.views?.find((c) => c.id === childId);
     if (!old) return;
     get().commit({
@@ -791,8 +804,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   removeResourceChild: (nodeId, resourceId, groupId, childId) => {
-    const old = findNode(graphOf(get()), nodeId)?.resources
-      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId)
+    const old = findResourceDeep(findNode(graphOf(get()), nodeId), resourceId)?.views?.find((v) => v.id === groupId)
       ?.views?.find((c) => c.id === childId);
     if (!old) return;
     get().commit({
@@ -803,8 +815,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   importResourceChildFile: (nodeId, resourceId, groupId, childId, file) => {
-    const old = findNode(graphOf(get()), nodeId)?.resources
-      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId)
+    const old = findResourceDeep(findNode(graphOf(get()), nodeId), resourceId)?.views?.find((v) => v.id === groupId)
       ?.views?.find((c) => c.id === childId);
     if (!old) return;
     resourceFiles.set(`${nodeId}:${childId}`, file);
@@ -816,8 +827,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   applyGeneratedChild: (nodeId, resourceId, groupId, file, label) => {
-    const group = findNode(graphOf(get()), nodeId)?.resources
-      ?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === groupId);
+    const group = findResourceDeep(findNode(graphOf(get()), nodeId), resourceId)?.views?.find((v) => v.id === groupId);
     if (!group) return;
     const child = createResource('image', label || `图 ${(group.views?.length ?? 0) + 1}`);
     child.path = `assets/${file.name}`;
@@ -831,7 +841,7 @@ export const useGraph = create<Store>((set, get) => ({
 
   importResourceViewFile: (nodeId, resourceId, viewId, file) => {
     const node = findNode(graphOf(get()), nodeId);
-    const old = node?.resources?.find((r) => r.id === resourceId)?.views?.find((v) => v.id === viewId);
+    const old = findResourceDeep(node, resourceId)?.views?.find((v) => v.id === viewId);
     if (!old) return;
     resourceFiles.set(`${nodeId}:${viewId}`, file);
     const patch = { path: `assets/${file.name}`, file: undefined };
@@ -845,7 +855,7 @@ export const useGraph = create<Store>((set, get) => ({
 
   applyGeneratedView: (nodeId, resourceId, file, label) => {
     const node = findNode(graphOf(get()), nodeId);
-    const resource = node?.resources?.find((r) => r.id === resourceId);
+    const resource = findResourceDeep(node, resourceId);
     if (!resource) return;
     const view = createResource('image', label || `视图 ${(resource.views?.length ?? 0) + 1}`);
     view.path = `assets/${file.name}`;
