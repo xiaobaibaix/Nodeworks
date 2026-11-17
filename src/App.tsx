@@ -7,6 +7,7 @@ import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
 import CrossLinkDialog from './components/CrossLinkDialog';
 import { CreateMenu } from './components/CreateMenu';
+import { SubgraphDialog } from './components/SubgraphDialog';
 import AssetFolderPrompt from './components/AssetFolderPrompt';
 import ExportDialog from './components/ExportDialog';
 import FolderErrorDialog from './components/FolderErrorDialog';
@@ -85,6 +86,7 @@ function Canvas() {
   const setFocus = useGraph((s) => s.setFocus);
   const { fitView, screenToFlowPosition, getNodes } = useReactFlow();
   const [createMenu, setCreateMenu] = useState<{ x: number; y: number } | null>(null);
+  const [subgraphAt, setSubgraphAt] = useState<{ x: number; y: number } | null>(null);
   const flowRef = useRef<HTMLDivElement>(null);
   const dragBox = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -578,8 +580,10 @@ function Canvas() {
         y={createMenu.y}
         kinds={graph.kinds}
         onClose={() => setCreateMenu(null)}
+        onSubgraph={() => setSubgraphAt({ x: createMenu.x, y: createMenu.y })}
       />
     )}
+    {subgraphAt && <SubgraphDialog at={subgraphAt} onClose={() => setSubgraphAt(null)} />}
     {marquee && (
       <div
         className="marquee-box"

@@ -44,7 +44,7 @@ import { DiskFS } from './fs/disk';
 import { graphDirName, hasFolderProject, nodeDirName, readProject, resourceFileName, writeProject } from './model/folder';
 import { clearFolderHandle, loadFolderHandle, saveFolderHandle } from './fs/handleStore';
 import { joinPath } from './fs/types';
-import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitNode, UnitPort } from './model/types';
+import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitNode, UnitPort, UnitEdge } from './model/types';
 import type { SortDir } from './model/table';
 
 /** 资源可能嵌在容器里，查找必须递归。 */
@@ -300,7 +300,9 @@ interface Store {
   setPreview(on: boolean): void;
   addSubgraphNode(pos?: Pos): void;
   /** 从文件树拖入一张图，作为当前图的子图节点（黑盒：只暴露产物出口与产率）。 */
-  addGraphRef(graphId: string, pos: Pos): void;
+  addGraphRef(graphId: string, pos: Pos, dir?: 'in' | 'out', autoFrom?: string): void;
+  /** 新建一张下游子图（空图），并在当前图放下一个输入口子图节点。 */
+  createDownstream(name: string, pos: Pos, folderId?: string | null): void;
   setSubgraphMap(nodeId: string, portId: string, endpoint: Endpoint | null): void;
   /** 在子图层内映射“外层端口 → 本层端点”，历史挂在父层操作上。 */
   setOuterMap(portId: string, endpoint: Endpoint | null): void;
@@ -2096,7 +2098,7 @@ export const useGraph = create<Store>((set, get) => ({
     set({ selectedNodes: [node.id], selectedEdge: null });
   },
 
-  addGraphRef: (graphId, pos) => {
+  addGraphRef: (graphId, pos, dir = 'out', autoFrom) => {
     const state = get();
     const card = state.projectGraphs.find((p) => p.id === graphId);
     if (!card) return;
@@ -2109,15 +2111,48 @@ export const useGraph = create<Store>((set, get) => ({
     node.title = card.name;
     node.linkGraph = graphId;
     node.subgraph = inner;
-    node.ports = [createPort('out', '产物', 'many')];
+    node.ports = dir === 'in' ? [createPort('in', '产物', 'many')] : [createPort('out', '产物', 'many')];
     const rate = subgraphRateOf(inner);
     if (rate != null) node.props['速率'] = { value: rate, type: 'number', unit: '每分钟' };
+    const edge =
+      dir === 'in' && autoFrom
+        ? (() => {
+            const from = graphOf(state).nodes.find((n) => n.id === autoFrom);
+            const port = from?.ports.find((p) => p.dir === 'out');
+            if (!from || !port) return null;
+            return {
+              id: uid('e'),
+              from: { node: from.id, port: port.id },
+              to: { node: node.id, port: node.ports[0].id },
+              label: '下游',
+              props: { amount: { value: 1, type: 'number' } },
+            } as UnitEdge;
+          })()
+        : null;
     get().commit({
       label: `引入子图「${card.name}」`,
-      run: (g) => addNodeOp(g, node),
+      run: (g) => (edge ? addEdgeOp(addNodeOp(g, node), edge) : addNodeOp(g, node)),
       revert: (g) => removeNodeOp(g, node.id),
     });
     get().select([node.id], null);
+  },
+
+  createDownstream: (name, pos, folderId) => {
+    const { graph, projectGraphs, folders, activeGraphId, selectedNodes } = get();
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    if (synced.graphs.length >= PROJECT_LIMIT) {
+      set({ toast: `一个 project 最多 ${PROJECT_LIMIT} 张图` });
+      return;
+    }
+    const created = projectAddGraph(synced, name, folderId ?? null);
+    set({ projectGraphs: created.project.graphs, folders: created.project.folders ?? [] });
+    saveProjectDoc(created.project);
+    scheduleFolderSync();
+    get().addGraphRef(created.id, pos, 'in', selectedNodes.length === 1 ? selectedNodes[0] : undefined);
   },
 
   setOuterMap: (portId, endpoint) => {

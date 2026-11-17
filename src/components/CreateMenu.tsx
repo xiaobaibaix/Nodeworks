@@ -8,10 +8,11 @@ interface Props {
   kinds: Graph['kinds'];
   onClose: () => void;
   onToast?: (message: string) => void;
+  onSubgraph?: () => void;
 }
 
 /** 画布右键菜单：点一下在该位置创建，或按住拖到画布任意位置。 */
-export function CreateMenu({ x, y, kinds, onClose, onToast }: Props) {
+export function CreateMenu({ x, y, kinds, onClose, onToast, onSubgraph }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,7 +61,19 @@ export function CreateMenu({ x, y, kinds, onClose, onToast }: Props) {
           {option.label}
         </button>
       ))}
-      <div className="create-menu-hint">点击放到这里 · 按住可拖出</div>
+      <div className="create-menu-sep" />
+      <button
+        className="create-menu-item"
+        role="menuitem"
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          onClose();
+          onSubgraph?.();
+        }}
+      >
+        下游子图…
+      </button>
+      <div className="create-menu-hint">搜索已有图，或新建一张下游图</div>
     </div>
   );
 }
