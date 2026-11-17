@@ -33,6 +33,28 @@ import { graphOf, useCurrentGraph, useGraph } from './store';
 
 const nodeTypes = { unit: UnitNode, boundary: BoundaryNode };
 
+const LAYOUT_KEY = 'nodeworks.layout.v1';
+const DEFAULT_LEFT = 232;
+const DEFAULT_RIGHT = 320;
+
+function clampLeftWidth(n: number): number {
+  return Math.min(460, Math.max(180, Math.round(n)));
+}
+function clampRightWidth(n: number): number {
+  return Math.min(620, Math.max(260, Math.round(n)));
+}
+function loadLayout(): { left: number; right: number } {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? 'null') as { left?: unknown; right?: unknown } | null;
+    return {
+      left: clampLeftWidth(Number(raw?.left) || DEFAULT_LEFT),
+      right: clampRightWidth(Number(raw?.right) || DEFAULT_RIGHT),
+    };
+  } catch {
+    return { left: DEFAULT_LEFT, right: DEFAULT_RIGHT };
+  }
+}
+
 /** 子图层里代表“外层端口”的合成节点：只做可视与接线，不写进图数据。 */
 const OUTER_IN = '__outer_in';
 const OUTER_OUT = '__outer_out';
@@ -63,6 +85,7 @@ function Canvas() {
   const focus = useGraph((s) => s.focus);
   const setFocus = useGraph((s) => s.setFocus);
   const { fitView, screenToFlowPosition } = useReactFlow();
+
   const flowStore = useStoreApi();
   const nodesInitialized = useNodesInitialized();
   const didFit = useRef(false);
@@ -513,6 +536,46 @@ function Canvas() {
 export default function App() {
   const [ready, setReady] = useState(false);
 
+  const [leftWidth, setLeftWidth] = useState(() => loadLayout().left);
+  const [rightWidth, setRightWidth] = useState(() => loadLayout().right);
+  const resizeRef = useRef<{ side: 'left' | 'right'; startX: number; startW: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify({ left: leftWidth, right: rightWidth }));
+    } catch {
+      /* 存储不可用就只在本次生效 */
+    }
+  }, [leftWidth, rightWidth]);
+
+  const beginResize = (side: 'left' | 'right') => (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    resizeRef.current = { side, startX: e.clientX, startW: side === 'left' ? leftWidth : rightWidth };
+  };
+  const moveResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = resizeRef.current;
+    if (!drag) return;
+    const delta = e.clientX - drag.startX;
+    if (drag.side === 'left') setLeftWidth(clampLeftWidth(drag.startW + delta));
+    else setRightWidth(clampRightWidth(drag.startW - delta));
+  };
+  const endResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    resizeRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+  const resetLayout = () => {
+    setLeftWidth(DEFAULT_LEFT);
+    setRightWidth(DEFAULT_RIGHT);
+  };
+  const nudgeLayout = (side: 'left' | 'right') => (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const step = e.key === 'ArrowRight' ? 16 : -16;
+    if (side === 'left') setLeftWidth((w) => clampLeftWidth(w + step));
+    else setRightWidth((w) => clampRightWidth(w - step));
+  };
+
 
   async function onDropProject(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -622,8 +685,25 @@ export default function App() {
     <ReactFlowProvider>
       <div className="app" onDragOver={(e) => e.preventDefault()} onDrop={onDropProject}>
         <Toolbar />
-        <div className="body">
+        <div
+          className="body"
+          style={{ gridTemplateColumns: `${leftWidth}px 6px minmax(0, 1fr) 6px ${rightWidth}px` }}
+        >
           <Sidebar />
+          <div
+            className="pane-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="调整大纲宽度"
+            title="拖动调整大纲宽度（双击恢复默认）"
+            tabIndex={0}
+            onPointerDown={beginResize('left')}
+            onPointerMove={moveResize}
+            onPointerUp={endResize}
+            onPointerCancel={endResize}
+            onDoubleClick={resetLayout}
+            onKeyDown={nudgeLayout('left')}
+          />
           <div
             className={`canvas${view === 'table' ? ' table-canvas' : ''}`}
             onDragOver={(e) => e.preventDefault()}
@@ -641,6 +721,20 @@ export default function App() {
             {view === 'graph' && <MultiBar />}
             {view === 'graph' && <ImpactPanel />}
           </div>
+          <div
+            className="pane-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="调整检查器宽度"
+            title="拖动调整检查器宽度（双击恢复默认）"
+            tabIndex={0}
+            onPointerDown={beginResize('right')}
+            onPointerMove={moveResize}
+            onPointerUp={endResize}
+            onPointerCancel={endResize}
+            onDoubleClick={resetLayout}
+            onKeyDown={nudgeLayout('right')}
+          />
           <Inspector />
         </div>
         <OrphanBanner />
