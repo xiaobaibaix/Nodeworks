@@ -4,7 +4,7 @@ import type { ResourceItem, UnitNode } from '../model/types';
 import { assetUrl } from './AssetPreview';
 
 /** 单行提交输入：本地草稿，回车或失焦提交，避免每个按键都进历史。 */
-function CommitInput({
+export function CommitInput({
   value,
   onCommit,
   placeholder,
@@ -32,7 +32,7 @@ function CommitInput({
 }
 
 /** 多行提交：失焦提交，Esc 放弃，Ctrl/⌘+Enter 立刻提交。 */
-function CommitArea({
+export function CommitArea({
   value,
   onCommit,
   placeholder,

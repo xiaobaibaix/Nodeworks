@@ -1,86 +1,12 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useGraph } from '../store';
 import type { ResourceItem, UnitNode } from '../model/types';
 import ResourceThumb from './ResourceThumb';
-
-/** 多行文本：失焦或 Esc 提交，⌘/Ctrl+Enter 立即提交。 */
-function PromptField({
-  value,
-  placeholder,
-  onCommit,
-}: {
-  value: string;
-  placeholder: string;
-  onCommit: (value: string) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [editing, setEditing] = useState(false);
-  const current = editing ? draft : value;
-  const commit = () => {
-    setEditing(false);
-    if (draft !== value) onCommit(draft);
-  };
-  return (
-    <textarea
-      className="view-prompt img-prompt"
-      value={current}
-      placeholder={placeholder}
-      onChange={(e) => {
-        setDraft(e.target.value);
-        setEditing(true);
-      }}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          setDraft(value);
-          setEditing(false);
-        } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-          commit();
-        }
-      }}
-    />
-  );
-}
-
-/** 单行名称：失焦提交，避免每个按键都进历史。 */
-function LabelInput({
-  value,
-  placeholder,
-  onCommit,
-}: {
-  value: string;
-  placeholder: string;
-  onCommit: (value: string) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [editing, setEditing] = useState(false);
-  return (
-    <input
-      className="img-tile-label"
-      value={editing ? draft : value}
-      placeholder={placeholder}
-      onChange={(e) => {
-        setDraft(e.target.value);
-        setEditing(true);
-      }}
-      onBlur={() => {
-        setEditing(false);
-        if (draft !== value) onCommit(draft);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-        if (e.key === 'Escape') {
-          setDraft(value);
-          setEditing(false);
-        }
-      }}
-    />
-  );
-}
+import { CommitArea, CommitInput } from './ResourceViews';
 
 /**
- * 图标容器：一个图片资源项里可以放多张图片。
- * 视觉与「视图 / 图片容器」一致：容器带描述词，图片各自带名称与描述。
+ * 图标容器：与「视图 / 图片容器」同一套结构与外观。
+ * 资源本身是一组（组名 + 描述词），组里可以放多张图标图片，每张有自己的名称与描述。
  */
 export default function ImageGallery({
   node,
@@ -92,21 +18,43 @@ export default function ImageGallery({
   onPreview: (resource: ResourceItem) => void;
 }) {
   const setResource = useGraph((s) => s.setResource);
-  const addResourceImageView = useGraph((s) => s.addResourceImageView);
+  const removeResource = useGraph((s) => s.removeResource);
   const setResourceView = useGraph((s) => s.setResourceView);
   const removeResourceView = useGraph((s) => s.removeResourceView);
+  const importResourceFile = useGraph((s) => s.importResourceFile);
   const importResourceViewFile = useGraph((s) => s.importResourceViewFile);
+  const addResourceImageView = useGraph((s) => s.addResourceImageView);
+  const openGenerate = useGraph((s) => s.openGenerate);
   const addRef = useRef<HTMLInputElement>(null);
+  const primaryRef = useRef<HTMLInputElement>(null);
   const replaceRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const children = resource.views ?? [];
   const hasPrimary = Boolean(resource.file || resource.path);
   const count = children.length + (hasPrimary ? 1 : 0);
 
   return (
-    <section className="img-gallery view-group">
-      <div className="view-group-head">
-        <span className="view-group-title">图标容器 <span className="dim">{count}</span></span>
-        <span className="view-group-actions">
+    <details className="res-views" open>
+      <summary>
+        <span className="res-views-title">
+          <span className="res-views-caret">▸</span>
+          图标容器 <span className="dim">{count}</span>
+        </span>
+        <span
+          className="res-views-actions"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <button
+            type="button"
+            className="icon tip gen"
+            data-tip="用这个容器的描述词生成一张图标"
+            aria-label="生成图标"
+            onClick={() => openGenerate(node.id, resource.id)}
+          >
+            ✦
+          </button>
           <button
             type="button"
             className="icon tip"
@@ -117,77 +65,133 @@ export default function ImageGallery({
             +
           </button>
         </span>
-      </div>
+      </summary>
 
-      <PromptField
-        value={resource.prompt ?? ''}
-        placeholder="描述这组图标：用途、风格、配色、视角…（会拼上全局「资源风格」）"
-        onCommit={(prompt) => setResource(node.id, resource.id, { prompt })}
-      />
-
-      <div className="img-grid">
-        {hasPrimary && (
-          <div className="img-tile">
-            <div className="img-tile-open">
-              <ResourceThumb nodeId={node.id} resource={resource} onOpen={() => onPreview(resource)} />
-            </div>
-            <span className="img-tile-cap">主图</span>
-          </div>
-        )}
-        {children.map((child, index) => (
-          <div className="img-tile" key={child.id}>
-            <div className="img-tile-open">
-              <ResourceThumb nodeId={node.id} resource={child} onOpen={() => onPreview(child)} />
-            </div>
-            <LabelInput
-              value={child.label}
-              placeholder={`图标 ${index + 1}`}
-              onCommit={(label) => setResourceView(node.id, resource.id, child.id, { label })}
+      <div className="view-list">
+        <section className="view-group">
+          <header className="view-group-head">
+            <CommitInput
+              className="view-group-title"
+              value={resource.label}
+              placeholder="图标组名，如：默认图标 / 选中态 / 禁用态"
+              onCommit={(label) => setResource(node.id, resource.id, { label })}
             />
-            <div className="img-tile-actions">
-              <button type="button" className="icon" title="预览" onClick={() => onPreview(child)}>◎</button>
+            <span className="view-group-actions">
               <button
                 type="button"
-                className="icon"
-                title="替换图片"
-                onClick={() => replaceRefs.current[child.id]?.click()}
+                className="icon tip gen"
+                data-tip="用这个分组的描述词生成图标"
+                aria-label="生成分组图标"
+                onClick={() => openGenerate(node.id, resource.id)}
               >
-                ⇧
+                ✦
+              </button>
+              <button
+                type="button"
+                className="icon tip"
+                data-tip="添加一张图片"
+                aria-label="添加图片"
+                onClick={() => addRef.current?.click()}
+              >
+                +
               </button>
               <button
                 type="button"
                 className="icon"
-                title="删除这张图片"
-                onClick={() => removeResourceView(node.id, resource.id, child.id)}
+                title="删除这个图标容器"
+                onClick={() => removeResource(node.id, resource.id)}
               >
                 ×
               </button>
-            </div>
-            <input
-              ref={(el) => {
-                replaceRefs.current[child.id] = el;
-              }}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) importResourceViewFile(node.id, resource.id, child.id, file);
-                e.target.value = '';
-              }}
-            />
-            <PromptField
-              value={child.prompt ?? ''}
-              placeholder="这张图的内容/视角…"
-              onCommit={(prompt) => setResourceView(node.id, resource.id, child.id, { prompt })}
-            />
+            </span>
+          </header>
+          <CommitArea
+            value={resource.prompt ?? ''}
+            rows={2}
+            placeholder="描述这组图标：用途、风格、配色、视角…（会拼上全局「资源风格」）"
+            onCommit={(prompt) => setResource(node.id, resource.id, { prompt })}
+          />
+
+          <div className="view-grid">
+            {hasPrimary && (
+              <div className="view-item">
+                <div className="view-thumb-box">
+                  <ResourceThumb nodeId={node.id} resource={resource} onOpen={() => onPreview(resource)} />
+                </div>
+                <span className="view-label-static">主图</span>
+                <div className="view-actions">
+                  <button type="button" className="icon" title="预览主图" onClick={() => onPreview(resource)}>◎</button>
+                  <button type="button" className="icon" title="替换主图" onClick={() => primaryRef.current?.click()}>⇧</button>
+                </div>
+                <input
+                  ref={primaryRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) importResourceFile(node.id, resource.id, file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            )}
+
+            {children.map((child, index) => (
+              <div className="view-item" key={child.id}>
+                <div className="view-thumb-box">
+                  <ResourceThumb nodeId={node.id} resource={child} onOpen={() => onPreview(child)} />
+                </div>
+                <CommitInput
+                  className="view-label"
+                  value={child.label}
+                  placeholder={`图标 ${index + 1}`}
+                  onCommit={(label) => setResourceView(node.id, resource.id, child.id, { label })}
+                />
+                <CommitArea
+                  value={child.prompt ?? ''}
+                  rows={2}
+                  placeholder="这张图的补充描述：视角、状态、细节…"
+                  onCommit={(prompt) => setResourceView(node.id, resource.id, child.id, { prompt })}
+                />
+                <div className="view-actions">
+                  <button type="button" className="icon" title="预览" onClick={() => onPreview(child)}>◎</button>
+                  <button
+                    type="button"
+                    className="icon"
+                    title="替换图片"
+                    onClick={() => replaceRefs.current[child.id]?.click()}
+                  >
+                    ⇧
+                  </button>
+                  <button
+                    type="button"
+                    className="icon"
+                    title="删除这张图片"
+                    onClick={() => removeResourceView(node.id, resource.id, child.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <input
+                  ref={(el) => {
+                    replaceRefs.current[child.id] = el;
+                  }}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) importResourceViewFile(node.id, resource.id, child.id, file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            ))}
           </div>
-        ))}
-        <button type="button" className="img-add" onClick={() => addRef.current?.click()} title="再添加一张图标图片">
-          <span className="img-add-plus">＋</span>
-          <span>图片</span>
-        </button>
+        </section>
       </div>
+
       <input
         ref={addRef}
         type="file"
@@ -199,6 +203,6 @@ export default function ImageGallery({
           e.target.value = '';
         }}
       />
-    </section>
+    </details>
   );
 }

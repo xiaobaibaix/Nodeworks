@@ -1510,3 +1510,27 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 }
 .img-add:hover { border-color: var(--accent); color: var(--accent); }
 .img-add-plus { font-size: 20px; line-height: 1; }
+
+/* 图标容器复用「视图 / 图片容器」的卡片结构 */
+.view-thumb-box {
+  height: 110px; display: flex; overflow: hidden;
+  border: 1px solid #2c323d; border-radius: 6px; background: #0f1217;
+}
+.view-thumb-box .res-thumb { height: 100%; width: 100%; margin: 0; border: none; border-radius: 0; }
+.view-label-static { font-size: 11px; color: #9aa6b8; padding: 4px 2px; }
+
+/* 画布容器：框选覆盖层 */
+.flow-wrap { position: absolute; inset: 0; }
+.marquee-box {
+  position: fixed;
+  pointer-events: none;
+  border: 1px solid var(--accent);
+  background: rgba(245, 158, 11, .08);
+  z-index: 60;
+}
+
+/* 点击连线更容易命中，选中时整条线高亮 */
+.react-flow__edge { cursor: pointer; }
+.react-flow__edge:hover .react-flow__edge-path { stroke: #cbd5e1; }
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge.selected:hover .react-flow__edge-path { stroke: var(--accent); stroke-width: 2.5; }
