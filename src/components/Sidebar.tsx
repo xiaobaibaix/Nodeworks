@@ -5,7 +5,6 @@ import {
 } from '../model/query';
 import { useCurrentGraph, useGraph } from '../store';
 import { graphLevelLabel } from '../model/project';
-import { beginTemplateDrag } from './dragCreate';
 
 function highlight(text: string, query: string) {
   const needle = query.trim().toLowerCase();
@@ -97,13 +96,6 @@ export default function Sidebar() {
   };
 
   const filtering = filter.kinds.length > 0 || filter.onlyIsolated || filter.onlyOrphan;
-
-  function startDrag(kind: string) {
-    return (e: React.PointerEvent<HTMLButtonElement>) => {
-      const label = kind === '__subgraph' ? '子图' : kind ? (graph.kinds[kind]?.name || kind) : '单元';
-      beginTemplateDrag(e, kind, label, (m) => useGraph.getState().toastOf(m));
-    };
-  }
 
   return (
     <aside className="sidebar">
@@ -218,22 +210,6 @@ export default function Sidebar() {
           </button>
         </div>
       )}
-
-      <div className="kind-tray" aria-label="拖到画布创建单元">
-        <div className="tray-head">
-          <span className="tray-title">新建单元</span>
-          <span className="tray-label">拖到画布 / 点击</span>
-        </div>
-        <div className="tray-chips">
-          <button className="chip" onPointerDown={startDrag('')}>单元</button>
-          <button className="chip" onPointerDown={startDrag('__subgraph')}>子图</button>
-          {Object.entries(graph.kinds).map(([key, def]) => (
-            <button key={key} className="chip" onPointerDown={startDrag(key)} title={`新建${def.name || key}`}>
-              {def.name || key}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="search-box">
         <span className="search-icon" aria-hidden="true">

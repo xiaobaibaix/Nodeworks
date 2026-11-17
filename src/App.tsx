@@ -7,6 +7,7 @@ import BoundaryNode from './components/BoundaryNode';
 import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
 import CrossLinkDialog from './components/CrossLinkDialog';
+import { CreateMenu } from './components/CreateMenu';
 import AssetFolderPrompt from './components/AssetFolderPrompt';
 import ExportDialog from './components/ExportDialog';
 import FolderErrorDialog from './components/FolderErrorDialog';
@@ -87,6 +88,7 @@ function Canvas() {
   const focus = useGraph((s) => s.focus);
   const setFocus = useGraph((s) => s.setFocus);
   const { fitView, screenToFlowPosition, getNodes } = useReactFlow();
+  const [createMenu, setCreateMenu] = useState<{ x: number; y: number } | null>(null);
   const flowRef = useRef<HTMLDivElement>(null);
   const dragBox = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -617,6 +619,11 @@ function Canvas() {
       nodesDraggable={!preview}
       nodesConnectable={!preview}
       elementsSelectable
+      onPaneClick={() => setCreateMenu(null)}
+      onPaneContextMenu={(event) => {
+        event.preventDefault();
+        setCreateMenu({ x: event.clientX, y: event.clientY });
+      }}
       onNodeDoubleClick={(_, node) => {
         const model = (node.data as { node?: { subgraph?: unknown; linkGraph?: string } } | undefined)?.node;
         if (model?.linkGraph) {
@@ -641,6 +648,14 @@ function Canvas() {
         maskColor="rgba(9, 11, 14, 0.72)"
       />
     </ReactFlow>
+    {createMenu && (
+      <CreateMenu
+        x={createMenu.x}
+        y={createMenu.y}
+        kinds={graph.kinds}
+        onClose={() => setCreateMenu(null)}
+      />
+    )}
     {marquee && (
       <div
         className="marquee-box"

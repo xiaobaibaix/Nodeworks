@@ -23,6 +23,7 @@ export function beginTemplateDrag(
   kind: string,
   label: string,
   onToast?: (message: string) => void,
+  fallback?: { clientX: number; clientY: number },
 ) {
   if (e.button !== 0) return;
   e.preventDefault();
@@ -63,9 +64,12 @@ export function beginTemplateDrag(
     );
     if (moved && inside) dispatchCreate(kind, ev.clientX, ev.clientY);
     else if (!moved) {
-      const center = canvasCenter();
-      if (center) dispatchCreate(kind, center.x, center.y);
-      else onToast?.('先切回画布视图再创建');
+      if (fallback) dispatchCreate(kind, fallback.clientX, fallback.clientY);
+      else {
+        const center = canvasCenter();
+        if (center) dispatchCreate(kind, center.x, center.y);
+        else onToast?.('先切回画布视图再创建');
+      }
     }
   };
   function cleanup() {
