@@ -1485,3 +1485,22 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   resize: vertical; box-sizing: border-box;
 }
 .view-prompt:focus { border-color: var(--accent); outline: none; }
+
+/* 图标容器：一个资源项里多张图片 */
+.img-gallery { grid-column: 1 / -1; margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; }
+.img-tile { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.img-tile-open { height: 86px; padding: 0; border: 1px solid #2c323d; border-radius: 8px; background: #0f1217; overflow: hidden; cursor: zoom-in; }
+.img-tile-open:hover { border-color: #3a4250; }
+.img-tile .res-thumb { height: 100%; margin: 0; border: none; border-radius: 0; }
+.img-tile-actions { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
+.img-tile:hover .img-tile-actions { opacity: 1; }
+.img-tile-actions .icon { width: 20px; height: 20px; padding: 0; background: rgba(12, 15, 20, .82); border-color: #3a4351; }
+.img-tile-cap { font-size: 11px; color: #9aa6b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.img-add {
+  height: 86px; border: 1px dashed #3a4351; border-radius: 8px; background: transparent;
+  color: #7f8a9c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 11px; cursor: pointer;
+}
+.img-add:hover { border-color: var(--accent); color: var(--accent); }
+.img-add-plus { font-size: 20px; line-height: 1; }

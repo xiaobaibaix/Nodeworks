@@ -3,7 +3,7 @@ import { useCurrentGraph, useGraph } from '../store';
 import type { ResourceItem, ResourceType, UnitNode } from '../model/types';
 import { hasSceneSlots, isRigged, modelChecklist } from '../model/modelTemplate';
 import { wantsPrompt } from '../model/style';
-import ResourceThumb from './ResourceThumb';
+import ImageGallery from './ImageGallery';
 import AssetPreview from './AssetPreview';
 import ResourceViews from './ResourceViews';
 
@@ -570,9 +570,9 @@ export default function Inspector() {
               </div>
             )}
             {r.type === 'image' && (
-              <ResourceThumb nodeId={node.id} resource={r} onOpen={() => setPreviewRes(r)} />
+              <ImageGallery node={node} resource={r} onPreview={setPreviewRes} />
             )}
-            {(r.type === 'model' || (r.views?.length ?? 0) > 0) && (
+            {(r.type === 'model' || (r.type !== 'image' && (r.views?.length ?? 0) > 0)) && (
               <ResourceViews node={node} resource={r} onPreview={setPreviewRes} />
             )}
             {r.id === modelResId && <ModelTemplate node={node} />}

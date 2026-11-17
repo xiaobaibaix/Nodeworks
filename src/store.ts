@@ -187,6 +187,10 @@ interface Store {
     patch: Partial<Omit<ResourceItem, 'id'>>,
   ): void;
   removeResourceChild(nodeId: string, resourceId: string, groupId: string, childId: string): void;
+  /** 取本次会话里导入的资源文件（尚未写盘时用于即时预览）。 */
+  resourceFile(nodeId: string, resourceId: string): File | null;
+  /** 往图片资源里再加一张图（图标容器）。 */
+  addResourceImageView(nodeId: string, resourceId: string, file: File): void;
   importResourceChildFile(nodeId: string, resourceId: string, groupId: string, childId: string, file: File): void;
   applyGeneratedChild(
     nodeId: string,
@@ -719,6 +723,22 @@ export const useGraph = create<Store>((set, get) => ({
       run: (g) => addResourceChildOp(g, nodeId, resourceId, groupId, child),
       revert: (g) => removeResourceChildOp(g, nodeId, resourceId, groupId, child.id),
     });
+  },
+
+  resourceFile: (nodeId, resourceId) => resourceFiles.get(`${nodeId}:${resourceId}`) ?? null,
+
+  addResourceImageView: (nodeId, resourceId, file) => {
+    const res = findNode(graphOf(get()), nodeId)?.resources?.find((r) => r.id === resourceId);
+    if (!res) return;
+    const child = createResource('image', file.name.replace(/\.[^.]+$/, '') || '图标');
+    const next = { ...child, path: `assets/${file.name}` };
+    resourceFiles.set(`${nodeId}:${child.id}`, file);
+    get().commit({
+      label: '添加图标',
+      run: (g) => setResourceOp(g, nodeId, resourceId, { views: [...(res.views ?? []), next] }),
+      revert: (g) => setResourceOp(g, nodeId, resourceId, { views: res.views }),
+    });
+    get().toastOf(`已添加 ${file.name}`);
   },
 
   setResourceChild: (nodeId, resourceId, groupId, childId, patch) => {

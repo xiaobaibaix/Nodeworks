@@ -136,3 +136,27 @@ describe('模型描述生成的概念图', () => {
     expect(views[0].views!.map((v) => v.label)).toEqual(['概念图 1', '概念图 2']);
   });
 });
+
+describe('图标容器（一个图片资源多张图）', () => {
+  it('可以追加多张图片，并整体撤销', () => {
+    useGraph.getState().addNode({ x: 0, y: 0 });
+    const id = graphOf(useGraph.getState()).nodes[0].id;
+    useGraph.getState().addResource(id, 'image');
+    const rid = graphOf(useGraph.getState()).nodes[0].resources![0].id;
+
+    const a = new File([new Uint8Array([1, 2])], 'iron.png', { type: 'image/png' });
+    const b = new File([new Uint8Array([3, 4])], 'coal.png', { type: 'image/png' });
+    useGraph.getState().addResourceImageView(id, rid, a);
+    useGraph.getState().addResourceImageView(id, rid, b);
+
+    const node = graphOf(useGraph.getState()).nodes[0];
+    expect(node.resources![0].views).toHaveLength(2);
+    expect(node.resources![0].views!.map((v) => v.path)).toEqual(['assets/iron.png', 'assets/coal.png']);
+    expect(node.resources![0].views!.map((v) => v.label)).toEqual(['iron', 'coal']);
+
+    useGraph.getState().undo();
+    expect(graphOf(useGraph.getState()).nodes[0].resources![0].views).toHaveLength(1);
+    useGraph.getState().undo();
+    expect(graphOf(useGraph.getState()).nodes[0].resources![0].views ?? []).toHaveLength(0);
+  });
+});

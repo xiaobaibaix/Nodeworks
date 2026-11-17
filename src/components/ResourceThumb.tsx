@@ -15,6 +15,7 @@ export default function ResourceThumb({
 }) {
   const folderName = useGraph((s) => s.folderName);
   const readFolderAsset = useGraph((s) => s.readFolderAsset);
+  const resourceFile = useGraph((s) => s.resourceFile);
   const [src, setSrc] = useState<string | null>(null);
   const [broken, setBroken] = useState(false);
 
@@ -24,6 +25,12 @@ export default function ResourceThumb({
     setBroken(false);
     setSrc(null);
     void (async () => {
+      const localFile = resourceFile(nodeId, resource.id);
+      if (localFile) {
+        url = URL.createObjectURL(localFile);
+        setSrc(url);
+        return;
+      }
       let blob: Blob | null = null;
       if (folderName) {
         try {
@@ -46,7 +53,7 @@ export default function ResourceThumb({
       alive = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [nodeId, resource.id, resource.path, resource.file, folderName, readFolderAsset]);
+  }, [nodeId, resource.id, resource.path, resource.file, folderName, readFolderAsset, resourceFile]);
 
   useEffect(() => {
     setBroken(false);
