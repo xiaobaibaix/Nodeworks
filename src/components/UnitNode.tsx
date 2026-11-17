@@ -60,6 +60,22 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   const props = Object.entries(node.props);
   const subgraph = node.subgraph;
   const preview = useMemo(() => (subgraph ? miniPreview(subgraph) : null), [subgraph]);
+  // 子图对外只承诺“单位时间产率”：优先取显式属性，其次按内部机器的周期/批量估算。
+  const rate = useMemo(() => {
+    const explicit = node.props['速率']?.value;
+    if (typeof explicit === 'number' && Number.isFinite(explicit)) return explicit;
+    const sub = node.subgraph;
+    if (!sub) return null;
+    for (const n of sub.nodes) {
+      const c = Number(n.props['周期']?.value);
+      const b = Number(n.props['批量']?.value);
+      if (Number.isFinite(c) && c > 0) {
+        const batch = Number.isFinite(b) && b > 0 ? b : 1;
+        return Math.round((60 / c) * batch * 10) / 10;
+      }
+    }
+    return null;
+  }, [node]);
   const icon = useMemo(() => iconOf(node), [node.resources]);
   const iconUrl = useIconUrl(id, icon);
   const enterSubgraph = useGraph((s) => s.enterSubgraph);
@@ -125,6 +141,11 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
         {iconUrl && <img className="unit-icon" src={iconUrl} alt="" draggable={false} />}
         <span className="unit-kind">{node.kind || 'unit'}</span>
         <span className="unit-title">{node.title}</span>
+        {rate != null && (
+          <span className="unit-rate" title="子图对外的单位时间产率（按内部机器周期估算）">
+            {rate}/分
+          </span>
+        )}
       </div>
       {subgraph && (
         <div

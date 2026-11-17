@@ -299,6 +299,8 @@ interface Store {
   goToPath(depth: number): void;
   setPreview(on: boolean): void;
   addSubgraphNode(pos?: Pos): void;
+  /** 从文件树拖入一张图，作为当前图的子图节点（黑盒：只暴露产物出口与产率）。 */
+  addGraphRef(graphId: string, pos: Pos): void;
   setSubgraphMap(nodeId: string, portId: string, endpoint: Endpoint | null): void;
   /** 在子图层内映射“外层端口 → 本层端点”，历史挂在父层操作上。 */
   setOuterMap(portId: string, endpoint: Endpoint | null): void;
@@ -309,6 +311,20 @@ interface Store {
 /** 当前层图（根 / 子图）；组件统一通过它读，写操作由 commit 自动映射回根。 */
 export function graphOf(state: { graph: Graph; path: string[] }): Graph {
   return graphAtPath(state.graph, state.path) ?? state.graph;
+}
+
+
+/** 从子图内部机器估算单位时间产率（每分钟）：60 / 周期秒 × 批量。 */
+function subgraphRateOf(graph: Graph): number | null {
+  for (const n of graph.nodes) {
+    const c = Number(n.props['周期']?.value);
+    const b = Number(n.props['批量']?.value);
+    if (Number.isFinite(c) && c > 0) {
+      const batch = Number.isFinite(b) && b > 0 ? b : 1;
+      return Math.round((60 / c) * batch * 10) / 10;
+    }
+  }
+  return null;
 }
 
 const MAPPING_KEY = 'nodeworks.mapping.v1';
@@ -2078,6 +2094,30 @@ export const useGraph = create<Store>((set, get) => ({
       revert: (g) => removeNodeOp(g, node.id),
     });
     set({ selectedNodes: [node.id], selectedEdge: null });
+  },
+
+  addGraphRef: (graphId, pos) => {
+    const state = get();
+    const card = state.projectGraphs.find((p) => p.id === graphId);
+    if (!card) return;
+    if (graphId === state.activeGraphId) {
+      set({ toast: '不能把当前图作为自己的子图' });
+      return;
+    }
+    const inner = structuredClone(card.graph);
+    const node = createNode('子图', pos);
+    node.title = card.name;
+    node.linkGraph = graphId;
+    node.subgraph = inner;
+    node.ports = [createPort('out', '产物', 'many')];
+    const rate = subgraphRateOf(inner);
+    if (rate != null) node.props['速率'] = { value: rate, type: 'number', unit: '每分钟' };
+    get().commit({
+      label: `引入子图「${card.name}」`,
+      run: (g) => addNodeOp(g, node),
+      revert: (g) => removeNodeOp(g, node.id),
+    });
+    get().select([node.id], null);
   },
 
   setOuterMap: (portId, endpoint) => {

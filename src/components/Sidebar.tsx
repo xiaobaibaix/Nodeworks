@@ -285,6 +285,11 @@ export default function Sidebar() {
               <button
                 key={pg.id}
                 className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
                 style={{ paddingLeft: 22 + (depth + 1) * 16 }}
                 title={pg.name}
                 onClick={() => {
@@ -421,6 +426,11 @@ export default function Sidebar() {
               <button
                 key={pg.id}
                 className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
                 style={{ paddingLeft: 22 }}
                 title={pg.name}
                 onClick={() => {
@@ -447,6 +457,11 @@ export default function Sidebar() {
               <button
                 key={pg.id}
                 className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
                 style={{ paddingLeft: 22 }}
                 title={pg.name}
                 onClick={() => {

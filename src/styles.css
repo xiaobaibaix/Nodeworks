@@ -1825,3 +1825,9 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .tree-menu button.danger:hover { background: #3a1d1d; color: #ffb4ab; }
 .tree-menu-sep { height: 1px; margin: 4px 6px; background: #232c37; }
 .graph-tree:focus { outline: none; }
+
+.unit-rate {
+  margin-left: auto; font-size: 10px; color: var(--accent);
+  border: 1px solid #43402f; background: #241f12; border-radius: 999px;
+  padding: 1px 6px; white-space: nowrap;
+}

@@ -3,7 +3,6 @@ import {
   Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useNodesInitialized, useReactFlow, useStoreApi,
   type Connection, type Edge, type EdgeChange, type Node, type NodeChange,
 } from '@xyflow/react';
-import BoundaryNode from './components/BoundaryNode';
 import Breadcrumbs from './components/Breadcrumbs';
 import CommandPalette from './components/CommandPalette';
 import CrossLinkDialog from './components/CrossLinkDialog';
@@ -33,7 +32,7 @@ import type { Endpoint } from './model/types';
 import { orientEdge } from './model/ops';
 import { graphOf, useCurrentGraph, useGraph } from './store';
 
-const nodeTypes = { unit: UnitNode, boundary: BoundaryNode };
+const nodeTypes = { unit: UnitNode };
 
 const LAYOUT_KEY = 'nodeworks.layout.v1';
 const DEFAULT_LEFT = 232;
@@ -58,12 +57,9 @@ function loadLayout(): { left: number; right: number } {
 }
 
 /** 子图层里代表“外层端口”的合成节点：只做可视与接线，不写进图数据。 */
-const OUTER_IN = '__outer_in';
-const OUTER_OUT = '__outer_out';
 /** 子图层里“连接到其它子图”的落点合成节点。 */
 const CROSS_ID = '__cross__';
 const CROSS_IN = '__cross_in';
-const MAP_EDGE_STYLE = { stroke: '#7c8798', strokeDasharray: '4 3' };
 
 type Pos = { x: number; y: number };
 
@@ -101,8 +97,6 @@ function Canvas() {
 
   const [crossSource, setCrossSource] = useState<Endpoint | null>(null);
   const [crossPos, setCrossPos] = useState<Pos | null>(null);
-  const silentMoveBoundary = useGraph((s) => s.silentMoveBoundary);
-  const commitMoveBoundary = useGraph((s) => s.commitMoveBoundary);
   const dragFrom = useRef<Record<string, Pos>>({});
   const dragAnchor = useRef<string | null>(null);
   // 受控 nodes 每次重渲染都会重新 adopt；React Flow 在 adopt 时用 userNode.measured 覆盖内部测量，
@@ -215,27 +209,8 @@ function Canvas() {
     if (parent) {
       const xs = graph.nodes.map((n) => n.pos.x);
       const ys = graph.nodes.map((n) => n.pos.y);
-      const minX = xs.length ? Math.min(...xs) : 0;
       const maxX = xs.length ? Math.max(...xs) : 240;
       const midY = ys.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 0;
-      const mapped = Object.keys(parent.subgraphMap ?? {});
-      const outer = (id: string, side: 'in' | 'out', x: number): Node => ({
-        id,
-        type: 'boundary',
-        position: parent.boundaryPos?.[side] ?? { x, y: midY },
-        draggable: !preview,
-        selectable: false,
-        deletable: false,
-        connectable: !preview,
-        data: {
-          side,
-          title: parent.title,
-          ports: parent.ports.filter((p) => (side === 'in' ? p.dir === 'in' : p.dir === 'out')),
-          mapped,
-        },
-      });
-      list.push(outer(OUTER_IN, 'in', minX - 280));
-      list.push(outer(OUTER_OUT, 'out', maxX + 90));
       if (path.length === 1 && !preview) {
         list.push({
           id: CROSS_ID,
@@ -289,74 +264,24 @@ function Canvas() {
               : {}),
       });
     }
-    if (parent) {
-      // 映射边：外层输入 → 内部消费口；内部产出 → 外层输出。虚线，不可选/删。
-      for (const [portId, ep] of Object.entries(parent.subgraphMap ?? {})) {
-        const outerPort = parent.ports.find((p) => p.id === portId);
-        const innerPort = parent.subgraph?.nodes.find((n) => n.id === ep.node)?.ports.find((p) => p.id === ep.port);
-        if (!outerPort || !innerPort) continue;
-        if (filtering && !visibleIds.has(ep.node)) continue;
-        list.push(
-          outerPort.dir === 'in'
-            ? {
-                id: `__map:${portId}`,
-                source: OUTER_IN,
-                sourceHandle: portId,
-                target: ep.node,
-                targetHandle: ep.port,
-                type: 'default',
-                style: MAP_EDGE_STYLE,
-                selectable: false,
-                deletable: false,
-              }
-            : {
-                id: `__map:${portId}`,
-                source: ep.node,
-                sourceHandle: ep.port,
-                target: OUTER_OUT,
-                targetHandle: portId,
-                type: 'default',
-                style: MAP_EDGE_STYLE,
-                selectable: false,
-                deletable: false,
-              },
-        );
-      }
-    }
     return list;
   }, [graph, selectedEdge, selectedOne, filtering, visibleIds, impact, impactEdges, link, parent, preview]);
 
-  const setOuterMap = useGraph((s) => s.setOuterMap);
   const onConnect = useCallback(
     (c: Connection) => {
       if (!c.source || !c.target || !c.sourceHandle || !c.targetHandle) return;
-      // 从外层端口代理接线 = 建立“外层端口 ↔ 内部端口”的映射，不新增本层边。
-      if (c.source === OUTER_IN) {
-        setOuterMap(c.sourceHandle, { node: c.target, port: c.targetHandle });
-        return;
-      }
-      if (c.target === OUTER_OUT) {
-        setOuterMap(c.targetHandle, { node: c.source, port: c.sourceHandle });
-        return;
-      }
       if (c.target === CROSS_ID) {
         setCrossSource({ node: c.source, port: c.sourceHandle });
         return;
       }
       connect({ node: c.source, port: c.sourceHandle }, { node: c.target, port: c.targetHandle });
     },
-    [connect, setOuterMap],
+    [connect],
   );
 
   const onNodeDragStart = useCallback((_: unknown, node: Node) => {
-    // 合成节点（外层端口代理 / 跨子图落点）不属于当前层图，单独记录拖拽起点。
     if (node.id === CROSS_ID) {
       dragAnchor.current = null;
-      return;
-    }
-    if (node.id === OUTER_IN || node.id === OUTER_OUT) {
-      dragFrom.current = { [node.id]: { ...node.position } };
-      dragAnchor.current = node.id;
       return;
     }
     const state = useGraph.getState();
@@ -376,10 +301,6 @@ function Canvas() {
         setCrossPos({ x: node.position.x, y: node.position.y });
         return;
       }
-      if (node.id === OUTER_IN || node.id === OUTER_OUT) {
-        silentMoveBoundary(node.id === OUTER_IN ? 'in' : 'out', node.position);
-        return;
-      }
       const from = dragFrom.current;
       const anchor = dragAnchor.current;
       if (!anchor || !from[anchor]) return;
@@ -394,19 +315,12 @@ function Canvas() {
       for (const id of ids) moves[id] = { x: from[id].x + dx, y: from[id].y + dy };
       silentMoveMany(moves);
     },
-    [silentMoveMany, silentMoveBoundary],
+    [silentMoveMany],
   );
 
   const onNodeDragStop = useCallback(
     (_: unknown, node: Node) => {
       if (node.id === CROSS_ID) return;
-      if (node.id === OUTER_IN || node.id === OUTER_OUT) {
-        const from = dragFrom.current[node.id];
-        dragFrom.current = {};
-        dragAnchor.current = null;
-        if (from) commitMoveBoundary(node.id === OUTER_IN ? 'in' : 'out', from, node.position);
-        return;
-      }
       const from = dragFrom.current;
       const anchor = dragAnchor.current;
       dragFrom.current = {};
@@ -418,7 +332,7 @@ function Canvas() {
       for (const id of Object.keys(from)) to[id] = { x: from[id].x + dx, y: from[id].y + dy };
       commitMoveMany(from, to);
     },
-    [commitMoveMany, commitMoveBoundary],
+    [commitMoveMany],
   );
 
   // 框选后拖动选区框：React Flow 走 onSelectionDrag*，不经过 onNodeDrag*。
@@ -522,7 +436,17 @@ function Canvas() {
       else useGraph.getState().addNode(pos, detail.kind || undefined);
     };
     window.addEventListener('nodeworks:create-node', onCreate);
-    return () => window.removeEventListener('nodeworks:create-node', onCreate);
+    const onGraph = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { graphId: string; clientX: number; clientY: number };
+      if (useGraph.getState().preview) return;
+      const pos = screenToFlowPosition({ x: detail.clientX, y: detail.clientY });
+      useGraph.getState().addGraphRef(detail.graphId, pos);
+    };
+    window.addEventListener('nodeworks:create-graph', onGraph);
+    return () => {
+      window.removeEventListener('nodeworks:create-node', onCreate);
+      window.removeEventListener('nodeworks:create-graph', onGraph);
+    };
   }, [screenToFlowPosition]);
 
   // 自绘框选：左→右只选完全包含的单元，右→左选相交的单元；连线不参与框选（避免只是穿过就被选中）。
@@ -843,6 +767,14 @@ export default function App() {
             className={`canvas${view === 'table' ? ' table-canvas' : ''}`}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
+              const graphId = e.dataTransfer.getData('application/x-nodeworks-graph');
+              if (graphId) {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('nodeworks:create-graph', {
+                  detail: { graphId, clientX: e.clientX, clientY: e.clientY },
+                }));
+                return;
+              }
               const kind = e.dataTransfer.getData('text/nodeworks-kind');
               if (!kind) return;
               e.preventDefault();
