@@ -537,3 +537,20 @@ describe('自定义导出映射', () => {
     expect(useGraph.getState().mapping.target).toBe('forgeworks.project.json');
   });
 });
+
+describe('重命名图', () => {
+  it('保留分组归属，不会让图列表变空', () => {
+    const g: Graph = { version: 1, nodes: [], edges: [], kinds: {} };
+    useGraph.setState({
+      graph: g,
+      projectGraphs: [{ id: 'p1', name: '旧名字', graph: g, level: 2, folderId: 'f1' }],
+      folders: [{ id: 'f1', name: '二级产物', parentId: null }],
+      activeGraphId: 'p1',
+    });
+    useGraph.getState().renameGraph('新名字');
+    const s = useGraph.getState();
+    expect(s.projectGraphs[0].name).toBe('新名字');
+    expect(s.folders).toHaveLength(1);
+    expect(s.projectGraphs[0].folderId).toBe('f1');
+  });
+});

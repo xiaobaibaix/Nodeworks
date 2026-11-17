@@ -1657,16 +1657,18 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   renameGraph: (name) => {
-    const { projectGraphs, activeGraphId } = get();
+    const { graph, projectGraphs, folders, activeGraphId } = get();
     const before = projectGraphs.find((pg) => pg.id === activeGraphId);
     if (!before) return;
-    const project = projectRenameGraph(
-      { version: 1, active: activeGraphId, graphs: projectGraphs, style: get().projectStyle },
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, grouped: folders.length > 0, style: get().projectStyle },
+      graph,
       activeGraphId,
-      name,
     );
+    const project = projectRenameGraph(synced, activeGraphId, name);
     set({ projectGraphs: project.graphs, folders: project.folders ?? [], toast: `已重命名为「${name.trim() || before.name}」` });
     saveProjectDoc(project);
+    scheduleFolderSync();
   },
 
   removeGraph: () => {
