@@ -1686,12 +1686,15 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .graph-caret { color: #6b7686; font-size: 10px; }
 .graph-tree {
   margin: 0 10px 8px; padding: 4px; border: 1px solid #2a3038; border-radius: 8px;
-  background: #0f1318; max-height: 340px; overflow: auto;
+  background: #0f1318; max-height: min(52vh, 560px); overflow: auto;
 }
 .graph-tree details { margin: 2px 0; }
 .graph-tree summary {
-  display: flex; align-items: center; justify-content: space-between; cursor: pointer;
-  padding: 4px 6px; font-size: 11px; color: #8b98a8; border-radius: 5px; list-style: none;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center;
+  cursor: pointer; padding: 4px 6px; font-size: 11px; color: #8b98a8; border-radius: 5px;
+  list-style: none; text-align: left;
+  position: sticky; top: 0; z-index: 3;
+  background: #12171d; border-bottom: 1px solid #1d242d;
 }
 .graph-tree summary::-webkit-details-marker { display: none; }
 .graph-tree summary:hover { background: #151a21; }
@@ -1712,6 +1715,7 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 }
 .graph-tree-count { color: #5f6a7b; }
 .graph-tree-items { display: flex; flex-direction: column; padding-left: 8px; }
+.graph-tree-items { padding-left: 4px; }
 .graph-tree-item {
   text-align: left; border: 0; background: transparent; color: #c7cedb; font-size: 12px;
   padding: 4px 8px; border-radius: 5px; cursor: pointer; white-space: nowrap;

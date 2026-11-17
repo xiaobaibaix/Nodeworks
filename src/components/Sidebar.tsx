@@ -58,7 +58,8 @@ export default function Sidebar() {
   }, [projectGraphs]);
 
   const [collapsed, setCollapsed] = useState<string[]>([]);
-  const [graphTreeOpen, setGraphTreeOpen] = useState(false);
+  const [graphTreeOpen, setGraphTreeOpen] = useState(true);
+  const [openLevels, setOpenLevels] = useState<Set<number>>(() => new Set([activeLevel]));
   const [cursor, setCursor] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +76,10 @@ export default function Sidebar() {
   useEffect(() => {
     setCursor(-1);
   }, [filter.query, filter.kinds, filter.onlyIsolated, filter.onlyOrphan]);
+
+  useEffect(() => {
+    setOpenLevels((prev) => (prev.has(activeLevel) ? prev : new Set(prev).add(activeLevel)));
+  }, [activeLevel]);
 
   const focusNode = (id: string) => {
     select([id], null);
@@ -151,8 +156,16 @@ export default function Sidebar() {
           {levels.map(([level, list]) => (
             <details
               key={level}
-              open={level === activeLevel}
-              style={{ marginLeft: Math.max(0, level - 1) * 10 }}
+              open={openLevels.has(level)}
+              onToggle={(e) => {
+                const isOpen = (e.target as HTMLDetailsElement).open;
+                setOpenLevels((prev) => {
+                  const next = new Set(prev);
+                  if (isOpen) next.add(level);
+                  else next.delete(level);
+                  return next;
+                });
+              }}
             >
               <summary>
                 <span className="graph-level-tag">{level ? `L${level}` : '—'}</span>
@@ -164,10 +177,7 @@ export default function Sidebar() {
                   <button
                     key={pg.id}
                     className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
-                    onClick={() => {
-                      switchGraph(pg.id);
-                      setGraphTreeOpen(false);
-                    }}
+                    onClick={() => switchGraph(pg.id)}
                   >
                     {pg.name}
                   </button>
@@ -177,10 +187,7 @@ export default function Sidebar() {
           ))}
           <button
             className="graph-tree-new"
-            onClick={() => {
-              addGraph();
-              setGraphTreeOpen(false);
-            }}
+            onClick={() => addGraph()}
           >
             ＋ 新建图
           </button>
