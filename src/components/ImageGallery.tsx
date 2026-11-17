@@ -1,11 +1,86 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useGraph } from '../store';
 import type { ResourceItem, UnitNode } from '../model/types';
 import ResourceThumb from './ResourceThumb';
 
+/** 多行文本：失焦或 Esc 提交，⌘/Ctrl+Enter 立即提交。 */
+function PromptField({
+  value,
+  placeholder,
+  onCommit,
+}: {
+  value: string;
+  placeholder: string;
+  onCommit: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [editing, setEditing] = useState(false);
+  const current = editing ? draft : value;
+  const commit = () => {
+    setEditing(false);
+    if (draft !== value) onCommit(draft);
+  };
+  return (
+    <textarea
+      className="view-prompt img-prompt"
+      value={current}
+      placeholder={placeholder}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        setEditing(true);
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          setDraft(value);
+          setEditing(false);
+        } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+          commit();
+        }
+      }}
+    />
+  );
+}
+
+/** 单行名称：失焦提交，避免每个按键都进历史。 */
+function LabelInput({
+  value,
+  placeholder,
+  onCommit,
+}: {
+  value: string;
+  placeholder: string;
+  onCommit: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [editing, setEditing] = useState(false);
+  return (
+    <input
+      className="img-tile-label"
+      value={editing ? draft : value}
+      placeholder={placeholder}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        setEditing(true);
+      }}
+      onBlur={() => {
+        setEditing(false);
+        if (draft !== value) onCommit(draft);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+        if (e.key === 'Escape') {
+          setDraft(value);
+          setEditing(false);
+        }
+      }}
+    />
+  );
+}
+
 /**
- * 图片资源容器：一个图标项里可以放多张图片。
- * 资源自身的文件是第一张（主图），额外图片存在 views 里，各自可预览/替换/删除。
+ * 图标容器：一个图片资源项里可以放多张图片。
+ * 视觉与「视图 / 图片容器」一致：容器带描述词，图片各自带名称与描述。
  */
 export default function ImageGallery({
   node,
@@ -16,16 +91,40 @@ export default function ImageGallery({
   resource: ResourceItem;
   onPreview: (resource: ResourceItem) => void;
 }) {
+  const setResource = useGraph((s) => s.setResource);
   const addResourceImageView = useGraph((s) => s.addResourceImageView);
+  const setResourceView = useGraph((s) => s.setResourceView);
   const removeResourceView = useGraph((s) => s.removeResourceView);
   const importResourceViewFile = useGraph((s) => s.importResourceViewFile);
   const addRef = useRef<HTMLInputElement>(null);
   const replaceRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const children = resource.views ?? [];
   const hasPrimary = Boolean(resource.file || resource.path);
+  const count = children.length + (hasPrimary ? 1 : 0);
 
   return (
-    <div className="img-gallery">
+    <section className="img-gallery view-group">
+      <div className="view-group-head">
+        <span className="view-group-title">图标容器 <span className="dim">{count}</span></span>
+        <span className="view-group-actions">
+          <button
+            type="button"
+            className="icon tip"
+            data-tip="添加一张图标图片"
+            aria-label="添加图标图片"
+            onClick={() => addRef.current?.click()}
+          >
+            +
+          </button>
+        </span>
+      </div>
+
+      <PromptField
+        value={resource.prompt ?? ''}
+        placeholder="描述这组图标：用途、风格、配色、视角…（会拼上全局「资源风格」）"
+        onCommit={(prompt) => setResource(node.id, resource.id, { prompt })}
+      />
+
       <div className="img-grid">
         {hasPrimary && (
           <div className="img-tile">
@@ -40,7 +139,13 @@ export default function ImageGallery({
             <div className="img-tile-open">
               <ResourceThumb nodeId={node.id} resource={child} onOpen={() => onPreview(child)} />
             </div>
+            <LabelInput
+              value={child.label}
+              placeholder={`图标 ${index + 1}`}
+              onCommit={(label) => setResourceView(node.id, resource.id, child.id, { label })}
+            />
             <div className="img-tile-actions">
+              <button type="button" className="icon" title="预览" onClick={() => onPreview(child)}>◎</button>
               <button
                 type="button"
                 className="icon"
@@ -71,7 +176,11 @@ export default function ImageGallery({
                 e.target.value = '';
               }}
             />
-            <span className="img-tile-cap" title={child.label}>{child.label || `图片 ${index + 1}`}</span>
+            <PromptField
+              value={child.prompt ?? ''}
+              placeholder="这张图的内容/视角…"
+              onCommit={(prompt) => setResourceView(node.id, resource.id, child.id, { prompt })}
+            />
           </div>
         ))}
         <button type="button" className="img-add" onClick={() => addRef.current?.click()} title="再添加一张图标图片">
@@ -90,7 +199,6 @@ export default function ImageGallery({
           e.target.value = '';
         }}
       />
-      <div className="hint">图标容器：可以放多张图，每张都能单独预览、替换或删除。</div>
-    </div>
+    </section>
   );
 }

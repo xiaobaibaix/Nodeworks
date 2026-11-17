@@ -558,7 +558,7 @@ export default function Inspector() {
               </button>
             )}
             <button className="icon" title="删除资源项" onClick={() => removeResource(node.id, r.id)}>×</button>
-            {wantsPrompt(r.type) && (
+            {wantsPrompt(r.type) && r.type !== 'image' && (
               <div className="res-prompt">
                 <TextAreaCommit
                   value={r.prompt ?? ''}

@@ -815,6 +815,15 @@ export const useGraph = create<Store>((set, get) => ({
     view.path = `assets/${file.name}`;
     // 生成结果的字节先进会话缓存，保存目录项目时由 readResource 落盘
     resourceFiles.set(`${nodeId}:${view.id}`, file);
+    if (resource.type === 'image') {
+      // 图标容器：生成结果直接作为容器里的一张图，不另建分组
+      get().commit({
+        label: '生成图标',
+        run: (g) => setResourceOp(g, nodeId, resourceId, { views: [...(resource.views ?? []), view] }),
+        revert: (g) => setResourceOp(g, nodeId, resourceId, { views: resource.views }),
+      });
+      return;
+    }
     const concept = resource.views?.find((v) => v.group && v.label === '概念图');
     if (concept) {
       get().commit({
