@@ -4,6 +4,7 @@ import {
   groupByKind, isolatedNodeIds, kindOptions, nodeMatches, orphanNodeIds, visibleNodes,
 } from '../model/query';
 import { useCurrentGraph, useGraph } from '../store';
+import { graphLevelLabel } from '../model/project';
 import { beginTemplateDrag } from './dragCreate';
 
 function highlight(text: string, query: string) {
@@ -45,8 +46,20 @@ export default function Sidebar() {
   const removeGraph = useGraph((s) => s.removeGraph);
   const { fitView } = useReactFlow();
   const activeName = projectGraphs.find((pg) => pg.id === activeGraphId)?.name ?? '';
+  const activeLevel = projectGraphs.find((pg) => pg.id === activeGraphId)?.level ?? 0;
+  const levels = useMemo(() => {
+    const map = new Map<number, typeof projectGraphs>();
+    for (const pg of projectGraphs) {
+      const level = pg.level ?? 0;
+      const list = map.get(level) ?? [];
+      list.push(pg);
+      map.set(level, list);
+    }
+    return [...map.entries()].sort((a, b) => (a[0] || 99) - (b[0] || 99));
+  }, [projectGraphs]);
 
   const [collapsed, setCollapsed] = useState<string[]>([]);
+  const [graphTreeOpen, setGraphTreeOpen] = useState(false);
   const [cursor, setCursor] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -100,19 +113,15 @@ export default function Sidebar() {
       </header>
 
       <div className="graph-bar" title="一个 project 管多张根图，模板共享">
-        <select
-          value={activeGraphId}
+        <button
+          className="graph-current"
           aria-label="切换图"
-          onChange={(e) => {
-            if (e.target.value === '__new') addGraph();
-            else switchGraph(e.target.value);
-          }}
+          aria-expanded={graphTreeOpen}
+          onClick={() => setGraphTreeOpen((open) => !open)}
         >
-          {projectGraphs.map((pg) => (
-            <option key={pg.id} value={pg.id}>{pg.name}</option>
-          ))}
-          <option value="__new">＋ 新建图…</option>
-        </select>
+          <span className="graph-current-name">{activeName}</span>
+          <span className="graph-caret">▾</span>
+        </button>
         <button
           className="icon tip"
           data-tip="重命名当前图"
@@ -142,6 +151,42 @@ export default function Sidebar() {
           ⤓
         </button>
       </div>
+
+      {graphTreeOpen && (
+        <div className="graph-tree" role="tree" aria-label="图列表">
+          {levels.map(([level, list]) => (
+            <details key={level} open={level === activeLevel}>
+              <summary>
+                <span>{graphLevelLabel(level)}</span>
+                <span className="graph-tree-count">{list.length}</span>
+              </summary>
+              <div className="graph-tree-items">
+                {list.map((pg) => (
+                  <button
+                    key={pg.id}
+                    className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
+                    onClick={() => {
+                      switchGraph(pg.id);
+                      setGraphTreeOpen(false);
+                    }}
+                  >
+                    {pg.name}
+                  </button>
+                ))}
+              </div>
+            </details>
+          ))}
+          <button
+            className="graph-tree-new"
+            onClick={() => {
+              addGraph();
+              setGraphTreeOpen(false);
+            }}
+          >
+            ＋ 新建图
+          </button>
+        </div>
+      )}
 
       {(folderName || fileName) && (
         <div className="folder-bound" title={folderName ? '当前项目与这个文件夹双向同步' : '保存会覆盖这个 JSON 文件'}>

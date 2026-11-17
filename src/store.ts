@@ -28,7 +28,8 @@ import {
 import {
   activeGraph as projectActiveGraph, addGraph as projectAddGraph,
   projectFromGraph, removeGraph as projectRemoveGraph, renameGraph as projectRenameGraph,
-  parseProjectDoc, syncActive, switchGraph as switchProjectGraph, unifyKinds, type ProjectGraph,
+  parseProjectDoc, PROJECT_LIMIT, syncActive, switchGraph as switchProjectGraph, unifyKinds,
+  type ProjectGraph,
 } from './model/project';
 import { EMPTY_STYLE, type ProjectStyle } from './model/style';
 import {
@@ -1501,8 +1502,8 @@ export const useGraph = create<Store>((set, get) => ({
       graph,
       activeGraphId,
     );
-    if (synced.graphs.length >= 24) {
-      set({ toast: '一个 project 最多 24 张图' });
+    if (synced.graphs.length >= PROJECT_LIMIT) {
+      set({ toast: `一个 project 最多 ${PROJECT_LIMIT} 张图` });
       return;
     }
     const created = projectAddGraph(synced, name);
@@ -1543,8 +1544,8 @@ export const useGraph = create<Store>((set, get) => ({
       graph,
       activeGraphId,
     );
-    if (synced.graphs.length >= 24) {
-      set({ toast: '一个 project 最多 24 张图' });
+    if (synced.graphs.length >= PROJECT_LIMIT) {
+      set({ toast: `一个 project 最多 ${PROJECT_LIMIT} 张图` });
       return;
     }
     const created = projectAddGraph(synced, name?.trim() || undefined);

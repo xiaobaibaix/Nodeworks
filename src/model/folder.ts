@@ -15,7 +15,7 @@ interface ProjectFile {
   version: 1;
   active: string;
   kinds: Graph['kinds'];
-  graphs: { id: string; name: string; dir: string }[];
+  graphs: { id: string; name: string; dir: string; level?: number }[];
   /** 资源全局风格（图标/模型描述词的公共部分） */
   style?: ProjectStyle;
 }
@@ -84,7 +84,7 @@ export async function writeProject(fs: ProjectFS, project: ProjectDoc, options: 
   for (const pg of project.graphs) {
     const dir = graphDirName(pg.name, pg.id);
     expectedGraphDirs.add(dir);
-    index.push({ id: pg.id, name: pg.name, dir });
+    index.push({ id: pg.id, name: pg.name, dir, level: pg.level ?? 0 });
     await writeGraphDir(fs, joinPath('graphs', dir), pg.graph, pg.id, pg.name, options);
   }
 
@@ -190,7 +190,7 @@ export async function readProject(fs: ProjectFS): Promise<ProjectDoc> {
   const kinds = project.kinds ?? {};
 
   const diskDirs = await listDirs(fs, 'graphs');
-  const order: { id: string; name: string; dir: string }[] = [];
+  const order: { id: string; name: string; dir: string; level?: number }[] = [];
   const seen = new Set<string>();
 
   for (const entry of project.graphs) {
@@ -212,6 +212,7 @@ export async function readProject(fs: ProjectFS): Promise<ProjectDoc> {
       id: entry.id || read.id,
       name: entry.name || read.name,
       graph: read.graph,
+      level: typeof entry.level === 'number' ? entry.level : 0,
     });
   }
   if (!graphs.length) throw new Error('目录项目里没有可读取的图');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addGraph, mergeKinds, normalizeProject, parseProjectDoc, projectFromGraph, removeGraph,
+  addGraph, graphLevelLabel, mergeKinds, normalizeProject, parseProjectDoc, projectFromGraph, removeGraph,
   renameGraph, syncActive, switchGraph, unifyKinds, type ProjectDoc,
 } from '../src/model/project';
 import type { Graph } from '../src/model/types';
@@ -99,5 +99,34 @@ describe('parseProjectDoc', () => {
     expect(parsed?.active).toBe('g1');
     expect(parseProjectDoc({ ...doc, graphs: [{ id: 'g1', name: 'x', graph: { version: 1 } }] })).toBeNull();
     expect(parseProjectDoc({ version: 2 })).toBeNull();
+  });
+});
+
+
+describe('图的产物层级', () => {
+  it('normalize 补齐 level 并把未分层排到最后', () => {
+    const input: ProjectDoc = {
+      version: 1,
+      active: 'a',
+      graphs: [
+        { id: 'a', name: '钢', graph: graph('钢'), level: 2 },
+        { id: 'b', name: '机器', graph: graph('机器') },
+      ],
+    };
+    const normalized = normalizeProject(input);
+    expect(normalized.graphs.map((g) => g.level)).toEqual([2, 0]);
+    expect(graphLevelLabel(0)).toBe('其它');
+    expect(graphLevelLabel(1)).toBe('一级矿');
+    expect(graphLevelLabel(2)).toBe('二级产物');
+  });
+
+  it('新建图继承当前图层级', () => {
+    const input = normalizeProject({
+      version: 1,
+      active: 'a',
+      graphs: [{ id: 'a', name: '钢', graph: graph('钢'), level: 3 }],
+    });
+    const created = addGraph(input);
+    expect(created.project.graphs.find((g) => g.id === created.id)?.level).toBe(3);
   });
 });

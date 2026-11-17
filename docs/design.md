@@ -384,6 +384,8 @@ P0 示例图用的 `钛矿 → 钛锭`（边标签 `2 : 1`）只是**链的简�
 
 实现要点：`src/model/project.ts` 的 `ProjectDoc/ProjectGraph`、`mergeKinds/unifyKinds`、`projectFromGraph`、`addGraph/switchGraph/renameGraph/removeGraph`；`parseProjectDoc` 逐图用 `GraphSchema` 校验；store 的 `projectGraphs/activeGraphId` 与 `switchGraph/addGraph/renameGraph/removeGraph`。
 
+补充（2026-11-17）：`ProjectGraph` 增加可选 `level`（1 = 一级矿，2 起为产物层级，0 = 其它）；侧栏图列表改为按层级折叠的树，当前图默认展开；项目上限从 24 提高到 200 张；目录项目在 project.json 索引里同步 `level`，新建图继承当前图层级。
+
 ### P8：子图卡片缩略图与跨层接线（已完成，2026-11-11）
 
 范围：子图卡片内画出内部结构的缩略图；进入子图后，父层端口以代理端口浮在画布两侧，直接拖线即可建立映射。

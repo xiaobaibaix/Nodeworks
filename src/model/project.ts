@@ -7,6 +7,8 @@ export interface ProjectGraph {
   id: string;
   name: string;
   graph: Graph;
+  /** 产物层级：1 = 一级原料，2 = 二级产物……0/缺省 = 未分层（机器、索引等）。 */
+  level?: number;
 }
 
 /** 一个 project 管多张根图；图之间共享顶层 kinds（子图内部仍各存一份）。 */
@@ -18,7 +20,7 @@ export interface ProjectDoc {
   style?: ProjectStyle;
 }
 
-export const PROJECT_LIMIT = 24;
+export const PROJECT_LIMIT = 200;
 
 export function projectGraphId(): string {
   return `pg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -42,10 +44,19 @@ export function unifyKinds(project: ProjectDoc): ProjectDoc {
 export function normalizeProject(project: ProjectDoc): ProjectDoc {
   const graphs = project.graphs
     .filter((pg) => pg && typeof pg.id === 'string' && pg.graph)
-    .map((pg) => ({ ...pg, name: pg.name || '未命名图' }));
+    .map((pg) => ({
+      ...pg,
+      name: pg.name || '未命名图',
+      level: typeof pg.level === 'number' && Number.isFinite(pg.level) ? Math.max(0, Math.round(pg.level)) : 0,
+    }));
   if (graphs.length === 0) {
-    graphs.push({ id: projectGraphId(), name: '主图', graph: emptyGraph() });
+    graphs.push({ id: projectGraphId(), name: '主图', graph: emptyGraph(), level: 0 });
   }
+  graphs.sort((a, b) => {
+    const la = a.level ?? 0;
+    const lb = b.level ?? 0;
+    return (la || 99) - (lb || 99) || a.name.localeCompare(b.name, 'zh');
+  });
   const active = graphs.some((pg) => pg.id === project.active) ? project.active : graphs[0].id;
   return unifyKinds({ version: 1, active, graphs, style: normalizeStyle(project.style) });
 }
@@ -78,7 +89,15 @@ export function addGraph(project: ProjectDoc, name?: string): { project: Project
   const next = {
     ...project,
     active: id,
-    graphs: [...project.graphs, { id, name: name?.trim() || `图 ${project.graphs.length + 1}`, graph }],
+    graphs: [
+      ...project.graphs,
+      {
+        id,
+        name: name?.trim() || `图 ${project.graphs.length + 1}`,
+        graph,
+        level: project.graphs.find((pg) => pg.id === project.active)?.level ?? 1,
+      },
+    ],
   };
   return { project: unifyKinds(next), id };
 }
@@ -118,6 +137,7 @@ export function parseProjectDoc(raw: unknown): ProjectDoc | null {
       id: item.id,
       name: typeof item.name === 'string' && item.name ? item.name : '未命名图',
       graph: result.data as Graph,
+      level: typeof item.level === 'number' ? item.level : 0,
     });
   }
   return normalizeProject({
@@ -126,4 +146,13 @@ export function parseProjectDoc(raw: unknown): ProjectDoc | null {
     graphs,
     style: normalizeStyle(doc.style),
   });
+}
+
+
+/** 图的层级标题：0 = 未分层，1 = 一级矿，2 起为产物。 */
+export function graphLevelLabel(level: number): string {
+  if (level <= 0) return '其它';
+  if (level === 1) return '一级矿';
+  const names = ['', '一级矿', '二级产物', '三级产物', '四级产物', '五级产物', '六级产物'];
+  return names[level] ?? `${level} 级产物`;
 }
