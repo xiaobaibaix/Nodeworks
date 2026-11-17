@@ -25,6 +25,28 @@ function highlight(text: string, query: string) {
   return <>{parts}</>;
 }
 
+
+function IconFolder({ open }: { open?: boolean }) {
+  return (
+    <svg className="tree-ic folder" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+      {open ? (
+        <path d="M1.5 3.2h4.1l1.3 1.6H14a1 1 0 0 1 .96 1.28l-1.3 6A1 1 0 0 1 12.7 13H2.3a1 1 0 0 1-.97-.76L.37 4.6A1 1 0 0 1 1.5 3.2z" />
+      ) : (
+        <path d="M1.5 3h4.2l1.3 1.6H14a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H1.5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+      )}
+    </svg>
+  );
+}
+
+function IconFile() {
+  return (
+    <svg className="tree-ic file" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+      <path d="M3 2.2h6.2L13 6v7.8a.8.8 0 0 1-.8.8H3.8a.8.8 0 0 1-.8-.8V2.2z" />
+      <path d="M9 2.2V6h3.8" fill="none" stroke="#0f1318" strokeWidth="1" />
+    </svg>
+  );
+}
+
 export default function Sidebar() {
   const graph = useCurrentGraph();
   const filter = useGraph((s) => s.filter);
@@ -76,6 +98,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [graphTreeOpen, setGraphTreeOpen] = useState(true);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+  const [selFolder, setSelFolder] = useState<string | null>(null);
   const [stuckFolder, setStuckFolder] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState(-1);
@@ -101,6 +124,10 @@ export default function Sidebar() {
       return new Set(folders.filter((f) => !f.parentId).map((f) => f.id));
     });
   }, [folders]);
+
+  useEffect(() => {
+    setSelFolder(activeFolderId);
+  }, [activeFolderId]);
 
   useEffect(() => {
     if (!activeFolderId) return;
@@ -161,6 +188,35 @@ export default function Sidebar() {
 
   const filtering = filter.kinds.length > 0 || filter.onlyIsolated || filter.onlyOrphan;
 
+  const openChain = (folderId: string | null) => {
+    if (!folderId) return;
+    setOpenFolders((prev) => {
+      const next = new Set(prev);
+      let cur = folders.find((f) => f.id === folderId);
+      let guard = 0;
+      while (cur && guard++ < 20) {
+        next.add(cur.id);
+        cur = folders.find((f) => f.id === cur?.parentId);
+      }
+      return next;
+    });
+  };
+
+  const createGraphHere = () => {
+    const target = selFolder ?? activeFolderId ?? null;
+    addGraph(undefined, target ?? undefined);
+    openChain(target);
+  };
+
+  const createFolderHere = () => {
+    const name = window.prompt('新建分组名称', '新分组');
+    if (!name?.trim()) return;
+    addFolder(name.trim(), selFolder);
+    openChain(selFolder);
+  };
+
+  const collapseAll = () => setOpenFolders(new Set());
+
   const renderFolder = (folder: ProjectFolder, depth: number) => {
     const kids = folderChildren(folder.id);
     const gs = graphsIn(folder.id);
@@ -168,24 +224,19 @@ export default function Sidebar() {
     return (
       <div key={folder.id} className="graph-folder">
         <div
-          className={`graph-folder-head${folder.id === activeFolderId ? ' active' : ''}`}
+          className={`graph-folder-head${open ? ' open' : ''}${folder.id === selFolder ? ' sel' : ''}`}
           data-fid={folder.id}
           style={{ paddingLeft: 8 + depth * 16 }}
-          onClick={() => toggleFolder(folder.id)}
+          onClick={() => {
+            setSelFolder(folder.id);
+            toggleFolder(folder.id);
+          }}
         >
           <span className="graph-folder-caret">{open ? '▾' : '▸'}</span>
+          <IconFolder open={open} />
           <span className="graph-folder-name">{folder.name}</span>
           <span className="graph-tree-count">{countIn(folder.id)}</span>
           <span className="graph-folder-actions" onClick={(e) => e.stopPropagation()}>
-            <button
-              title="新建子分组"
-              onClick={() => {
-                const name = window.prompt('新建子分组名称', '新分组');
-                if (name?.trim()) addFolder(name.trim(), folder.id);
-              }}
-            >
-              ＋
-            </button>
             <button
               title="重命名分组"
               onClick={() => {
@@ -216,18 +267,15 @@ export default function Sidebar() {
                 className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
                 style={{ paddingLeft: 22 + (depth + 1) * 16 }}
                 title={pg.name}
-                onClick={() => switchGraph(pg.id)}
+                onClick={() => {
+                  switchGraph(pg.id);
+                  setSelFolder(pg.folderId ?? null);
+                }}
               >
-                {pg.name}
+                <IconFile />
+                <span className="graph-tree-name">{pg.name}</span>
               </button>
             ))}
-            <button
-              className="graph-tree-new"
-              style={{ marginLeft: 22 + (depth + 1) * 16 }}
-              onClick={() => addGraph(undefined, folder.id)}
-            >
-              ＋ 新建图
-            </button>
           </div>
         )}
       </div>
@@ -284,7 +332,40 @@ export default function Sidebar() {
       </div>
 
       {graphTreeOpen && (
+        <div className="tree-tools" role="toolbar" aria-label="图列表操作">
+          <button title="新建图（在当前选中的分组里）" aria-label="新建图" onClick={createGraphHere}>
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2.2h5.4l3.4 3.4v8.2H4z" /><path d="M9.4 2.2v3.4h3.4" /><path d="M6.5 9.2h4.2M8.6 7.1v4.2" /></svg>
+          </button>
+          <button title="新建分组（在当前选中的分组里）" aria-label="新建分组" onClick={createFolderHere}>
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4.3h4l1.1 1.4h6.7v6.6H2z" /><path d="M6.4 8.8h3.2M8 7.2v3.2" /></svg>
+          </button>
+          <span className="tree-tools-gap" />
+          <button title="全部折叠" aria-label="全部折叠" onClick={collapseAll}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.6L8 10l5-4.4" fill="none" stroke="currentColor" strokeWidth="1.3" /></svg>
+          </button>
+        </div>
+      )}
+      {graphTreeOpen && (
         <div className="graph-tree" role="tree" aria-label="图列表" ref={treeRef} onScroll={syncStuck}>
+          {projectGraphs
+            .filter((pg) => !pg.folderId)
+            .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
+            .map((pg) => (
+              <button
+                key={pg.id}
+                className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
+                style={{ paddingLeft: 22 }}
+                title={pg.name}
+                onClick={() => {
+                  switchGraph(pg.id);
+                  setSelFolder(null);
+                }}
+              >
+                <IconFile />
+                <span className="graph-tree-name">{pg.name}</span>
+              </button>
+            ))}
+          {folderChildren(null).map((f) => renderFolder(f, 0))}
           {stuckFolder && (() => {
             const hit = folders.find((f) => f.id === stuckFolder);
             if (!hit) return null;
@@ -300,7 +381,6 @@ export default function Sidebar() {
               </button>
             );
           })()}
-          {folderChildren(null).map((f) => renderFolder(f, 0))}
           {projectGraphs
             .filter((pg) => !pg.folderId)
             .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
@@ -310,20 +390,15 @@ export default function Sidebar() {
                 className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
                 style={{ paddingLeft: 22 }}
                 title={pg.name}
-                onClick={() => switchGraph(pg.id)}
+                onClick={() => {
+                  switchGraph(pg.id);
+                  setSelFolder(null);
+                }}
               >
-                {pg.name}
+                <IconFile />
+                <span className="graph-tree-name">{pg.name}</span>
               </button>
             ))}
-          <button
-            className="graph-tree-new"
-            onClick={() => {
-              const name = window.prompt('新建分组名称', '新分组');
-              if (name?.trim()) addFolder(name.trim(), null);
-            }}
-          >
-            ＋ 新建分组
-          </button>
         </div>
       )}
 

@@ -1690,13 +1690,17 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   position: relative; padding: 0; display: flex; flex-direction: column;
 }
 .graph-folder-head {
-  display: grid; grid-template-columns: 12px 1fr auto auto; gap: 6px; align-items: center;
+  display: grid; grid-template-columns: 12px 16px 1fr auto auto; gap: 6px; align-items: center;
   padding: 5px 8px; font-size: 11px; color: #c7cedb; cursor: pointer;
   border-left: 2px solid transparent; user-select: none;
 }
 .graph-folder-head:hover { background: #151a21; }
-.graph-folder-head.active { background: #151a21; border-left-color: var(--accent); }
-.graph-folder-caret { font-size: 11px; color: #8b98a8; }
+.graph-folder-head.sel { background: #12304a; border-left-color: #4c8dff; }
+.graph-folder-head.open .tree-ic.folder { color: #79b8ff; }
+.graph-folder-caret { font-size: 10px; color: #8b98a8; }
+.tree-ic { width: 14px; height: 14px; flex: none; }
+.tree-ic.folder { color: #6ea8fe; }
+.tree-ic.file { color: #8b98a8; }
 .graph-folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .graph-folder-actions { display: none; gap: 2px; }
 .graph-folder-head:hover .graph-folder-actions { display: inline-flex; }
@@ -1719,17 +1723,31 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .graph-tree-items { padding-left: 4px; }
 .graph-tree-item {
   margin: 1px 0; text-align: left; border: 0; background: transparent; color: #c7cedb; font-size: 12px;
-  padding: 4px 8px; border-radius: 5px; cursor: pointer; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
+  padding: 4px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;
+  border-left: 2px solid transparent;
 }
 .graph-tree-item:hover { background: #171c23; }
-.graph-tree-item.on { background: #2a2418; color: #f0a25c; }
+.graph-tree-item.on { background: #12304a; color: #e6edf3; border-left-color: #4c8dff; }
+.graph-tree-name { overflow: hidden; text-overflow: ellipsis; }
 .graph-tree-new {
   width: auto; align-self: flex-start; margin: 4px 8px; border: 1px dashed #2f3641;
   background: transparent; color: #8b98a8; font-size: 10px; padding: 3px 8px;
   border-radius: 5px; cursor: pointer;
 }
 .graph-tree-new:hover { color: #f0a25c; border-color: #4a3a22; }
+
+.tree-tools {
+  display: flex; align-items: center; gap: 2px; padding: 3px 8px;
+  border-top: 1px solid #1d242d; border-bottom: 1px solid #1d242d; background: #0d1116;
+}
+.tree-tools button {
+  width: 22px; height: 22px; border: 0; background: transparent; color: #8b98a8;
+  border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+}
+.tree-tools button:hover { background: #1b222b; color: #e6edf3; }
+.tree-tools button svg { width: 15px; height: 15px; }
+.tree-tools-gap { flex: 1; }
 
 /* 画布右键创建菜单 */
 .create-menu {

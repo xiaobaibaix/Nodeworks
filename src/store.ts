@@ -1541,6 +1541,7 @@ export const useGraph = create<Store>((set, get) => ({
       toast: `已新建「${active.name}」`,
     });
     saveProjectDoc(created.project);
+    scheduleFolderSync();
   },
 
   importGraph: async (name) => {
@@ -1609,6 +1610,7 @@ export const useGraph = create<Store>((set, get) => ({
       toast: `已新建分组「${name.trim() || '新建分组'}」`,
     });
     saveProjectDoc(created.project);
+    scheduleFolderSync();
   },
 
   renameFolder: (id, name) => {
@@ -1621,6 +1623,7 @@ export const useGraph = create<Store>((set, get) => ({
     const project = projectRenameFolder(synced, id, name);
     set({ projectGraphs: project.graphs, folders: project.folders ?? [] });
     saveProjectDoc(project);
+    scheduleFolderSync();
   },
 
   removeFolder: (id) => {
@@ -1637,6 +1640,7 @@ export const useGraph = create<Store>((set, get) => ({
       toast: '已删除分组，里面的图移到上一级',
     });
     saveProjectDoc(project);
+    scheduleFolderSync();
   },
 
   moveGraphToFolder: (graphId, folderId) => {
@@ -1649,6 +1653,7 @@ export const useGraph = create<Store>((set, get) => ({
     const project = projectMoveGraph(synced, graphId, folderId);
     set({ projectGraphs: project.graphs, folders: project.folders ?? [] });
     saveProjectDoc(project);
+    scheduleFolderSync();
   },
 
   renameGraph: (name) => {
@@ -1700,6 +1705,7 @@ export const useGraph = create<Store>((set, get) => ({
       toast: `已删除，切换到「${active.name}」`,
     });
     saveProjectDoc(next);
+    scheduleFolderSync();
   },
 
   saveToCache: () => {
@@ -1926,6 +1932,7 @@ export const useGraph = create<Store>((set, get) => ({
       folderHandle = handle;
       projectFileHandle = null;
       void saveFolderHandle(handle);
+      scheduleFolderSync();
     } catch (error) {
       const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       console.error('openDirectory failed', error);
@@ -1949,6 +1956,7 @@ export const useGraph = create<Store>((set, get) => ({
         projectStyle: project.style ?? { ...EMPTY_STYLE },
         toast: '已从目录重新载入',
       });
+      scheduleFolderSync();
     } catch (error) {
       get().toastOf(`重新载入失败：${error instanceof Error ? error.message : String(error)}`);
     }
