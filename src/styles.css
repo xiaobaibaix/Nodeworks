@@ -1702,6 +1702,19 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   border-left: 1px solid #232a33;
   padding-left: 8px;
 }
+.graph-tree details[data-level="1"] { --lv: #7ee787; }
+.graph-tree details[data-level="2"] { --lv: #79c0ff; }
+.graph-tree details[data-level="3"] { --lv: #d2a8ff; }
+.graph-tree details[data-level="4"] { --lv: #f0a25c; }
+.graph-tree details[data-level="5"] { --lv: #ff9bce; }
+.graph-tree details[data-level="6"] { --lv: #56d4dd; }
+.graph-tree details[data-level="7"] { --lv: #e3b341; }
+.graph-tree details[data-level="0"] { --lv: #8b98a8; }
+.graph-tree details[data-level] > summary { border-left: 3px solid var(--lv); padding-left: 8px; }
+.graph-tree details[data-level] > summary > span:nth-child(2) { color: var(--lv); }
+.graph-tree details[data-level] > summary .graph-level-tag {
+  color: var(--lv); border-color: color-mix(in srgb, var(--lv) 45%, #2a3038); background: color-mix(in srgb, var(--lv) 12%, #12171d);
+}
 .graph-level-tag {
   display: inline-block;
   min-width: 22px;

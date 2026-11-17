@@ -156,6 +156,7 @@ export default function Sidebar() {
           {levels.map(([level, list]) => (
             <details
               key={level}
+              data-level={level}
               open={openLevels.has(level)}
               onToggle={(e) => {
                 const isOpen = (e.target as HTMLDetailsElement).open;
