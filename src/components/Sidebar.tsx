@@ -58,15 +58,15 @@ export default function Sidebar() {
   const activeGraphId = useGraph((s) => s.activeGraphId);
   const switchGraph = useGraph((s) => s.switchGraph);
   const addGraph = useGraph((s) => s.addGraph);
-  const importGraph = useGraph((s) => s.importGraph);
   const renameGraph = useGraph((s) => s.renameGraph);
   const removeGraph = useGraph((s) => s.removeGraph);
   const { fitView } = useReactFlow();
-  const activeName = projectGraphs.find((pg) => pg.id === activeGraphId)?.name ?? '';
   const folders = useGraph((s) => s.folders);
   const addFolder = useGraph((s) => s.addFolder);
   const renameFolder = useGraph((s) => s.renameFolder);
   const removeFolder = useGraph((s) => s.removeFolder);
+  const folderName = useGraph((s) => s.folderName);
+  const fileName = useGraph((s) => s.fileName);
 
   const activeFolderId = projectGraphs.find((pg) => pg.id === activeGraphId)?.folderId ?? null;
   const folderRank = (f: ProjectFolder) => {
@@ -227,12 +227,6 @@ export default function Sidebar() {
     openChain(target);
   };
 
-  const createFolderHere = () => {
-    const name = window.prompt('新建分组名称', '新分组');
-    if (!name?.trim()) return;
-    addFolder(name.trim(), selFolder);
-    openChain(selFolder);
-  };
 
   const collapseAll = () => setOpenFolders(new Set());
 
@@ -371,27 +365,15 @@ export default function Sidebar() {
       </header>
 
       <div className="tree-tools" role="toolbar" aria-label="图列表操作">
+          <span className="tree-project-name" title={folderName ?? fileName ?? '未绑定项目'}>
+            {folderName ?? fileName ?? '未绑定项目'}
+          </span>
+          <span className="tree-tools-gap" />
           <button title="新建图（在当前选中的分组里）" aria-label="新建图" onClick={createGraphHere}>
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2.2h5.4l3.4 3.4v8.2H4z" /><path d="M9.4 2.2v3.4h3.4" /><path d="M6.5 9.2h4.2M8.6 7.1v4.2" /></svg>
           </button>
-          <button title="新建分组（在当前选中的分组里）" aria-label="新建分组" onClick={createFolderHere}>
-            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4.3h4l1.1 1.4h6.7v6.6H2z" /><path d="M6.4 8.8h3.2M8 7.2v3.2" /></svg>
-          </button>
           <button title="全部折叠" aria-label="全部折叠" onClick={collapseAll}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.6L8 10l5-4.4" fill="none" stroke="currentColor" strokeWidth="1.3" /></svg>
-          </button>
-          <span className="tree-tools-gap" />
-          <button title="重命名当前图" aria-label="重命名当前图" onClick={() => {
-            const name = window.prompt('图名称', activeName);
-            if (name?.trim()) renameGraph(name.trim());
-          }}>
-            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 13l1-3.6 7-7a1.4 1.4 0 0 1 2 2l-7 7L3 13z" /><path d="M9.7 3.5l2.8 2.8" /></svg>
-          </button>
-          <button title="删除当前图" aria-label="删除当前图" disabled={projectGraphs.length <= 1} onClick={removeGraph}>
-            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5h10M6 4.5V3h4v1.5M4.5 4.5l.6 8.2h5.8l.6-8.2" /><path d="M6.6 7v3.4M9.4 7v3.4" /></svg>
-          </button>
-          <button title="导入图（graph JSON 作为新图加入当前项目）" aria-label="导入图" onClick={() => void importGraph()}>
-            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v7.2M5.2 6.6L8 9.4l2.8-2.8" /><path d="M3 10.5v2.7h10v-2.7" /></svg>
           </button>
         </div>
       <div

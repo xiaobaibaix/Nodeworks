@@ -1765,6 +1765,10 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .tree-tools button:disabled { opacity: .35; cursor: default; }
 .tree-tools button svg { width: 15px; height: 15px; }
 .tree-tools-gap { flex: 1; }
+.tree-project-name {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; color: #8b98a8; padding-left: 2px;
+}
 
 /* 画布右键创建菜单 */
 .create-menu {
