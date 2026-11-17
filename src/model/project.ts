@@ -153,6 +153,6 @@ export function parseProjectDoc(raw: unknown): ProjectDoc | null {
 export function graphLevelLabel(level: number): string {
   if (level <= 0) return '其它';
   if (level === 1) return '一级矿';
-  const names = ['', '一级矿', '二级产物', '三级产物', '四级产物', '五级产物', '六级产物'];
-  return names[level] ?? `${level} 级产物`;
+  const names = ['', '一级矿', '二级产物', '三级产物', '四级产物', '五级产物', '六级产物', '七级产物', '八级产物', '九级产物', '十级产物'];
+  return names[level] ?? `${level}级产物`;
 }
