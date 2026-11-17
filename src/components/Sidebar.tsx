@@ -47,6 +47,25 @@ function IconFile() {
   );
 }
 
+/** 拖图时用一张“子图节点”卡片作为拖拽影像，而不是文件树行。 */
+function setGraphDragImage(e: React.DragEvent, name: string, count: number) {
+  const ghost = document.createElement('div');
+  ghost.className = 'graph-ghost';
+  const kind = document.createElement('div');
+  kind.className = 'graph-ghost-kind';
+  kind.textContent = '子图';
+  const title = document.createElement('div');
+  title.className = 'graph-ghost-title';
+  title.textContent = name;
+  const meta = document.createElement('div');
+  meta.className = 'graph-ghost-meta';
+  meta.textContent = `子图 · ${count} 个单元`;
+  ghost.append(kind, title, meta);
+  document.body.appendChild(ghost);
+  e.dataTransfer.setDragImage(ghost, 24, 22);
+  window.setTimeout(() => ghost.remove(), 0);
+}
+
 export default function Sidebar() {
   const graph = useCurrentGraph();
   const filter = useGraph((s) => s.filter);
@@ -289,6 +308,7 @@ export default function Sidebar() {
                 onDragStart={(e) => {
                   e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
                   e.dataTransfer.effectAllowed = 'copy';
+                  setGraphDragImage(e, pg.name, pg.graph.nodes.length);
                 }}
                 style={{ paddingLeft: 22 + (depth + 1) * 16 }}
                 title={pg.name}
@@ -430,6 +450,7 @@ export default function Sidebar() {
                 onDragStart={(e) => {
                   e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
                   e.dataTransfer.effectAllowed = 'copy';
+                  setGraphDragImage(e, pg.name, pg.graph.nodes.length);
                 }}
                 style={{ paddingLeft: 22 }}
                 title={pg.name}
@@ -461,6 +482,7 @@ export default function Sidebar() {
                 onDragStart={(e) => {
                   e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
                   e.dataTransfer.effectAllowed = 'copy';
+                  setGraphDragImage(e, pg.name, pg.graph.nodes.length);
                 }}
                 style={{ paddingLeft: 22 }}
                 title={pg.name}
