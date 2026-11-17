@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MemoryFS } from '../src/fs/memory';
 import { joinPath } from '../src/fs/types';
 import { graphDirName, nodeDirName, readProject, resourceFileName, writeProject } from '../src/model/folder';
+import { RESOURCES_DIR } from '../src/model/folder';
 import { projectFromGraph } from '../src/model/project';
 import type { Graph, UnitNode } from '../src/model/types';
 
@@ -261,5 +262,28 @@ describe('目录项目：嵌套图片容器', () => {
     expect(group.prompt).toBe('正/侧/背，正交投影，白底');
     expect(group.views!.map((c) => c.label)).toEqual(['正面', '侧面']);
     expect(group.views!.every((c) => c.file?.startsWith('resources/'))).toBe(true);
+  });
+});
+
+describe('资源字节保护', () => {
+  it('readResource 拿不到内容时不会清空已有资源文件', async () => {
+    const fs = new MemoryFS();
+    const doc = project();
+    const graph = doc.graphs[0];
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    await writeProject(fs, doc, { readResource: async () => bytes });
+    const ingot = graph.graph.nodes.find((n) => n.title === '钛锭')!;
+    const resource = ingot.resources![0];
+    const path = joinPath(
+      'graphs',
+      graphDirName(graph.name, graph.id),
+      'nodes',
+      nodeDirName(ingot),
+      RESOURCES_DIR,
+      resourceFileName(resource),
+    );
+    expect(await fs.readBytes(path)).toEqual(bytes);
+    await writeProject(fs, doc);
+    expect(await fs.readBytes(path)).toEqual(bytes);
   });
 });

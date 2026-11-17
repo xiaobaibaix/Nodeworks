@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useGraph } from '../store';
 import type { ResourceItem, UnitNode } from '../model/types';
 import { assetUrl } from './AssetPreview';
@@ -44,9 +44,17 @@ export function CommitArea({
   rows?: number;
 }) {
   const [draft, setDraft] = useState(value);
+  const ref = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => setDraft(value), [value]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 260)}px`;
+  }, [draft]);
   return (
     <textarea
+      ref={ref}
       className="view-prompt"
       rows={rows}
       value={draft}

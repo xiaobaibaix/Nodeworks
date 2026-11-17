@@ -1710,7 +1710,14 @@ export const useGraph = create<Store>((set, get) => ({
             : new URL(resource.path, window.location.href).href;
           const response = await fetch(url);
           if (!response.ok) return null;
-          return new Uint8Array(await response.arrayBuffer());
+          // dev server 对不存在的静态路径会回 index.html（200 / text/html）。
+          // 绝不能把这种 HTML 当成资源字节写回目录，否则会把原文件覆盖成一堆 1038 字节的页面。
+          const type = response.headers.get('content-type') ?? '';
+          if (/text\/html/i.test(type)) return null;
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          const head = new TextDecoder().decode(bytes.slice(0, 64)).trimStart().toLowerCase();
+          if (head.startsWith('<!doctype') || head.startsWith('<html')) return null;
+          return bytes;
         } catch {
           return null;
         }

@@ -1482,7 +1482,7 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .view-prompt {
   width: 100%; margin: 6px 0; padding: 6px 8px; font-size: 11px; line-height: 1.5;
   color: var(--text); background: #0b0e13; border: 1px solid var(--line); border-radius: 6px;
-  resize: vertical; box-sizing: border-box;
+  resize: vertical; box-sizing: border-box; min-height: 58px; overflow-y: auto;
 }
 .view-prompt:focus { border-color: var(--accent); outline: none; }
 
@@ -1606,7 +1606,6 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   padding: 4px 6px;
 }
 .res-node-actions { display: flex; gap: 2px; flex: none; }
-.res-node .view-prompt { margin-left: 24px; }
 .res-node .res-views { margin-left: 24px; }
 .res-audio-hint { font-size: 11px; color: #8391a5; padding-left: 24px; word-break: break-all; }
 .res-add-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
