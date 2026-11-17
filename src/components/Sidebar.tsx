@@ -117,6 +117,7 @@ export default function Sidebar() {
           className="graph-current"
           aria-label="切换图"
           aria-expanded={graphTreeOpen}
+          title={activeName}
           onClick={() => setGraphTreeOpen((open) => !open)}
         >
           <span className="graph-current-name">{activeName}</span>
