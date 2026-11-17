@@ -4,7 +4,7 @@ import {
   groupByKind, isolatedNodeIds, kindOptions, nodeMatches, orphanNodeIds, visibleNodes,
 } from '../model/query';
 import { useCurrentGraph, useGraph } from '../store';
-import { graphLevelLabel, type ProjectFolder } from '../model/project';
+import { type ProjectFolder } from '../model/project';
 
 function highlight(text: string, query: string) {
   const needle = query.trim().toLowerCase();
@@ -67,7 +67,6 @@ export default function Sidebar() {
   const removeGraph = useGraph((s) => s.removeGraph);
   const { fitView } = useReactFlow();
   const activeName = projectGraphs.find((pg) => pg.id === activeGraphId)?.name ?? '';
-  const activeLevel = projectGraphs.find((pg) => pg.id === activeGraphId)?.level ?? 0;
   const folders = useGraph((s) => s.folders);
   const addFolder = useGraph((s) => s.addFolder);
   const renameFolder = useGraph((s) => s.renameFolder);
@@ -96,7 +95,6 @@ export default function Sidebar() {
     graphsIn(folderId).length + folderChildren(folderId).reduce((n, f) => n + countIn(f.id), 0);
 
   const [collapsed, setCollapsed] = useState<string[]>([]);
-  const [graphTreeOpen, setGraphTreeOpen] = useState(true);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [selFolder, setSelFolder] = useState<string | null>(null);
   const [stuckFolder, setStuckFolder] = useState<string | null>(null);
@@ -165,7 +163,7 @@ export default function Sidebar() {
     setStuckFolder(current);
   };
 
-  useEffect(() => { syncStuck(); }, [openFolders, folders, graphTreeOpen]);
+  useEffect(() => { syncStuck(); }, [openFolders, folders]);
 
   const focusNode = (id: string) => {
     select([id], null);
@@ -289,50 +287,7 @@ export default function Sidebar() {
         <button className="kbd" title="命令面板" onClick={() => togglePalette(true)}>⌘K</button>
       </header>
 
-      <div className="graph-bar" title="一个 project 管多张根图，模板共享">
-        <button
-          className="graph-current"
-          aria-label="切换图"
-          aria-expanded={graphTreeOpen}
-          title={activeName}
-          onClick={() => setGraphTreeOpen((open) => !open)}
-        >
-          <span className="graph-current-name">{activeName}</span>
-          <span className="graph-current-level">{graphLevelLabel(activeLevel)}</span>
-          <span className="graph-caret">▾</span>
-        </button>
-        <button
-          className="icon tip"
-          data-tip="重命名当前图"
-          aria-label="重命名当前图"
-          onClick={() => {
-            const name = window.prompt('图名称', activeName);
-            if (name) renameGraph(name);
-          }}
-        >
-          ✎
-        </button>
-        <button
-          className="icon tip"
-          data-tip="删除当前图"
-          aria-label="删除当前图"
-          onClick={removeGraph}
-          disabled={projectGraphs.length <= 1}
-        >
-          −
-        </button>
-        <button
-          className="icon tip"
-          data-tip="导入图（选择一份 graph JSON，作为新图加入当前项目）"
-          aria-label="导入图"
-          onClick={() => void importGraph()}
-        >
-          ⤓
-        </button>
-      </div>
-
-      {graphTreeOpen && (
-        <div className="tree-tools" role="toolbar" aria-label="图列表操作">
+      <div className="tree-tools" role="toolbar" aria-label="图列表操作">
           <button title="新建图（在当前选中的分组里）" aria-label="新建图" onClick={createGraphHere}>
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2.2h5.4l3.4 3.4v8.2H4z" /><path d="M9.4 2.2v3.4h3.4" /><path d="M6.5 9.2h4.2M8.6 7.1v4.2" /></svg>
           </button>
@@ -343,10 +298,21 @@ export default function Sidebar() {
           <button title="全部折叠" aria-label="全部折叠" onClick={collapseAll}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.6L8 10l5-4.4" fill="none" stroke="currentColor" strokeWidth="1.3" /></svg>
           </button>
+          <span className="tree-tools-gap" />
+          <button title="重命名当前图" aria-label="重命名当前图" onClick={() => {
+            const name = window.prompt('图名称', activeName);
+            if (name?.trim()) renameGraph(name.trim());
+          }}>
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 13l1-3.6 7-7a1.4 1.4 0 0 1 2 2l-7 7L3 13z" /><path d="M9.7 3.5l2.8 2.8" /></svg>
+          </button>
+          <button title="删除当前图" aria-label="删除当前图" disabled={projectGraphs.length <= 1} onClick={removeGraph}>
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5h10M6 4.5V3h4v1.5M4.5 4.5l.6 8.2h5.8l.6-8.2" /><path d="M6.6 7v3.4M9.4 7v3.4" /></svg>
+          </button>
+          <button title="导入图（graph JSON 作为新图加入当前项目）" aria-label="导入图" onClick={() => void importGraph()}>
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v7.2M5.2 6.6L8 9.4l2.8-2.8" /><path d="M3 10.5v2.7h10v-2.7" /></svg>
+          </button>
         </div>
-      )}
-      {graphTreeOpen && (
-        <div className="graph-tree" role="tree" aria-label="图列表" ref={treeRef} onScroll={syncStuck}>
+      <div className="graph-tree" role="tree" aria-label="图列表" ref={treeRef} onScroll={syncStuck}>
           {projectGraphs
             .filter((pg) => !pg.folderId)
             .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
@@ -400,7 +366,6 @@ export default function Sidebar() {
               </button>
             ))}
         </div>
-      )}
 
       {(folderName || fileName) && (
         <div className="folder-bound" title={folderName ? '当前项目与这个文件夹双向同步' : '保存会覆盖这个 JSON 文件'}>
