@@ -187,7 +187,8 @@ function buildPorts(specs: unknown): UnitNode['ports'] {
   return specs.map((raw) => {
     const spec = raw as PortSpec;
     if (spec.dir !== 'in' && spec.dir !== 'out') throw new Error('端口 dir 只能是 in/out');
-    const port = createPort(spec.dir, spec.label, spec.capacity ?? (spec.dir === 'in' ? 'one' : 'many'));
+    const capacity = spec.dir === 'in' ? 'one' : (spec.capacity ?? 'many');
+    const port = createPort(spec.dir, spec.label, capacity);
     if (spec.id) port.id = spec.id;
     return port;
   });

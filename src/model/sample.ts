@@ -52,7 +52,7 @@ export function sampleGraph(): Graph {
           tier: { value: 1, type: 'number' },
         },
         ports: [
-          { dir: 'in', label: '输入', capacity: 'many' },
+          { dir: 'in', label: '输入', capacity: 'one' },
           { dir: 'out', label: '输出', capacity: 'many' },
         ],
       },
@@ -64,7 +64,7 @@ export function sampleGraph(): Graph {
           power: { value: 0, type: 'number', unit: 'kW' },
         },
         ports: [
-          { dir: 'in', label: '原料', capacity: 'many' },
+          { dir: 'in', label: '原料', capacity: 'one' },
           { dir: 'out', label: '产物', capacity: 'many' },
         ],
       },
@@ -76,7 +76,7 @@ export function sampleGraph(): Graph {
           power: { value: 0, type: 'number', unit: 'kW' },
         },
         ports: [
-          { dir: 'in', label: '输入', capacity: 'many' },
+          { dir: 'in', label: '输入', capacity: 'one' },
           { dir: 'out', label: '输出', capacity: 'many' },
         ],
       },

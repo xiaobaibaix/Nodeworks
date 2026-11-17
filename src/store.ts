@@ -7,7 +7,8 @@ import { graphAtPath, normalizePath, updateAtPath } from './model/path';
 import { planCrossLink, type CrossTarget } from './model/cross';
 import { slotOf, templateResources, isRigged } from './model/modelTemplate';
 import { EMPTY_FILTER, type GraphFilter } from './model/query';
-import { containerLabel, containerOf, withResourceContainers } from './model/resources';
+import { containerLabel, containerOf } from './model/resources';
+import { normalizeGraph } from './model/normalize';
 import { emptySubgraph, parseGraph } from './model/schema';
 import {
   addEdgeOp, addNodeOp, addPortOp, addResourceChildOp, addResourceOp, addResourceViewOp, appendResourceViewOp,
@@ -364,7 +365,7 @@ export const useGraph = create<Store>((set, get) => ({
     if (stored) {
       const project = {
         ...stored,
-        graphs: stored.graphs.map((pg) => ({ ...pg, graph: withResourceContainers(pg.graph) })),
+        graphs: stored.graphs.map((pg) => ({ ...pg, graph: normalizeGraph(pg.graph) })),
       };
       const active = projectActiveGraph(project);
       set({
@@ -1124,14 +1125,9 @@ export const useGraph = create<Store>((set, get) => ({
         return;
       }
     }
-    if (patch.capacity === 'one' && old.dir === 'in' && old.capacity !== 'one') {
-      const count = graph.edges.filter(
-        (e) => !e.orphan && e.to.node === nodeId && e.to.port === portId,
-      ).length;
-      if (count > 1) {
-        set({ toast: `该输入口上已有 ${count} 条连线，不能改成单条` });
-        return;
-      }
+    if (old.dir === 'in' && patch.capacity === 'many') {
+      set({ toast: '输入端口固定单条连线；需要多个输入就多加一个输入端口' });
+      return;
     }
     get().commit({
       label: '改端口',
@@ -1368,7 +1364,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   load: (g) => {
-    const graph = withResourceContainers(g);
+    const graph = normalizeGraph(g);
     set({
       graph,
       past: [],
@@ -1411,7 +1407,7 @@ export const useGraph = create<Store>((set, get) => ({
     if (parsed) {
       const project = {
         ...parsed,
-        graphs: parsed.graphs.map((pg) => ({ ...pg, graph: withResourceContainers(pg.graph) })),
+        graphs: parsed.graphs.map((pg) => ({ ...pg, graph: normalizeGraph(pg.graph) })),
       };
       const active = projectActiveGraph(project);
       get().load(active.graph);
@@ -1805,7 +1801,7 @@ export const useGraph = create<Store>((set, get) => ({
       const loaded = await readProject(fs);
       const project = {
         ...loaded,
-        graphs: loaded.graphs.map((pg) => ({ ...pg, graph: withResourceContainers(pg.graph) })),
+        graphs: loaded.graphs.map((pg) => ({ ...pg, graph: normalizeGraph(pg.graph) })),
       };
       get().load(projectActiveGraph(project).graph);
       set({
