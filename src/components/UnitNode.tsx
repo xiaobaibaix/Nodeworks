@@ -53,6 +53,8 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   const dimmed = Boolean(data.dimmed);
   const matched = Boolean(data.matched);
   const impact = Boolean(data.impact);
+  const hot = Boolean(data.hot);
+  const hotPorts = (data.hotPorts as string[] | undefined) ?? [];
   const ins = node.ports.filter((p) => p.dir === 'in');
   const outs = node.ports.filter((p) => p.dir === 'out');
   const props = Object.entries(node.props);
@@ -117,7 +119,7 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   }, [id, portKey, updateNodeInternals]);
   return (
     <div
-      className={`unit-node${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}${matched ? ' is-match' : ''}${impact ? ' is-impact' : ''}`}
+      className={`unit-node${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}${matched ? ' is-match' : ''}${impact ? ' is-impact' : ''}${hot ? ' is-hot' : ''}`}
     >
       <div className="unit-head">
         {iconUrl && <img className="unit-icon" src={iconUrl} alt="" draggable={false} />}
@@ -204,17 +206,17 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
       <div className="unit-ports">
         <div className="unit-port-col">
           {ins.map((port) => (
-            <div className="unit-port" key={port.id}>
-              <Handle type="target" position={Position.Left} id={port.id} className="unit-handle" />
+            <div className={`unit-port${hotPorts.includes(port.id) ? ' is-hot' : ''}`} key={port.id}>
+              <Handle type="target" position={Position.Left} id={port.id} className={`unit-handle${hotPorts.includes(port.id) ? ' is-hot' : ''}`} />
               <span>{port.label}</span>
             </div>
           ))}
         </div>
         <div className="unit-port-col out">
           {outs.map((port) => (
-            <div className="unit-port" key={port.id}>
+            <div className={`unit-port${hotPorts.includes(port.id) ? ' is-hot' : ''}`} key={port.id}>
               <span>{port.label}</span>
-              <Handle type="source" position={Position.Right} id={port.id} className="unit-handle" />
+              <Handle type="source" position={Position.Right} id={port.id} className={`unit-handle${hotPorts.includes(port.id) ? ' is-hot' : ''}`} />
             </div>
           ))}
         </div>

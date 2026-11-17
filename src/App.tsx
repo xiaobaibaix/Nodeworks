@@ -121,6 +121,31 @@ function Canvas() {
   const impactNodes = useMemo(() => new Set(impact?.nodes ?? []), [impact]);
   const impactEdges = useMemo(() => new Set(impact?.edges ?? []), [impact]);
 
+  // 选中单个单元时，把直接相连的边、对端单元和两端端口标出来。
+  const selectedOne = selectedNodes.length === 1 ? selectedNodes[0] : null;
+  const link = useMemo(() => {
+    const nodes = new Set<string>();
+    const edges = new Set<string>();
+    const ports = new Map<string, Set<string>>();
+    if (!selectedOne) return { nodes, edges, ports };
+    nodes.add(selectedOne);
+    const markPort = (nodeId: string, portId: string) => {
+      let set = ports.get(nodeId);
+      if (!set) { set = new Set<string>(); ports.set(nodeId, set); }
+      set.add(portId);
+    };
+    for (const e of graph.edges) {
+      if (e.orphan) continue;
+      if (e.from.node !== selectedOne && e.to.node !== selectedOne) continue;
+      edges.add(e.id);
+      nodes.add(e.from.node);
+      nodes.add(e.to.node);
+      markPort(e.from.node, e.from.port);
+      markPort(e.to.node, e.to.port);
+    }
+    return { nodes, edges, ports };
+  }, [graph.edges, selectedOne]);
+
   useEffect(() => {
     if (!nodesInitialized || didFit.current || graph.nodes.length === 0) return;
     didFit.current = true;
@@ -179,6 +204,8 @@ function Canvas() {
         dimmed: (Boolean(needle) && !matchIds.has(n.id)) || (impact ? !impactNodes.has(n.id) : false),
         matched: Boolean(needle) && matchIds.has(n.id),
         impact: Boolean(impact && impactNodes.has(n.id)),
+        hot: link.nodes.has(n.id),
+        hotPorts: Array.from(link.ports.get(n.id) ?? []),
       },
     }));
     if (parent) {
@@ -228,7 +255,7 @@ function Canvas() {
       }
     }
     return list;
-  }, [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, impact, impactNodes, measuredVersion, parent, preview, crossPos]);
+  }, [graph.nodes, selectedNodes, filtering, visibleIds, needle, matchIds, impact, impactNodes, link, measuredVersion, parent, preview, crossPos]);
 
   const edges: Edge[] = useMemo(() => {
     const list: Edge[] = [];
@@ -251,7 +278,11 @@ function Canvas() {
         hidden: filtering && (!visibleIds.has(e.from.node) || !visibleIds.has(e.to.node)),
         ...(impact
           ? { style: impactEdges.has(e.id) ? { stroke: '#f0a25c', strokeWidth: 2 } : { opacity: 0.12 } }
-          : {}),
+          : link.edges.has(e.id)
+            ? { style: { stroke: '#f0a25c', strokeWidth: 2.4 }, zIndex: 20 }
+            : selectedOne
+              ? { style: { opacity: 0.18 } }
+              : {}),
       });
     }
     if (parent) {
@@ -289,7 +320,7 @@ function Canvas() {
       }
     }
     return list;
-  }, [graph, selectedEdge, filtering, visibleIds, impact, impactEdges, parent, preview]);
+  }, [graph, selectedEdge, selectedOne, filtering, visibleIds, impact, impactEdges, link, parent, preview]);
 
   const setOuterMap = useGraph((s) => s.setOuterMap);
   const onConnect = useCallback(

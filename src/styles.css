@@ -1616,3 +1616,16 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .res-audio-hint { font-size: 11px; color: #8391a5; padding-left: 24px; word-break: break-all; }
 .res-add-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 .res-add-buttons .chip { cursor: pointer; }
+
+/* ---------- 选中节点时高亮直连的端口与对端 ---------- */
+
+.unit-node.is-hot:not(.is-selected) {
+  border-color: rgba(240, 162, 92, .7);
+  box-shadow: 0 0 0 1px rgba(240, 162, 92, .32), 0 8px 22px rgba(0, 0, 0, .4);
+}
+.unit-port.is-hot { color: #f0a25c; }
+.unit-port.is-hot span { color: #f0a25c; font-weight: 600; }
+.react-flow__handle.unit-handle.is-hot::after {
+  background: #ffc24d;
+  box-shadow: 0 0 0 3px rgba(240, 162, 92, .3);
+}
