@@ -59,10 +59,6 @@ export default function Sidebar() {
   const switchGraph = useGraph((s) => s.switchGraph);
   const addGraph = useGraph((s) => s.addGraph);
   const importGraph = useGraph((s) => s.importGraph);
-  const folderName = useGraph((s) => s.folderName);
-  const fileName = useGraph((s) => s.fileName);
-  const unbindFolder = useGraph((s) => s.unbindFolder);
-  const reloadFolder = useGraph((s) => s.reloadFolder);
   const renameGraph = useGraph((s) => s.renameGraph);
   const removeGraph = useGraph((s) => s.removeGraph);
   const { fitView } = useReactFlow();
@@ -372,29 +368,6 @@ export default function Sidebar() {
             ))}
         </div>
 
-      {(folderName || fileName) && (
-        <div className="folder-bound" title={folderName ? '当前项目与这个文件夹双向同步' : '保存会覆盖这个 JSON 文件'}>
-          <span>{folderName ? `目录：${folderName}` : `文件：${fileName}`}</span>
-          {folderName && (
-            <button
-              className="tip"
-              data-tip="从目录重新载入"
-              aria-label="从目录重新载入"
-              onClick={() => void reloadFolder()}
-            >
-              ↻
-            </button>
-          )}
-          <button
-            className="tip"
-            data-tip={folderName ? '取消目录绑定' : '关闭这个文件'}
-            aria-label={folderName ? '取消目录绑定' : '关闭这个文件'}
-            onClick={unbindFolder}
-          >
-            ×
-          </button>
-        </div>
-      )}
 
       <div className="search-box">
         <span className="search-icon" aria-hidden="true">

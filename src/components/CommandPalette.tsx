@@ -21,6 +21,8 @@ export default function CommandPalette() {
   const graph = useCurrentGraph();
   const selected = useGraph((s) => s.selectedNodes);
   const preview = useGraph((s) => s.preview);
+  const folderName = useGraph((s) => s.folderName);
+  const fileName = useGraph((s) => s.fileName);
   const { fitView } = useReactFlow();
 
   const [query, setQuery] = useState('');
@@ -116,6 +118,24 @@ export default function CommandPalette() {
         void useGraph.getState().saveToFolder();
       },
     });
+    if (folderName) {
+      list.push({
+        id: 'folder-reload',
+        label: '从目录重新载入',
+        hint: `重新读取「${folderName}」`,
+        group: '命令',
+        run: () => void useGraph.getState().reloadFolder(),
+      });
+    }
+    if (folderName || fileName) {
+      list.push({
+        id: 'unbind-project',
+        label: '关闭当前项目绑定',
+        hint: '不再自动写回目录或文件',
+        group: '命令',
+        run: () => useGraph.getState().unbindFolder(),
+      });
+    }
     list.push({
       id: 'export-project',
       label: '导出契约（dry-run）',
