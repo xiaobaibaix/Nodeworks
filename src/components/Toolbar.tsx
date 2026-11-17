@@ -199,7 +199,6 @@ function SplitButton({
 }
 
 export default function Toolbar() {
-  const addNode = useGraph((s) => s.addNode);
   const toastOf = useGraph((s) => s.toastOf);
   const preview = useGraph((s) => s.preview);
   const undo = useGraph((s) => s.undo);
@@ -208,8 +207,6 @@ export default function Toolbar() {
   const canRedo = useGraph((s) => s.future.length > 0);
   const graph = useCurrentGraph();
   const count = graph.nodes.length;
-  const kinds = graph.kinds;
-  const togglePalette = useGraph((s) => s.togglePalette);
   const setExportOpen = useGraph((s) => s.setExportOpen);
   const openStyle = useGraph((s) => s.openStyle);
   const openProviders = useGraph((s) => s.openProviders);
@@ -260,22 +257,6 @@ export default function Toolbar() {
         </div>
       </div>
       <div className="bar-actions">
-        <select
-          className="template-pick"
-          value=""
-          disabled={preview}
-          title="从模板新建"
-          onChange={(e) => {
-            const key = e.target.value;
-            if (key) addNode(undefined, key);
-          }}
-        >
-          <option value="">模板…</option>
-          {Object.entries(kinds).map(([key, def]) => (
-            <option key={key} value={key}>{def.name || key}</option>
-          ))}
-        </select>
-        <button className="kbd" title="命令面板 (⌘K)" onClick={() => togglePalette(true)}>⌘K</button>
         <span className="sep" />
         <IconButton tip="撤销（⌘Z）" onClick={undo} disabled={!canUndo || preview}>
           <IconUndo />
