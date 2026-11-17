@@ -554,3 +554,24 @@ describe('重命名图', () => {
     expect(s.projectGraphs[0].folderId).toBe('f1');
   });
 });
+
+describe('按层级重建分组', () => {
+  it('扁平图树可一键恢复层级分组', () => {
+    const g: Graph = { version: 1, nodes: [], edges: [], kinds: {} };
+    useGraph.setState({
+      graph: g,
+      projectGraphs: [
+        { id: 'p1', name: '钢', graph: g, level: 2, folderId: null },
+        { id: 'p2', name: '钢板', graph: g, level: 4, folderId: null },
+      ],
+      folders: [],
+      activeGraphId: 'p1',
+    });
+    useGraph.getState().rebuildLevelFolders();
+    const s = useGraph.getState();
+    expect(s.folders.length).toBeGreaterThan(0);
+    const ids = new Set(s.folders.map((f) => f.id));
+    expect(s.projectGraphs.every((pg) => pg.folderId && ids.has(pg.folderId))).toBe(true);
+    expect(s.projectGraphs[0].folderId).not.toBe(s.projectGraphs[1].folderId);
+  });
+});

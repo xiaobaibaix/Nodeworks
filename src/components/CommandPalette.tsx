@@ -152,7 +152,14 @@ export default function CommandPalette() {
       run: () => void useGraph.getState().importGraph(),
     });
     list.push({
-      id: 'graph-new',
+      id: 'graph-rebuild',
+      label: '按层级重建分组',
+      hint: '图树没有分组时，按图层级恢复一级矿/二级产物…',
+      group: '命令',
+      run: () => useGraph.getState().rebuildLevelFolders(),
+    });
+    list.push({
+      id: 'new-graph',
       label: '新建图',
       hint: '同一 project，模板共享',
       group: '命令',

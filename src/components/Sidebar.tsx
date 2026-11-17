@@ -646,6 +646,9 @@ export default function Sidebar() {
             <>
               <button onClick={() => createGraphIn(ctxMenu.folderId)}>新建图</button>
               <button onClick={() => createFolderIn(ctxMenu.folderId)}>新建分组</button>
+              {!ctxMenu.folderId && (
+                <button onClick={() => useGraph.getState().rebuildLevelFolders()}>按层级重建分组</button>
+              )}
               {ctxMenu.folderId && <div className="tree-menu-sep" />}
               {ctxMenu.folderId && <button onClick={() => renameFolderById(ctxMenu.folderId!)}>重命名分组</button>}
               {ctxMenu.folderId && <button className="danger" onClick={() => deleteFolderById(ctxMenu.folderId!)}>删除分组</button>}

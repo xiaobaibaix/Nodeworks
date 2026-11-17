@@ -28,6 +28,7 @@ import {
 import {
   activeGraph as projectActiveGraph, addGraph as projectAddGraph, addFolder as projectAddFolder,
   moveGraphToFolder as projectMoveGraph, projectFromGraph, removeFolder as projectRemoveFolder,
+  normalizeProject,
   removeGraph as projectRemoveGraph, renameFolder as projectRenameFolder,
   renameGraph as projectRenameGraph, parseProjectDoc, PROJECT_LIMIT, syncActive,
   switchGraph as switchProjectGraph, unifyKinds,
@@ -252,6 +253,7 @@ interface Store {
   deleteSnapshot(id: string): void;
   switchGraph(id: string): void;
   addGraph(name?: string, folderId?: string | null): void;
+  rebuildLevelFolders(): void;
   addFolder(name: string, parentId?: string | null): void;
   renameFolder(id: string, name: string): void;
   removeFolder(id: string): void;
@@ -1508,6 +1510,24 @@ export const useGraph = create<Store>((set, get) => ({
     });
   },
 
+  rebuildLevelFolders: () => {
+    if (get().folders.length > 0 && !window.confirm('要按图层级重建分组吗？现有自定义分组会被替换。')) return;
+    const project = get().currentProject();
+    const cleared = {
+      ...project,
+      folders: [],
+      grouped: false,
+      graphs: project.graphs.map((g) => ({ ...g, folderId: null })),
+    };
+    const normalized = normalizeProject(cleared);
+    set({
+      projectGraphs: normalized.graphs,
+      folders: normalized.folders ?? [],
+      toast: `已按层级重建 ${normalized.folders?.length ?? 0} 个分组`,
+    });
+    saveProjectDoc(normalized);
+    scheduleFolderSync();
+  },
   addGraph: (name, folderId) => {
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const synced = syncActive(
