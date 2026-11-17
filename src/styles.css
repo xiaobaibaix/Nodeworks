@@ -1724,7 +1724,7 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 }
 .graph-folder-actions button:hover { background: #232b35; color: #f0a25c; }
 .graph-folder-sticky {
-  position: sticky; top: 0; z-index: 6; margin-bottom: -28px; height: 28px;
+  position: sticky; top: 0; z-index: 6; margin-bottom: -28px; height: 28px; min-height: 28px; line-height: 28px;
   display: grid; grid-template-columns: 12px 1fr auto; gap: 6px; align-items: center;
   width: 100%; padding: 0 8px; font-size: 11px; color: #c7cedb; cursor: pointer;
   background: #12171d; border: 0; border-bottom: 1px solid #1d242d; text-align: left;

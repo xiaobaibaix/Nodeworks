@@ -417,6 +417,21 @@ export default function Sidebar() {
           }
         }}
       >
+          {stuckFolder && (() => {
+            const hit = folders.find((f) => f.id === stuckFolder);
+            if (!hit) return null;
+            return (
+              <button
+                className="graph-folder-sticky"
+                onClick={() => toggleFolder(hit.id)}
+                title="点击折叠/展开这一组"
+              >
+                <span className="graph-folder-caret">▾</span>
+                <span className="graph-folder-sticky-name">{folderPath(hit.id)}</span>
+                <span className="graph-tree-count">{countIn(hit.id)}</span>
+              </button>
+            );
+          })()}
           {projectGraphs
             .filter((pg) => !pg.folderId)
             .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
@@ -442,21 +457,7 @@ export default function Sidebar() {
               </button>
             ))}
           {folderChildren(null).map((f) => renderFolder(f, 0))}
-          {stuckFolder && (() => {
-            const hit = folders.find((f) => f.id === stuckFolder);
-            if (!hit) return null;
-            return (
-              <button
-                className="graph-folder-sticky"
-                onClick={() => toggleFolder(hit.id)}
-                title="点击折叠/展开这一组"
-              >
-                <span className="graph-folder-caret">▾</span>
-                <span className="graph-folder-sticky-name">{folderPath(hit.id)}</span>
-                <span className="graph-tree-count">{countIn(hit.id)}</span>
-              </button>
-            );
-          })()}
+
           {projectGraphs
             .filter((pg) => !pg.folderId)
             .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
