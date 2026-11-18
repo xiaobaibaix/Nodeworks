@@ -485,6 +485,13 @@ export default function Sidebar() {
     setSelFolder(folderId);
     addFolder(name.trim(), folderId);
   };
+  const createSiblingFolder = (id: string) => {
+    const f = folders.find((x) => x.id === id);
+    createFolderIn(f?.parentId ?? null);
+  };
+  const createSiblingGraph = (folderId: string | null) => {
+    createGraphIn(folderId);
+  };
   const renameGraphById = (id: string) => {
     const pg = projectGraphs.find((g) => g.id === id);
     const name = window.prompt('图名称', pg?.name ?? '');
@@ -784,6 +791,7 @@ export default function Sidebar() {
         >
           {ctxMenu.graphId ? (
             <>
+              <button onClick={() => createSiblingGraph(projectGraphs.find((g) => g.id === ctxMenu.graphId)?.folderId ?? null)}>新建同级图</button>
               <button onClick={() => { cutGraphs([ctxMenu.graphId!]); setCtxMenu(null); }}>剪切</button>
               <button onClick={() => { copyGraphs([ctxMenu.graphId!]); setCtxMenu(null); }}>复制</button>
               <div className="tree-menu-sep" />
@@ -793,7 +801,10 @@ export default function Sidebar() {
           ) : (
             <>
               <button onClick={() => createGraphIn(ctxMenu.folderId)}>新建图</button>
-              <button onClick={() => createFolderIn(ctxMenu.folderId)}>新建分组</button>
+              <button onClick={() => createFolderIn(ctxMenu.folderId)}>新建子分组</button>
+              {ctxMenu.folderId && (
+                <button onClick={() => createSiblingFolder(ctxMenu.folderId!)}>新建同级分组</button>
+              )}
               {graphClipboard && (
                 <button onClick={() => { pasteGraphs(ctxMenu.folderId); setCtxMenu(null); }}>
                   粘贴 {graphClipboard.ids.length} 张图
