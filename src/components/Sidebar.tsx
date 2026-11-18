@@ -531,10 +531,20 @@ export default function Sidebar() {
       </header>
 
       <div className="tree-tools" role="toolbar" aria-label="图列表操作">
-          <span className="tree-project-name" title={folderName ?? fileName ?? '未绑定项目'}>
+          <span
+            className="tree-project-name"
+            title={folderName ?? fileName ?? '未绑定项目'}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setCtxMenu({ x: e.clientX, y: e.clientY, folderId: null });
+            }}
+          >
             {folderName ?? fileName ?? '未绑定项目'}
           </span>
           <span className="tree-tools-gap" />
+          <button title="新建顶层分组" aria-label="新建分组" onClick={() => createFolderIn(null)}>
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M1.8 4.2a1 1 0 0 1 1-1h3.1l1.3 1.4h5.9a1 1 0 0 1 1 1v6.6a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1z" /><path d="M8 7.2v4M6 9.2h4" /></svg>
+          </button>
           <button title="新建图（在当前选中的分组里）" aria-label="新建图" onClick={createGraphHere}>
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2.2h5.4l3.4 3.4v8.2H4z" /><path d="M9.4 2.2v3.4h3.4" /><path d="M6.5 9.2h4.2M8.6 7.1v4.2" /></svg>
           </button>
