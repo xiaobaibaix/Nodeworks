@@ -435,11 +435,13 @@ export default function Sidebar() {
             if (!hit) return null;
             return (
               <button
+                key={hit.id}
                 className="graph-folder-sticky"
                 onClick={() => toggleFolder(hit.id)}
                 title="点击折叠/展开这一组"
               >
                 <span className="graph-folder-caret">▾</span>
+                <IconFolder open={openFolders.has(hit.id)} />
                 <span className="graph-folder-sticky-name">{folderPath(hit.id)}</span>
                 <span className="graph-tree-count">{countIn(hit.id)}</span>
               </button>
