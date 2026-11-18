@@ -190,6 +190,27 @@ export function renameFolder(project: ProjectDoc, id: string, name: string): Pro
   });
 }
 
+export function moveFolder(project: ProjectDoc, id: string, parentId: string | null): ProjectDoc {
+  const folders = project.folders ?? [];
+  const folder = folders.find((f) => f.id === id);
+  if (!folder) return project;
+  let parent = parentId && folders.some((f) => f.id === parentId) ? parentId : null;
+  // 不能移到自己或自己的后代里，否则会形成环。
+  let cur = parent;
+  while (cur) {
+    if (cur === id) {
+      parent = null;
+      break;
+    }
+    cur = folders.find((f) => f.id === cur)?.parentId ?? null;
+  }
+  if ((folder.parentId ?? null) === (parent ?? null)) return project;
+  return {
+    ...project,
+    folders: folders.map((f) => (f.id === id ? { ...f, parentId: parent } : f)),
+  };
+}
+
 export function removeFolder(project: ProjectDoc, id: string): ProjectDoc {
   const folder = (project.folders ?? []).find((f) => f.id === id);
   if (!folder) return project;

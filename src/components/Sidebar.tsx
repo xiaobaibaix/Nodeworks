@@ -61,6 +61,7 @@ export default function Sidebar() {
   const renameGraph = useGraph((s) => s.renameGraph);
   const removeGraph = useGraph((s) => s.removeGraph);
   const moveGraphsToFolder = useGraph((s) => s.moveGraphsToFolder);
+  const moveFolderTo = useGraph((s) => s.moveFolderTo);
   const graphClipboard = useGraph((s) => s.graphClipboard);
   const cutGraphs = useGraph((s) => s.cutGraphs);
   const copyGraphs = useGraph((s) => s.copyGraphs);
@@ -323,6 +324,61 @@ export default function Sidebar() {
     setSelFolder(pg.folderId ?? null);
   };
 
+  const startFolderPointerDrag = (folder: ProjectFolder, e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('.graph-folder-actions')) return;
+    const start = { x: e.clientX, y: e.clientY };
+    const state: { active: boolean; ghost: HTMLDivElement | null } = { active: false, ghost: null };
+
+    const move = (ev: PointerEvent) => {
+      if (!state.active) {
+        if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 6) return;
+        state.active = true;
+        const ghost = document.createElement('div');
+        ghost.className = 'graph-ghost';
+        ghost.textContent = folder.name;
+        document.body.appendChild(ghost);
+        state.ghost = ghost;
+      }
+      if (state.ghost) {
+        state.ghost.style.left = `${ev.clientX + 12}px`;
+        state.ghost.style.top = `${ev.clientY + 12}px`;
+      }
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const target = el?.closest('.graph-folder');
+      if (target) {
+        const head = target.querySelector(':scope > .graph-folder-head') as HTMLElement | null;
+        setDropFolder(head?.dataset.fid ?? null);
+      } else if (el?.closest('.graph-tree')) {
+        setDropFolder(null);
+      } else {
+        setDropFolder(undefined);
+      }
+    };
+
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (state.ghost) state.ghost.remove();
+      setDropFolder(undefined);
+      if (!state.active) return;
+      suppressClickRef.current = true;
+      setTimeout(() => { suppressClickRef.current = false; }, 250);
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const target = el?.closest('.graph-folder');
+      if (target) {
+        const head = target.querySelector(':scope > .graph-folder-head') as HTMLElement | null;
+        const parentId = head?.dataset.fid ?? null;
+        if (parentId && parentId !== folder.id) moveFolderTo(folder.id, parentId);
+      } else if (el?.closest('.graph-tree')) {
+        moveFolderTo(folder.id, null);
+      }
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   const startGraphPointerDrag = (pg: ProjectGraph, e: React.PointerEvent) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
     const ids = picked.has(pg.id) ? [...picked] : [pg.id];
@@ -395,6 +451,7 @@ export default function Sidebar() {
         <div
           className={`graph-folder-head${open ? ' open' : ''}${folder.id === selFolder ? ' sel' : ''}${dropFolder === folder.id ? ' drop-target' : ''}`}
           data-fid={folder.id}
+          onPointerDown={(e) => startFolderPointerDrag(folder, e)}
           style={{ paddingLeft: 8 + depth * 16 }}
           onClick={() => {
             treeRef.current?.focus();

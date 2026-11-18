@@ -27,7 +27,7 @@ import {
 } from './model/snapshot';
 import {
   activeGraph as projectActiveGraph, addGraph as projectAddGraph, addFolder as projectAddFolder,
-  moveGraphToFolder as projectMoveGraph, projectFromGraph, removeFolder as projectRemoveFolder,
+  moveFolder as projectMoveFolder, moveGraphToFolder as projectMoveGraph, projectFromGraph, removeFolder as projectRemoveFolder,
   normalizeProject, graphRefs,
   removeGraph as projectRemoveGraph, renameFolder as projectRenameFolder,
   renameGraph as projectRenameGraph, parseProjectDoc, PROJECT_LIMIT, syncActive,
@@ -259,6 +259,7 @@ interface Store {
   removeFolder(id: string): void;
   moveGraphToFolder(graphId: string, folderId: string | null): void;
   moveGraphsToFolder(graphIds: string[], folderId: string | null): void;
+  moveFolderTo(folderId: string, parentId: string | null): void;
   graphClipboard: { ids: string[]; mode: 'cut' | 'copy' } | null;
   cutGraphs(ids: string[]): void;
   copyGraphs(ids: string[]): void;
@@ -1717,6 +1718,25 @@ export const useGraph = create<Store>((set, get) => ({
     );
     const project = projectMoveGraph(synced, graphId, folderId);
     set({ projectGraphs: project.graphs, folders: project.folders ?? [] });
+    saveProjectDoc(project);
+    scheduleFolderSync();
+  },
+
+  moveFolderTo: (folderId, parentId) => {
+    const { graph, projectGraphs, folders, activeGraphId } = get();
+    const target = folders.find((f) => f.id === folderId);
+    if (!target) return;
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    const project = projectMoveFolder(synced, folderId, parentId);
+    if (project === synced) {
+      set({ toast: '不能把分组移到它自己或它的子分组里' });
+      return;
+    }
+    set({ folders: project.folders ?? [], toast: '已移动分组' });
     saveProjectDoc(project);
     scheduleFolderSync();
   },
