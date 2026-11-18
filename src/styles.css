@@ -1729,12 +1729,13 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
   width: 100%; padding: 0 8px; font-size: 11px; color: #c7cedb; cursor: pointer;
   background: #12171d; border: 0; border-bottom: 1px solid #1d242d; text-align: left;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  transform: translateY(calc(-1 * var(--push, 0px)));
   animation: sticky-in 140ms ease-out;
 }
 .graph-folder-sticky .tree-ic.folder { color: #6ea8fe; }
 @keyframes sticky-in {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(calc(-1 * var(--push, 0px) - 5px)); }
+  to { opacity: 1; transform: translateY(calc(-1 * var(--push, 0px))); }
 }
 .graph-folder-sticky-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .graph-folder-body { display: flex; flex-direction: column; }

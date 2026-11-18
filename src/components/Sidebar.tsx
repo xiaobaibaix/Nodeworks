@@ -118,7 +118,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [selFolder, setSelFolder] = useState<string | null>(null);
-  const [stuckFolder, setStuckFolder] = useState<string | null>(null);
+  const [stuckFolder, setStuckFolder] = useState<{ id: string; push: number } | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState(-1);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folderId: string | null; graphId?: string } | null>(null);
@@ -177,22 +177,41 @@ export default function Sidebar() {
     if (!el) return;
     if (el.scrollTop < 4) { setStuckFolder(null); return; }
     const top = el.getBoundingClientRect().top;
+    const stickyH = 28;
+    const heads = Array.from(el.querySelectorAll<HTMLElement>('.graph-folder-head'));
     let current: string | null = null;
     let best = -Infinity;
-    el.querySelectorAll<HTMLElement>('.graph-folder-head').forEach((head) => {
+    heads.forEach((head) => {
       const rect = head.getBoundingClientRect();
       if (rect.top > top + 1 || rect.top <= best) return;
-      // 只有当这个分组的内容还露在可视区里时，它才配当吸顶标题；
-      // 否则滚过去的是一个已经看完的空分组，应该退回上一级。
+      // 只有内容还露在吸顶条下面时，这个分组才配当吸顶标题；
+      // 滚过去的是一个已经看完的空分组时，应退回上一级。
       const body = head.parentElement?.querySelector<HTMLElement>(':scope > .graph-folder-body');
-      // 吸顶条本身高 28px：内容必须露在吸顶条下面才算“还看得到”，
-      // 否则最后一项已经钻到条后面了，应立刻退回上一级。
-      const stickyH = 28;
       if (!body || body.getBoundingClientRect().bottom <= top + stickyH) return;
       best = rect.top;
       current = head.dataset.fid ?? null;
     });
-    setStuckFolder(current);
+    if (!current) {
+      // 根层级分组的最后一块内容滚完后，标题不应该瞬间消失，
+      // 而是像原生 section header 一样被下一个标题顶出去。
+      const rootPassed = heads.filter((head) => {
+        const rect = head.getBoundingClientRect();
+        const fid = head.dataset.fid ?? '';
+        return rect.top <= top + 1 && (folders.find((f) => f.id === fid)?.parentId ?? null) === null;
+      });
+      const last = rootPassed[rootPassed.length - 1];
+      if (!last) { setStuckFolder(null); return; }
+      const idx = heads.indexOf(last);
+      const next = heads.slice(idx + 1).find((head) => head.getBoundingClientRect().top > top + 1);
+      let push = 0;
+      if (next) {
+        const nextTop = next.getBoundingClientRect().top;
+        push = Math.max(0, Math.min(stickyH, stickyH - (nextTop - top)));
+      }
+      setStuckFolder({ id: last.dataset.fid ?? '', push });
+      return;
+    }
+    setStuckFolder({ id: current, push: 0 });
   };
 
   useEffect(() => { syncStuck(); }, [openFolders, folders]);
@@ -431,12 +450,13 @@ export default function Sidebar() {
         }}
       >
           {stuckFolder && (() => {
-            const hit = folders.find((f) => f.id === stuckFolder);
+            const hit = folders.find((f) => f.id === stuckFolder.id);
             if (!hit) return null;
             return (
               <button
                 key={hit.id}
                 className="graph-folder-sticky"
+                style={{ ['--push' as string]: `${stuckFolder.push}px` }}
                 onClick={() => toggleFolder(hit.id)}
                 title="点击折叠/展开这一组"
               >
