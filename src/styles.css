@@ -1906,3 +1906,21 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 }
 
 .hint.danger { color: #ffb4b4; }
+
+.style-preset-bar {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  padding: 10px 16px; border-bottom: 1px solid var(--line);
+}
+.style-preset-pick { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8b98a8; margin-right: auto; }
+.style-preset-pick select {
+  background: #0f1318; border: 1px solid var(--line); color: #e6edf3;
+  border-radius: 6px; padding: 4px 6px; font-size: 11px;
+}
+.style-preset-bar button {
+  border: 1px solid var(--line); background: #171d24; color: #c7cedb;
+  font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+}
+.style-preset-bar button:hover { border-color: #39424e; color: #fff; }
+.style-preset-bar button.on { color: var(--accent); border-color: var(--accent); }
+.style-preset-bar button:disabled { opacity: 0.45; cursor: default; }
+.style-stats { font-size: 11px; color: #8b98a8; margin: 2px 0 8px; }

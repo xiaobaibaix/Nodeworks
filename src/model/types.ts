@@ -33,6 +33,8 @@ export interface ResourceItem {
   slot?: string;
   /** 生成描述词：描述这条资源画什么/长什么样，交给外部工具生成时与全局风格拼成提示词 */
   prompt?: string;
+  /** 引用 project.style 里的主题 id；空 = 用项目默认主题 */
+  styleId?: string | null;
   /** 子资源（图片容器）：模型的各角度视图等，结构同资源项，文件随父资源一起落盘 */
   views?: ResourceItem[];
   /** 分组容器：自身不放图片，只装子视图与描述词（如「三视图」「概念图」） */

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useCurrentGraph, useGraph } from '../store';
 import { activeProvider, CAPABILITY_LABEL } from '../model/providers';
 import { generateResource, type GeneratedFile } from '../model/generation';
-import { composePrompt } from '../model/style';
+import { composePrompt, presetOf } from '../model/style';
 
 interface ResultItem {
   file: GeneratedFile;
@@ -25,6 +25,7 @@ export default function GenerateDialog() {
   const importResourceFile = useGraph((s) => s.importResourceFile);
   const applyGeneratedView = useGraph((s) => s.applyGeneratedView);
   const applyGeneratedChild = useGraph((s) => s.applyGeneratedChild);
+  const setResource = useGraph((s) => s.setResource);
   const toastOf = useGraph((s) => s.toastOf);
   const graph = useCurrentGraph();
 
@@ -79,6 +80,21 @@ export default function GenerateDialog() {
   if (!target || !node || !resource) return null;
 
   const provider = providers.find((p) => p.id === providerId);
+  const preset = presetOf(style, resource.styleId);
+  const changeStyle = (styleId: string) => {
+    setResource(node.id, resource.id, { styleId });
+    if (group) {
+      const subject = [node.title, resource.label].filter(Boolean).join(' · ');
+      setPrompt(composePrompt(style, {
+        label: group.label || '分组',
+        type: 'image',
+        styleId,
+        prompt: [resource.prompt, group.prompt].filter((t) => t && t.trim()).join('\n\n'),
+      }, subject));
+    } else {
+      setPrompt(composePrompt(style, { ...resource, styleId }, node.title));
+    }
+  };
 
   const run = async () => {
     if (!provider) {
@@ -137,7 +153,7 @@ export default function GenerateDialog() {
           <div>
             <h2>生成 · {group ? `${resource.label || resource.type} / ${group.label || '分组'}` : resource.label || resource.type}</h2>
             <div className="hint">
-              {node.title} · {group ? '分组' : resource.type} · 提示词已拼上全局「资源风格」{group ? '与模型描述' : ''}
+              {node.title} · {group ? '分组' : resource.type} · 提示词已拼上主题「{preset.name}」{group ? '与模型描述' : ''}
             </div>
           </div>
           <div className="asset-actions">
@@ -163,6 +179,20 @@ export default function GenerateDialog() {
                   {provider.model || '未填模型'} · {provider.baseUrl || '未填 Base URL'}
                 </span>
               )}
+            </span>
+          </label>
+
+          <label className="field">
+            <span>风格主题</span>
+            <span className="hint">
+              <select value={preset.id} onChange={(e) => changeStyle(e.target.value)}>
+                {style.presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.id === style.defaultId ? '（项目默认）' : ''}
+                  </option>
+                ))}
+              </select>
+              {resource.styleId ? ' · 这条资源单独引用' : ' · 跟随项目默认'}
             </span>
           </label>
 
