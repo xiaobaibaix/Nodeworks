@@ -47,6 +47,8 @@ import { joinPath } from './fs/types';
 import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitNode, UnitPort, UnitEdge } from './model/types';
 import type { SortDir } from './model/table';
 
+type ProjectUndoEntry = { label: string; project: ProjectDoc; at: number };
+
 /** 资源可能嵌在容器里，查找必须递归。 */
 function findResourceDeep(node: UnitNode | undefined, id: string): ResourceItem | undefined {
   if (!node?.resources) return undefined;
@@ -260,6 +262,9 @@ interface Store {
   moveGraphToFolder(graphId: string, folderId: string | null): void;
   moveGraphsToFolder(graphIds: string[], folderId: string | null): void;
   moveFolderTo(folderId: string, parentId: string | null): void;
+  projPast: ProjectUndoEntry[];
+  projFuture: ProjectUndoEntry[];
+  pushProjectUndo(label: string): void;
   graphClipboard: { ids: string[]; mode: 'cut' | 'copy' } | null;
   cutGraphs(ids: string[]): void;
   copyGraphs(ids: string[]): void;
@@ -432,6 +437,8 @@ export const useGraph = create<Store>((set, get) => ({
   folderError: null,
   newProjectOpen: false,
   graphClipboard: null,
+  projPast: [],
+  projFuture: [],
   projectGraphs: [],
   folders: [],
   activeGraphId: '',
@@ -511,8 +518,40 @@ export const useGraph = create<Store>((set, get) => ({
     scheduleFolderSync();
   },
 
+  pushProjectUndo: (label) => {
+    const entry: ProjectUndoEntry = { label, project: get().currentProject(), at: Date.now() };
+    set({ projPast: [...get().projPast, entry].slice(-100), projFuture: [] });
+  },
+
   undo: () => {
-    const past = get().past;
+    const { past, projPast } = get();
+    const projectTop = projPast[projPast.length - 1];
+    const graphTop = past[past.length - 1];
+    if (projectTop && (!graphTop || projectTop.at >= graphTop.at)) {
+      const current = get().currentProject();
+      const active = projectTop.project.graphs.find((g) => g.id === projectTop.project.active) ?? projectTop.project.graphs[0];
+      if (!active) return;
+      set({
+        projectGraphs: projectTop.project.graphs,
+        folders: projectTop.project.folders ?? [],
+        activeGraphId: active.id,
+        graph: active.graph,
+        path: [],
+        preview: false,
+        selectedNodes: [],
+        selectedEdge: null,
+        pendingPort: null,
+        filter: EMPTY_FILTER,
+        focus: null,
+        impactOn: false,
+        projPast: projPast.slice(0, -1),
+        projFuture: [{ ...projectTop, project: current, at: Date.now() }, ...get().projFuture].slice(0, 100),
+        toast: `已撤销「${projectTop.label}」`,
+      });
+      saveProjectDoc(projectTop.project);
+      scheduleFolderSync();
+      return;
+    }
     if (!past.length) return;
     const entry = past[past.length - 1];
     const graph = entry.revert(get().graph);
@@ -531,7 +570,34 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   redo: () => {
-    const future = get().future;
+    const { future, projFuture } = get();
+    const projectNext = projFuture[0];
+    const graphNext = future[0];
+    if (projectNext && (!graphNext || projectNext.at >= graphNext.at)) {
+      const current = get().currentProject();
+      const active = projectNext.project.graphs.find((g) => g.id === projectNext.project.active) ?? projectNext.project.graphs[0];
+      if (!active) return;
+      set({
+        projectGraphs: projectNext.project.graphs,
+        folders: projectNext.project.folders ?? [],
+        activeGraphId: active.id,
+        graph: active.graph,
+        path: [],
+        preview: false,
+        selectedNodes: [],
+        selectedEdge: null,
+        pendingPort: null,
+        filter: EMPTY_FILTER,
+        focus: null,
+        impactOn: false,
+        projPast: [...get().projPast, { ...projectNext, project: current, at: Date.now() }].slice(-100),
+        projFuture: projFuture.slice(1),
+        toast: `已重做「${projectNext.label}」`,
+      });
+      saveProjectDoc(projectNext.project);
+      scheduleFolderSync();
+      return;
+    }
     if (!future.length) return;
     const entry = future[0];
     const graph = entry.run(get().graph);
@@ -1585,6 +1651,7 @@ export const useGraph = create<Store>((set, get) => ({
       set({ toast: `一个 project 最多 ${PROJECT_LIMIT} 张图` });
       return;
     }
+    get().pushProjectUndo('新建图');
     const created = projectAddGraph(synced, name, folderId ?? null);
     const active = projectActiveGraph(created.project);
     set({
@@ -1663,6 +1730,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   addFolder: (name, parentId = null) => {
+    get().pushProjectUndo('新建分组');
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const synced = syncActive(
       { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
@@ -1680,6 +1748,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   renameFolder: (id, name) => {
+    get().pushProjectUndo('重命名分组');
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const synced = syncActive(
       { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
@@ -1693,6 +1762,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   removeFolder: (id) => {
+    get().pushProjectUndo('删除分组');
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const synced = syncActive(
       { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
@@ -1710,6 +1780,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   moveGraphToFolder: (graphId, folderId) => {
+    get().pushProjectUndo('移动图');
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const synced = syncActive(
       { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
@@ -1723,6 +1794,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   moveFolderTo: (folderId, parentId) => {
+    get().pushProjectUndo('移动分组');
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const target = folders.find((f) => f.id === folderId);
     if (!target) return;
@@ -1742,6 +1814,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   moveGraphsToFolder: (graphIds, folderId) => {
+    get().pushProjectUndo('移动图');
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const ids = [...new Set(graphIds)].filter((id) => projectGraphs.some((g) => g.id === id));
     if (!ids.length) return;
@@ -1787,6 +1860,7 @@ export const useGraph = create<Store>((set, get) => ({
       graph,
       activeGraphId,
     );
+    get().pushProjectUndo('粘贴图');
     let project = synced;
     const created: string[] = [];
     for (const id of clip.ids) {
@@ -1817,6 +1891,7 @@ export const useGraph = create<Store>((set, get) => ({
   },
 
   renameGraph: (name) => {
+    get().pushProjectUndo('重命名图');
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const before = projectGraphs.find((pg) => pg.id === activeGraphId);
     if (!before) return;
@@ -1850,6 +1925,7 @@ export const useGraph = create<Store>((set, get) => ({
     if (!opts?.skipConfirm && typeof window !== 'undefined' && !window.confirm('删除当前图？该图的节点与连线会一起删除。')) {
       return;
     }
+    get().pushProjectUndo('删除图');
     const synced = syncActive(
       { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
       graph,
@@ -1914,6 +1990,8 @@ export const useGraph = create<Store>((set, get) => ({
       folderError: null,
       newProjectOpen: false,
   graphClipboard: null,
+  projPast: [],
+  projFuture: [],
       providersOpen: false,
       generateTarget: null,
       path: [],
