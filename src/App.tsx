@@ -191,6 +191,8 @@ function Canvas() {
     return parentGraph?.nodes.find((n) => n.id === path[path.length - 1]) ?? null;
   }, [path, rootGraph]);
 
+  const projectGraphs = useGraph((s) => s.projectGraphs);
+  const graphIdSet = useMemo(() => new Set(projectGraphs.map((g) => g.id)), [projectGraphs]);
   const nodes: Node[] = useMemo(() => {
     const list: Node[] = graph.nodes.map((n) => ({
       id: n.id,
@@ -205,6 +207,7 @@ function Canvas() {
         matched: Boolean(needle) && matchIds.has(n.id),
         impact: Boolean(impact && impactNodes.has(n.id)),
         hot: link.nodes.has(n.id),
+        missingLink: Boolean(n.linkGraph && !graphIdSet.has(n.linkGraph)),
         hotPorts: Array.from(link.ports.get(n.id) ?? []),
       },
     }));
@@ -554,6 +557,10 @@ function Canvas() {
       onNodeDoubleClick={(_, node) => {
         const model = (node.data as { node?: { subgraph?: unknown; linkGraph?: string } } | undefined)?.node;
         if (model?.linkGraph) {
+          if (!useGraph.getState().projectGraphs.some((g) => g.id === model.linkGraph)) {
+            useGraph.setState({ toast: '引用的图已删除，这个子图已失效；请删除它或重新放置' });
+            return;
+          }
           useGraph.getState().switchGraph(model.linkGraph);
           return;
         }

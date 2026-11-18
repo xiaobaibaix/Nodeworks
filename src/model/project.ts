@@ -270,3 +270,20 @@ export function graphLevelLabel(level: number): string {
   const names = ['', '一级矿', '二级产物', '三级产物', '四级产物', '五级产物', '六级产物', '七级产物', '八级产物', '九级产物', '十级产物'];
   return names[level] ?? `${level}级产物`;
 }
+
+export type GraphRef = { graphId: string; graphName: string; nodeId: string; nodeTitle: string };
+
+/** 找出项目里所有引用了 targetId 这张图的子图节点（含嵌套子图内部）。 */
+export function graphRefs(project: ProjectDoc, targetId: string): GraphRef[] {
+  const refs: GraphRef[] = [];
+  const walk = (nodes: ProjectGraph['graph']['nodes'], graphId: string, graphName: string) => {
+    for (const n of nodes) {
+      if (n.linkGraph === targetId) {
+        refs.push({ graphId, graphName, nodeId: n.id, nodeTitle: n.title });
+      }
+      if (n.subgraph) walk(n.subgraph.nodes, graphId, graphName);
+    }
+  };
+  for (const pg of project.graphs) walk(pg.graph.nodes, pg.id, pg.name);
+  return refs;
+}

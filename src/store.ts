@@ -28,11 +28,11 @@ import {
 import {
   activeGraph as projectActiveGraph, addGraph as projectAddGraph, addFolder as projectAddFolder,
   moveGraphToFolder as projectMoveGraph, projectFromGraph, removeFolder as projectRemoveFolder,
-  normalizeProject,
+  normalizeProject, graphRefs,
   removeGraph as projectRemoveGraph, renameFolder as projectRenameFolder,
   renameGraph as projectRenameGraph, parseProjectDoc, PROJECT_LIMIT, syncActive,
   switchGraph as switchProjectGraph, unifyKinds,
-  type ProjectDoc, type ProjectFolder, type ProjectGraph,
+  type GraphRef, type ProjectDoc, type ProjectFolder, type ProjectGraph,
 } from './model/project';
 import { EMPTY_STYLE, type ProjectStyle } from './model/style';
 import {
@@ -260,7 +260,8 @@ interface Store {
   moveGraphToFolder(graphId: string, folderId: string | null): void;
   importGraph(name?: string): Promise<void>;
   renameGraph(name: string): void;
-  removeGraph(): void;
+  removeGraph(opts?: { skipConfirm?: boolean }): void;
+  graphReferences(id: string): GraphRef[];
   addPort(nodeId: string, dir: 'in' | 'out'): void;
   setPort(nodeId: string, portId: string, patch: Partial<UnitPort>): void;
   requestRemovePort(nodeId: string, portId: string): void;
@@ -1729,13 +1730,23 @@ export const useGraph = create<Store>((set, get) => ({
     scheduleFolderSync();
   },
 
-  removeGraph: () => {
+  graphReferences: (id) => {
+    const { graph, projectGraphs, folders, activeGraphId } = get();
+    const doc = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    return graphRefs(doc, id);
+  },
+
+  removeGraph: (opts) => {
     const { graph, projectGraphs, folders, activeGraphId } = get();
     if (projectGraphs.length <= 1) {
       set({ toast: '至少保留一张图' });
       return;
     }
-    if (typeof window !== 'undefined' && !window.confirm('删除当前图？该图的节点与连线会一起删除。')) {
+    if (!opts?.skipConfirm && typeof window !== 'undefined' && !window.confirm('删除当前图？该图的节点与连线会一起删除。')) {
       return;
     }
     const synced = syncActive(

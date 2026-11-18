@@ -54,6 +54,7 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   const matched = Boolean(data.matched);
   const impact = Boolean(data.impact);
   const hot = Boolean(data.hot);
+  const missingLink = Boolean(data.missingLink);
   const hotPorts = (data.hotPorts as string[] | undefined) ?? [];
   const ins = node.ports.filter((p) => p.dir === 'in');
   const outs = node.ports.filter((p) => p.dir === 'out');
@@ -135,13 +136,16 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   }, [id, portKey, updateNodeInternals]);
   return (
     <div
-      className={`unit-node${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}${matched ? ' is-match' : ''}${impact ? ' is-impact' : ''}${hot ? ' is-hot' : ''}`}
+      className={`unit-node${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}${matched ? ' is-match' : ''}${impact ? ' is-impact' : ''}${hot ? ' is-hot' : ''}${missingLink ? ' is-missing' : ''}`}
     >
       <div className="unit-head">
         {iconUrl && <img className="unit-icon" src={iconUrl} alt="" draggable={false} />}
         <span className="unit-kind">{node.kind || 'unit'}</span>
         <span className="unit-title">{node.title}</span>
-        {rate != null && (
+        {missingLink && (
+          <span className="unit-missing" title="这个子图引用的图已被删除，请手动删除或重新放置">图不存在</span>
+        )}
+        {rate != null && !missingLink && (
           <span className="unit-rate" title="子图对外的单位时间产率（按内部机器周期估算）">
             {rate}/分
           </span>

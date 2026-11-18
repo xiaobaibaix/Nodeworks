@@ -246,6 +246,7 @@ function ModelTemplate({ node }: { node: UnitNode }) {
 
 export default function Inspector() {
   const graph = useCurrentGraph();
+  const projectGraphs = useGraph((s) => s.projectGraphs);
   const selectedNodes = useGraph((s) => s.selectedNodes);
   const edgeId = useGraph((s) => s.selectedEdge);
   const renameNode = useGraph((s) => s.renameNode);
@@ -268,6 +269,7 @@ export default function Inspector() {
   const node = selectedNodes.length === 1
     ? graph.nodes.find((n) => n.id === selectedNodes[0])
     : undefined;
+  const missingRef = Boolean(node?.linkGraph && !projectGraphs.some((g) => g.id === node.linkGraph));
 
   if (edge) {
     const from = graph.nodes.find((n) => n.id === edge.from.node);
@@ -459,10 +461,14 @@ export default function Inspector() {
       {node.subgraph && (
         <section className="sec">
           <SectionHead title="子图" note={`${node.subgraph.nodes.length} 个单元`} />
-          <div className="btn-row">
-            <button onClick={() => enterSubgraph(node.id)}>进入子图</button>
-          </div>
-          {node.ports.length > 0 && (
+          {missingRef ? (
+            <div className="hint danger">引用的图「{node.linkGraph}」已删除，这个子图已失效。请删除这个节点，或重新放置一张图。</div>
+          ) : (
+            <div className="btn-row">
+              <button onClick={() => enterSubgraph(node.id)}>进入子图</button>
+            </div>
+          )}
+          {!missingRef && node.ports.length > 0 && (
             <div className="map-list">
               {[...ins, ...outs].map((port) => {
                 const mapped = node.subgraphMap?.[port.id];

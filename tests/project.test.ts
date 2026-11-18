@@ -1,6 +1,7 @@
+import { emptyGraph } from '../src/model/ops';
 import { describe, expect, it } from 'vitest';
 import {
-  addFolder, addGraph, graphLevelLabel, mergeKinds, moveGraphToFolder, normalizeProject,
+  addFolder, addGraph, graphLevelLabel, graphRefs, mergeKinds, moveGraphToFolder, normalizeProject,
   parseProjectDoc, projectFromGraph, removeFolder, removeGraph, renameFolder, renameGraph,
   syncActive, switchGraph, unifyKinds, type ProjectDoc,
 } from '../src/model/project';
@@ -162,5 +163,28 @@ describe('图分组（文件树）', () => {
     expect(project.folders?.length).toBe(1);
     expect(project.graphs.every((g) => g.folderId === project.folders![0].id)).toBe(true);
     expect(project.folders![0].name).toBe('其它');
+  });
+});
+
+
+describe('graphRefs', () => {
+  it('能找到直接引用与嵌套子图内部的引用', () => {
+    const leaf = emptyGraph();
+    const inner = emptyGraph();
+    inner.nodes.push({ id: 'n_inner', title: '内层引用', props: {}, pos: { x: 0, y: 0 }, ports: [], linkGraph: 'g_target' });
+    const outer = emptyGraph();
+    outer.nodes.push({ id: 'n_outer', title: '外层引用', props: {}, pos: { x: 0, y: 0 }, ports: [], linkGraph: 'g_target' });
+    outer.nodes.push({ id: 'n_host', title: '宿主', props: {}, pos: { x: 0, y: 0 }, ports: [], subgraph: inner });
+    const doc: ProjectDoc = {
+      version: 1,
+      active: 'g_host',
+      graphs: [
+        { id: 'g_host', name: '宿主图', graph: outer },
+        { id: 'g_target', name: '被引用', graph: leaf },
+      ],
+    };
+    const refs = graphRefs(doc, 'g_target');
+    expect(refs.map((r) => r.nodeId).sort()).toEqual(['n_inner', 'n_outer']);
+    expect(refs.every((r) => r.graphId === 'g_host')).toBe(true);
   });
 });

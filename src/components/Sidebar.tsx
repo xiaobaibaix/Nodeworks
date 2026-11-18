@@ -416,8 +416,20 @@ export default function Sidebar() {
   };
   const deleteGraphById = (id: string) => {
     setCtxMenu(null);
+    const pg = projectGraphs.find((g) => g.id === id);
+    const refs = useGraph.getState().graphReferences(id);
+    const loud = refs.length > 0;
+    if (loud) {
+      const names = Array.from(new Set(refs.map((r) => r.graphName)));
+      const where = names.slice(0, 4).join('、') + (names.length > 4 ? ' 等' : '');
+      const ok = window.confirm(
+        `「${pg?.name ?? '这张图'}」正被 ${refs.length} 个子图节点引用（${where}）。\n\n` +
+        '删除后这些子图节点会保留下来，但会被标记为「图不存在」，需要你手动删除或重新放置。\n\n确定删除？',
+      );
+      if (!ok) return;
+    }
     if (id !== activeGraphId) switchGraph(id);
-    removeGraph();
+    removeGraph({ skipConfirm: loud });
   };
   const renameFolderById = (id: string) => {
     const folder = folders.find((f) => f.id === id);
@@ -533,36 +545,6 @@ export default function Sidebar() {
             ))}
           {folderChildren(null).map((f) => renderFolder(f, 0))}
 
-          {projectGraphs
-            .filter((pg) => !pg.folderId)
-            .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
-            .map((pg) => (
-              <button
-                key={pg.id}
-                className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
-                  e.dataTransfer.effectAllowed = 'copy';
-                  setGraphDragImage(e, pg.name, pg.graph.nodes.length);
-                }}
-                style={{ paddingLeft: 22 }}
-                title={pg.name}
-                onClick={() => {
-                  treeRef.current?.focus();
-                  switchGraph(pg.id);
-                  setSelFolder(null);
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setCtxMenu({ x: e.clientX, y: e.clientY, folderId: pg.folderId ?? null, graphId: pg.id });
-                }}
-              >
-                <IconFile />
-                <span className="graph-tree-name">{pg.name}</span>
-              </button>
-            ))}
         </div>
 
 
