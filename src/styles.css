@@ -1725,14 +1725,13 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .graph-folder-actions button:hover { background: #232b35; color: #f0a25c; }
 .graph-folder-sticky {
   position: sticky; top: 0; z-index: 6; margin-bottom: -28px; height: 28px; min-height: 28px; line-height: 28px;
-  display: grid; grid-template-columns: 12px 14px 1fr auto; gap: 6px; align-items: center;
+  display: grid; grid-template-columns: 12px 16px 1fr auto; gap: 6px; align-items: center;
   width: 100%; padding: 0 8px; font-size: 11px; color: #c7cedb; cursor: pointer;
-  background: #12171d; border: 0; border-bottom: 1px solid #1d242d; text-align: left;
+  background: #12171d; border: 0; border-left: 2px solid transparent; border-bottom: 1px solid #1d242d; text-align: left;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   transform: translateY(calc(-1 * var(--push, 0px)));
-  animation: sticky-in 190ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  will-change: transform, opacity;
 }
+.graph-folder-sticky.is-anim { animation: sticky-in 190ms cubic-bezier(0.22, 0.61, 0.36, 1); }
 .graph-folder-sticky .tree-ic.folder { color: #6ea8fe; }
 @keyframes sticky-in {
   from { opacity: 0; transform: translateY(calc(-1 * var(--push, 0px) - 2px)); }

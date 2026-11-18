@@ -118,8 +118,9 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [selFolder, setSelFolder] = useState<string | null>(null);
-  const [stuckFolder, setStuckFolder] = useState<{ id: string; push: number } | null>(null);
+  const [stuckFolder, setStuckFolder] = useState<{ id: string; push: number; anim: boolean } | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
+  const stuckIdRef = useRef<string | null>(null);
   const [cursor, setCursor] = useState(-1);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folderId: string | null; graphId?: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -175,7 +176,7 @@ export default function Sidebar() {
   const syncStuck = () => {
     const el = treeRef.current;
     if (!el) return;
-    if (el.scrollTop < 4) { setStuckFolder(null); return; }
+    if (el.scrollTop < 4) { stuckIdRef.current = null; setStuckFolder(null); return; }
     const top = el.getBoundingClientRect().top;
     const stickyH = 28;
     const heads = Array.from(el.querySelectorAll<HTMLElement>('.graph-folder-head'));
@@ -208,10 +209,15 @@ export default function Sidebar() {
         const nextTop = next.getBoundingClientRect().top;
         push = Math.max(0, Math.min(stickyH, stickyH - (nextTop - top)));
       }
-      setStuckFolder({ id: last.dataset.fid ?? '', push });
+      const nextId = last.dataset.fid ?? '';
+      const anim = stuckIdRef.current === null;
+      stuckIdRef.current = nextId;
+      setStuckFolder({ id: nextId, push, anim });
       return;
     }
-    setStuckFolder({ id: current, push: 0 });
+    const anim = stuckIdRef.current === null;
+    stuckIdRef.current = current;
+    setStuckFolder({ id: current, push: 0, anim });
   };
 
   useEffect(() => { syncStuck(); }, [openFolders, folders]);
@@ -455,7 +461,7 @@ export default function Sidebar() {
             return (
               <button
                 key={hit.id}
-                className="graph-folder-sticky"
+                className={`graph-folder-sticky${stuckFolder.anim ? ' is-anim' : ''}`}
                 style={{ ['--push' as string]: `${stuckFolder.push}px` }}
                 onClick={() => toggleFolder(hit.id)}
                 title="点击折叠/展开这一组"
