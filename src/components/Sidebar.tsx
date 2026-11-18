@@ -118,9 +118,12 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [selFolder, setSelFolder] = useState<string | null>(null);
-  const [stuckFolder, setStuckFolder] = useState<{ id: string; push: number; anim: boolean } | null>(null);
+  const [stuckFolder, setStuckFolder] = useState<{ id: string; anim: boolean } | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const stuckIdRef = useRef<string | null>(null);
+  const stickyElRef = useRef<HTMLButtonElement | null>(null);
+  const pushRef = useRef(0);
+  const scrollRafRef = useRef(0);
   const [cursor, setCursor] = useState(-1);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folderId: string | null; graphId?: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -207,17 +210,22 @@ export default function Sidebar() {
       let push = 0;
       if (next) {
         const nextTop = next.getBoundingClientRect().top;
-        push = Math.max(0, Math.min(stickyH, stickyH - (nextTop - top)));
+        push = Math.round(Math.max(0, Math.min(stickyH, stickyH - (nextTop - top))));
       }
       const nextId = last.dataset.fid ?? '';
+      const changed = stuckIdRef.current !== nextId;
       const anim = stuckIdRef.current === null;
       stuckIdRef.current = nextId;
-      setStuckFolder({ id: nextId, push, anim });
+      pushRef.current = push;
+      if (changed) setStuckFolder({ id: nextId, anim });
+      else stickyElRef.current?.style.setProperty('--push', `${push}px`);
       return;
     }
     const anim = stuckIdRef.current === null;
     stuckIdRef.current = current;
-    setStuckFolder({ id: current, push: 0, anim });
+    pushRef.current = 0;
+    if (anim) setStuckFolder({ id: current, anim });
+    else stickyElRef.current?.style.setProperty('--push', '0px');
   };
 
   useEffect(() => { syncStuck(); }, [openFolders, folders]);
@@ -438,7 +446,13 @@ export default function Sidebar() {
         aria-label="图列表"
         tabIndex={0}
         ref={treeRef}
-        onScroll={syncStuck}
+        onScroll={() => {
+                if (scrollRafRef.current) return;
+                scrollRafRef.current = requestAnimationFrame(() => {
+                  scrollRafRef.current = 0;
+                  syncStuck();
+                });
+              }}
         style={{ height: treeH }}
         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, folderId: null }); }}
         onKeyDown={(e) => {
@@ -462,7 +476,10 @@ export default function Sidebar() {
               <button
                 key={hit.id}
                 className={`graph-folder-sticky${stuckFolder.anim ? ' is-anim' : ''}`}
-                style={{ ['--push' as string]: `${stuckFolder.push}px` }}
+                ref={(el) => {
+                  stickyElRef.current = el;
+                  if (el) el.style.setProperty('--push', `${pushRef.current}px`);
+                }}
                 onClick={() => toggleFolder(hit.id)}
                 title="点击折叠/展开这一组"
               >
