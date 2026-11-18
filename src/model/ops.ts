@@ -15,7 +15,7 @@ export function createNode(title = '新单元', pos = { x: 120, y: 120 }): UnitN
 export function createPort(
   dir: 'in' | 'out',
   label?: string,
-  capacity: 'one' | 'many' = dir === 'in' ? 'one' : 'many',
+  capacity: 'one' | 'many' = 'many',
 ): UnitPort {
   return { id: uid('p'), dir, label: label ?? (dir === 'in' ? '输入' : '输出'), capacity };
 }
