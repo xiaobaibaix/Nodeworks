@@ -183,49 +183,60 @@ export default function Sidebar() {
     const top = el.getBoundingClientRect().top;
     const stickyH = 28;
     const heads = Array.from(el.querySelectorAll<HTMLElement>('.graph-folder-head'));
-    let current: string | null = null;
-    let best = -Infinity;
-    heads.forEach((head) => {
-      const rect = head.getBoundingClientRect();
-      if (rect.top > top + 1 || rect.top <= best) return;
-      // 只有内容还露在吸顶条下面时，这个分组才配当吸顶标题；
-      // 滚过去的是一个已经看完的空分组时，应退回上一级。
-      const body = head.parentElement?.querySelector<HTMLElement>(':scope > .graph-folder-body');
-      if (!body || body.getBoundingClientRect().bottom <= top + stickyH) return;
-      best = rect.top;
-      current = head.dataset.fid ?? null;
-    });
-    if (!current) {
-      // 根层级分组的最后一块内容滚完后，标题不应该瞬间消失，
-      // 而是像原生 section header 一样被下一个标题顶出去。
-      const rootPassed = heads.filter((head) => {
-        const rect = head.getBoundingClientRect();
-        const fid = head.dataset.fid ?? '';
-        return rect.top <= top + 1 && (folders.find((f) => f.id === fid)?.parentId ?? null) === null;
-      });
-      const last = rootPassed[rootPassed.length - 1];
-      if (!last) { setStuckFolder(null); return; }
-      const idx = heads.indexOf(last);
-      const next = heads.slice(idx + 1).find((head) => head.getBoundingClientRect().top > top + 1);
-      let push = 0;
-      if (next) {
-        const nextTop = next.getBoundingClientRect().top;
-        push = Math.round(Math.max(0, Math.min(stickyH, stickyH - (nextTop - top))));
-      }
-      const nextId = last.dataset.fid ?? '';
-      const changed = stuckIdRef.current !== nextId;
-      const anim = stuckIdRef.current === null;
-      stuckIdRef.current = nextId;
-      pushRef.current = push;
-      if (changed) setStuckFolder({ id: nextId, anim });
-      else stickyElRef.current?.style.setProperty('--push', `${push}px`);
-      return;
+    const headOf = (id: string | null) => (id ? heads.find((h) => h.dataset.fid === id) ?? null : null);
+    const bodyOf = (h: HTMLElement) => h.parentElement?.querySelector<HTMLElement>(':scope > .graph-folder-body') ?? null;
+    const visible = (h: HTMLElement | null) => {
+      if (!h) return false;
+      const body = bodyOf(h);
+      return !!body && body.getBoundingClientRect().bottom > top + stickyH;
+    };
+    const parentOf = (id: string | null) => (id ? folders.find((f) => f.id === id)?.parentId ?? null : null);
+
+    // 最后一个已经滚过顶部的标题（文档顺序），绝不会倒退到更早的分组
+    let deepest: HTMLElement | null = null;
+    for (const head of heads) {
+      if (head.getBoundingClientRect().top <= top + 1) deepest = head;
     }
+    if (!deepest) { stuckIdRef.current = null; setStuckFolder(null); return; }
+
+    // 内容还露在吸顶条下面就用它；子分组内容看完则回到最近的、内容仍可见的祖先；
+    // 如果祖先也都滚完了，就停在最深分组所属的根分组上，等下一个标题把它顶走。
+    let target = deepest;
+    if (!visible(target)) {
+      let p = parentOf(target.dataset.fid ?? null);
+      let found: HTMLElement | null = null;
+      while (p) {
+        const h = headOf(p);
+        if (visible(h)) { found = h; break; }
+        p = parentOf(p);
+      }
+      if (found) target = found;
+      else {
+        let root = target;
+        let rp = parentOf(target.dataset.fid ?? null);
+        while (rp) {
+          root = headOf(rp) ?? root;
+          rp = parentOf(rp);
+        }
+        target = root;
+      }
+    }
+
+    const idx = heads.indexOf(target);
+    const next = heads.slice(idx + 1).find((h) => h.getBoundingClientRect().top > top + 1);
+    let push = 0;
+    if (next) {
+      const nextTop = next.getBoundingClientRect().top;
+      push = Math.round(Math.max(0, Math.min(stickyH, stickyH - (nextTop - top))));
+    }
+
+    const id = target.dataset.fid ?? '';
+    const changed = stuckIdRef.current !== id;
     const anim = stuckIdRef.current === null;
-    stuckIdRef.current = current;
-    pushRef.current = 0;
-    if (anim) setStuckFolder({ id: current, anim });
-    else stickyElRef.current?.style.setProperty('--push', '0px');
+    stuckIdRef.current = id;
+    pushRef.current = push;
+    if (changed) setStuckFolder({ id, anim });
+    else stickyElRef.current?.style.setProperty('--push', `${push}px`);
   };
 
   useEffect(() => { syncStuck(); }, [openFolders, folders]);
