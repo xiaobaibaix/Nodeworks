@@ -181,10 +181,13 @@ export default function Sidebar() {
     let best = -Infinity;
     el.querySelectorAll<HTMLElement>('.graph-folder-head').forEach((head) => {
       const rect = head.getBoundingClientRect();
-      if (rect.top <= top + 1 && rect.top > best) {
-        best = rect.top;
-        current = head.dataset.fid ?? null;
-      }
+      if (rect.top > top + 1 || rect.top <= best) return;
+      // 只有当这个分组的内容还露在可视区里时，它才配当吸顶标题；
+      // 否则滚过去的是一个已经看完的空分组，应该退回上一级。
+      const body = head.parentElement?.querySelector<HTMLElement>(':scope > .graph-folder-body');
+      if (!body || body.getBoundingClientRect().bottom <= top + 1) return;
+      best = rect.top;
+      current = head.dataset.fid ?? null;
     });
     setStuckFolder(current);
   };
