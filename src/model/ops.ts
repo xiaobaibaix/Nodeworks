@@ -51,9 +51,6 @@ export function validateConnection(g: Graph, from: Endpoint, to: Endpoint): stri
       e.to.port === to.port,
   );
   if (dup) return '这条线已经存在';
-  if (b.capacity === 'one' && g.edges.some((e) => !e.orphan && e.to.node === to.node && e.to.port === to.port)) {
-    return '该输入口只允许一条连线';
-  }
   return null;
 }
 

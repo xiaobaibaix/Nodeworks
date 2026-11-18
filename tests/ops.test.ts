@@ -40,19 +40,6 @@ describe('连接校验', () => {
     expect(validateConnection(g, { node: a.id, port: out.id }, { node: a.id, port: input.id })).toBe('不能连到自己');
   });
 
-  it('单条输入口拒绝第二条线', () => {
-    const g = emptyGraph();
-    const a = createNode('A');
-    const b = createNode('B');
-    const out = createPort('out');
-    const single = createPort('in', '入', 'one');
-    a.ports = [out];
-    b.ports = [single];
-    g.nodes = [a, b];
-    const first = createEdge({ node: a.id, port: out.id }, { node: b.id, port: single.id });
-    g.edges = [first];
-    expect(validateConnection(g, { node: a.id, port: out.id }, { node: b.id, port: single.id })).toBe('这条线已经存在');
-  });
 
   it('重复连线会被拒绝', () => {
     const { g, a, b, out, input } = fixture();

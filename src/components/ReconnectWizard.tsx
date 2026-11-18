@@ -18,14 +18,7 @@ export default function ReconnectWizard() {
 
   const affected = graph.edges.filter((e) => isPortEndpoint(e, pending.nodeId, pending.portId));
   const candidates = node.ports.filter((p) => {
-    if (p.id === port.id || p.dir !== port.dir) return false;
-    if (p.dir === 'in' && p.capacity === 'one') {
-      const occupied = graph.edges.filter(
-        (e) => !e.orphan && e.to.node === node.id && e.to.port === p.id,
-      ).length;
-      return occupied === 0 && affected.length === 1;
-    }
-    return true;
+    return p.id !== port.id && p.dir === port.dir;
   });
   const current = candidates.some((p) => p.id === choice) ? choice : NEW;
 

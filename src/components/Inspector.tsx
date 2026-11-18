@@ -432,13 +432,6 @@ export default function Inspector() {
           <div className="port-row" key={port.id}>
             <span className={`badge ${port.dir}`}>{port.dir === 'in' ? 'IN' : 'OUT'}</span>
             <TextCommit value={port.label} onCommit={(v) => setPort(node.id, port.id, { label: v })} />
-            <select
-              value={port.capacity}
-              onChange={(e) => setPort(node.id, port.id, { capacity: e.target.value as 'one' | 'many' })}
-            >
-              <option value="many">多条</option>
-              <option value="one">单条</option>
-            </select>
             <button
               className="icon"
               title="删除端口（有连线时可改接）"
