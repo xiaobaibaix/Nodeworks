@@ -41,7 +41,7 @@ import {
 } from './model/providers';
 import { loadCached, loadProject, pickGraphFile, saveCached, saveProject as saveProjectDoc } from './persistence';
 import { DiskFS } from './fs/disk';
-import { graphDirName, hasFolderProject, nodeDirName, readProject, resourceFileName, writeProject } from './model/folder';
+import { graphDirName, graphLevelFolder, hasFolderProject, nodeDirName, readProject, resourceFileName, writeProject } from './model/folder';
 import { clearFolderHandle, loadFolderHandle, saveFolderHandle } from './fs/handleStore';
 import { joinPath } from './fs/types';
 import type { Endpoint, Graph, KindDef, PropMeta, ResourceItem, ResourceType, UnitNode, UnitPort, UnitEdge } from './model/types';
@@ -2047,7 +2047,7 @@ export const useGraph = create<Store>((set, get) => ({
       ?? state.projectGraphs.find((pg) => pg.graph.nodes.some((n) => n.id === nodeId));
     if (!node || !card) return null;
     const rel = resource.file ?? joinPath('resources', resourceFileName(resource));
-    return joinPath('graphs', graphDirName(card.name, card.id), 'nodes', nodeDirName(node), rel);
+    return joinPath('graphs', graphLevelFolder(card.level ?? 0), graphDirName(card.name, card.id), 'nodes', nodeDirName(node), rel);
   },
 
   readFolderAsset: async (nodeId, resource) => {
@@ -2059,12 +2059,19 @@ export const useGraph = create<Store>((set, get) => ({
     if (!node || !card) return null;
     try {
       const rel = resource.file ?? joinPath('resources', resourceFileName(resource));
-      const path = joinPath('graphs', graphDirName(card.name, card.id), 'nodes', nodeDirName(node), rel);
-      const bytes = await new DiskFS(folderHandle).readBytes(path);
-      if (!bytes) return null;
-      const copy = new Uint8Array(bytes.byteLength);
-      copy.set(bytes);
-      return new Blob([copy]);
+      const fs = new DiskFS(folderHandle);
+      const candidates = [
+        joinPath('graphs', graphLevelFolder(card.level ?? 0), graphDirName(card.name, card.id), 'nodes', nodeDirName(node), rel),
+        joinPath('graphs', graphDirName(card.name, card.id), 'nodes', nodeDirName(node), rel),
+      ];
+      for (const path of candidates) {
+        const bytes = await fs.readBytes(path);
+        if (!bytes) continue;
+        const copy = new Uint8Array(bytes.byteLength);
+        copy.set(bytes);
+        return new Blob([copy]);
+      }
+      return null;
     } catch {
       return null;
     }
