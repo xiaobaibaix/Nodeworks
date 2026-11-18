@@ -185,7 +185,10 @@ export default function Sidebar() {
       // 只有当这个分组的内容还露在可视区里时，它才配当吸顶标题；
       // 否则滚过去的是一个已经看完的空分组，应该退回上一级。
       const body = head.parentElement?.querySelector<HTMLElement>(':scope > .graph-folder-body');
-      if (!body || body.getBoundingClientRect().bottom <= top + 1) return;
+      // 吸顶条本身高 28px：内容必须露在吸顶条下面才算“还看得到”，
+      // 否则最后一项已经钻到条后面了，应立刻退回上一级。
+      const stickyH = 28;
+      if (!body || body.getBoundingClientRect().bottom <= top + stickyH) return;
       best = rect.top;
       current = head.dataset.fid ?? null;
     });
