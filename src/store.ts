@@ -258,6 +258,11 @@ interface Store {
   renameFolder(id: string, name: string): void;
   removeFolder(id: string): void;
   moveGraphToFolder(graphId: string, folderId: string | null): void;
+  moveGraphsToFolder(graphIds: string[], folderId: string | null): void;
+  graphClipboard: { ids: string[]; mode: 'cut' | 'copy' } | null;
+  cutGraphs(ids: string[]): void;
+  copyGraphs(ids: string[]): void;
+  pasteGraphs(folderId: string | null): void;
   importGraph(name?: string): Promise<void>;
   renameGraph(name: string): void;
   removeGraph(opts?: { skipConfirm?: boolean }): void;
@@ -301,7 +306,7 @@ interface Store {
   setPreview(on: boolean): void;
   addSubgraphNode(pos?: Pos): void;
   /** 从文件树拖入一张图，作为当前图的子图节点（黑盒：只暴露产物出口与产率）。 */
-  addGraphRef(graphId: string, pos: Pos, dir?: 'in' | 'out' | 'both', autoFrom?: string): void;
+  addGraphRef(graphId: string, pos: Pos, dir?: 'in' | 'out' | 'both', autoFrom?: string, embed?: boolean): void;
   /** 新建一张下游子图（空图），并在当前图放下一个输入口子图节点。 */
   createDownstream(name: string, pos: Pos, folderId?: string | null, dir?: 'in' | 'out'): void;
   setSubgraphMap(nodeId: string, portId: string, endpoint: Endpoint | null): void;
@@ -425,6 +430,7 @@ export const useGraph = create<Store>((set, get) => ({
   assetPrompt: 0,
   folderError: null,
   newProjectOpen: false,
+  graphClipboard: null,
   projectGraphs: [],
   folders: [],
   activeGraphId: '',
@@ -1715,6 +1721,81 @@ export const useGraph = create<Store>((set, get) => ({
     scheduleFolderSync();
   },
 
+  moveGraphsToFolder: (graphIds, folderId) => {
+    const { graph, projectGraphs, folders, activeGraphId } = get();
+    const ids = [...new Set(graphIds)].filter((id) => projectGraphs.some((g) => g.id === id));
+    if (!ids.length) return;
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    let project = synced;
+    for (const id of ids) project = projectMoveGraph(project, id, folderId);
+    set({
+      projectGraphs: project.graphs,
+      folders: project.folders ?? [],
+      toast: ids.length > 1 ? `已移动 ${ids.length} 张图` : '已移动 1 张图',
+    });
+    saveProjectDoc(project);
+    scheduleFolderSync();
+  },
+
+  cutGraphs: (ids) => {
+    const valid = [...new Set(ids)].filter((id) => get().projectGraphs.some((g) => g.id === id));
+    if (!valid.length) return;
+    set({ graphClipboard: { ids: valid, mode: 'cut' }, toast: `已剪切 ${valid.length} 张图，右键目标分组粘贴` });
+  },
+
+  copyGraphs: (ids) => {
+    const valid = [...new Set(ids)].filter((id) => get().projectGraphs.some((g) => g.id === id));
+    if (!valid.length) return;
+    set({ graphClipboard: { ids: valid, mode: 'copy' }, toast: `已复制 ${valid.length} 张图` });
+  },
+
+  pasteGraphs: (folderId) => {
+    const clip = get().graphClipboard;
+    if (!clip) return;
+    if (clip.mode === 'cut') {
+      get().moveGraphsToFolder(clip.ids, folderId);
+      set({ graphClipboard: null });
+      return;
+    }
+    const { graph, projectGraphs, folders, activeGraphId } = get();
+    const synced = syncActive(
+      { version: 1, active: activeGraphId, graphs: projectGraphs, folders, style: get().projectStyle },
+      graph,
+      activeGraphId,
+    );
+    let project = synced;
+    const created: string[] = [];
+    for (const id of clip.ids) {
+      const src = project.graphs.find((g) => g.id === id);
+      if (!src) continue;
+      const name = `${src.name} 副本`;
+      const res = projectAddGraph(project, name, folderId);
+      project = res.project;
+      project = {
+        ...project,
+        active: activeGraphId,
+        graphs: project.graphs.map((pg) =>
+          pg.id === res.id
+            ? { ...pg, name, level: src.level ?? 0, folderId, graph: structuredClone(src.graph) }
+            : pg,
+        ),
+      };
+      created.push(res.id);
+    }
+    if (!created.length) return;
+    set({
+      projectGraphs: project.graphs,
+      folders: project.folders ?? [],
+      toast: `已粘贴 ${created.length} 张图`,
+    });
+    saveProjectDoc(project);
+    scheduleFolderSync();
+  },
+
   renameGraph: (name) => {
     const { graph, projectGraphs, folders, activeGraphId } = get();
     const before = projectGraphs.find((pg) => pg.id === activeGraphId);
@@ -1812,6 +1893,7 @@ export const useGraph = create<Store>((set, get) => ({
       assetPrompt: 0,
       folderError: null,
       newProjectOpen: false,
+  graphClipboard: null,
       providersOpen: false,
       generateTarget: null,
       path: [],
@@ -2142,7 +2224,7 @@ export const useGraph = create<Store>((set, get) => ({
     set({ selectedNodes: [node.id], selectedEdge: null });
   },
 
-  addGraphRef: (graphId, pos, dir = 'out', autoFrom) => {
+  addGraphRef: (graphId, pos, dir = 'out', autoFrom, embed = true) => {
     const state = get();
     const card = state.projectGraphs.find((p) => p.id === graphId);
     if (!card) return;
@@ -2154,7 +2236,7 @@ export const useGraph = create<Store>((set, get) => ({
     const node = createNode('子图', pos);
     node.title = card.name;
     node.linkGraph = graphId;
-    node.subgraph = inner;
+    if (embed) node.subgraph = inner;
     node.ports =
       dir === 'both'
         ? [createPort('in', '产物', 'many'), createPort('out', '产物', 'many')]

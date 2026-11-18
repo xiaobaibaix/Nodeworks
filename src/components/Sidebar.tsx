@@ -4,7 +4,7 @@ import {
   groupByKind, isolatedNodeIds, kindOptions, nodeMatches, orphanNodeIds, visibleNodes,
 } from '../model/query';
 import { useCurrentGraph, useGraph } from '../store';
-import { type ProjectFolder } from '../model/project';
+import { type ProjectFolder, type ProjectGraph } from '../model/project';
 
 function highlight(text: string, query: string) {
   const needle = query.trim().toLowerCase();
@@ -47,25 +47,6 @@ function IconFile() {
   );
 }
 
-/** 拖图时用一张“子图节点”卡片作为拖拽影像，而不是文件树行。 */
-function setGraphDragImage(e: React.DragEvent, name: string, count: number) {
-  const ghost = document.createElement('div');
-  ghost.className = 'graph-ghost';
-  const kind = document.createElement('div');
-  kind.className = 'graph-ghost-kind';
-  kind.textContent = '子图';
-  const title = document.createElement('div');
-  title.className = 'graph-ghost-title';
-  title.textContent = name;
-  const meta = document.createElement('div');
-  meta.className = 'graph-ghost-meta';
-  meta.textContent = `子图 · ${count} 个单元`;
-  ghost.append(kind, title, meta);
-  document.body.appendChild(ghost);
-  e.dataTransfer.setDragImage(ghost, 24, 22);
-  window.setTimeout(() => ghost.remove(), 0);
-}
-
 export default function Sidebar() {
   const graph = useCurrentGraph();
   const filter = useGraph((s) => s.filter);
@@ -79,6 +60,11 @@ export default function Sidebar() {
   const addGraph = useGraph((s) => s.addGraph);
   const renameGraph = useGraph((s) => s.renameGraph);
   const removeGraph = useGraph((s) => s.removeGraph);
+  const moveGraphsToFolder = useGraph((s) => s.moveGraphsToFolder);
+  const graphClipboard = useGraph((s) => s.graphClipboard);
+  const cutGraphs = useGraph((s) => s.cutGraphs);
+  const copyGraphs = useGraph((s) => s.copyGraphs);
+  const pasteGraphs = useGraph((s) => s.pasteGraphs);
   const { fitView } = useReactFlow();
   const folders = useGraph((s) => s.folders);
   const addFolder = useGraph((s) => s.addFolder);
@@ -118,12 +104,16 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [selFolder, setSelFolder] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [lastPick, setLastPick] = useState<string | null>(null);
+  const [dropFolder, setDropFolder] = useState<string | null | undefined>(undefined);
   const [stuckFolder, setStuckFolder] = useState<{ id: string; anim: boolean } | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const stuckIdRef = useRef<string | null>(null);
   const stickyElRef = useRef<HTMLButtonElement | null>(null);
   const pushRef = useRef(0);
   const scrollRafRef = useRef(0);
+  const suppressClickRef = useRef(false);
   const [cursor, setCursor] = useState(-1);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folderId: string | null; graphId?: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -299,6 +289,103 @@ export default function Sidebar() {
 
   const collapseAll = () => setOpenFolders(new Set());
 
+
+  const visibleGraphIds = () =>
+    Array.from(treeRef.current?.querySelectorAll<HTMLElement>('.graph-tree-item[data-gid]') ?? [])
+      .map((el) => el.dataset.gid ?? '')
+      .filter(Boolean);
+
+  const handleGraphClick = (pg: ProjectGraph, e: React.MouseEvent) => {
+    if (suppressClickRef.current) return;
+    treeRef.current?.focus();
+    if (e.metaKey || e.ctrlKey) {
+      setPicked((prev) => {
+        const next = new Set(prev);
+        if (next.has(pg.id)) next.delete(pg.id);
+        else next.add(pg.id);
+        return next;
+      });
+      setLastPick(pg.id);
+      return;
+    }
+    if (e.shiftKey && lastPick) {
+      const ids = visibleGraphIds();
+      const from = ids.indexOf(lastPick);
+      const to = ids.indexOf(pg.id);
+      if (from >= 0 && to >= 0) {
+        setPicked(new Set(ids.slice(Math.min(from, to), Math.max(from, to) + 1)));
+        return;
+      }
+    }
+    setPicked(new Set([pg.id]));
+    setLastPick(pg.id);
+    switchGraph(pg.id);
+    setSelFolder(pg.folderId ?? null);
+  };
+
+  const startGraphPointerDrag = (pg: ProjectGraph, e: React.PointerEvent) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    const ids = picked.has(pg.id) ? [...picked] : [pg.id];
+    if (!picked.has(pg.id)) {
+      setPicked(new Set([pg.id]));
+      setLastPick(pg.id);
+    }
+    const start = { x: e.clientX, y: e.clientY };
+    const state: { ids: string[]; active: boolean; ghost: HTMLDivElement | null } = { ids, active: false, ghost: null };
+
+    const move = (ev: PointerEvent) => {
+      const dist = Math.hypot(ev.clientX - start.x, ev.clientY - start.y);
+      if (!state.active) {
+        if (dist < 6) return;
+        state.active = true;
+        const ghost = document.createElement('div');
+        ghost.className = 'graph-ghost';
+        ghost.textContent = ids.length > 1 ? `${ids.length} 张图` : pg.name;
+        document.body.appendChild(ghost);
+        state.ghost = ghost;
+      }
+      if (state.ghost) {
+        state.ghost.style.left = `${ev.clientX + 12}px`;
+        state.ghost.style.top = `${ev.clientY + 12}px`;
+      }
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const folder = el?.closest('.graph-folder');
+      if (folder) {
+        const head = folder.querySelector(':scope > .graph-folder-head') as HTMLElement | null;
+        setDropFolder(head?.dataset.fid ?? null);
+      } else if (el?.closest('.graph-tree')) {
+        setDropFolder(null);
+      } else {
+        setDropFolder(undefined);
+      }
+    };
+
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (state.ghost) state.ghost.remove();
+      setDropFolder(undefined);
+      if (!state.active) return;
+      suppressClickRef.current = true;
+      setTimeout(() => { suppressClickRef.current = false; }, 250);
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const folder = el?.closest('.graph-folder');
+      if (folder) {
+        const head = folder.querySelector(':scope > .graph-folder-head') as HTMLElement | null;
+        moveGraphsToFolder(state.ids, head?.dataset.fid ?? null);
+      } else if (el?.closest('.react-flow')) {
+        window.dispatchEvent(new CustomEvent('nodeworks:create-graph-many', {
+          detail: { graphIds: state.ids, clientX: ev.clientX, clientY: ev.clientY },
+        }));
+      } else if (el?.closest('.graph-tree')) {
+        moveGraphsToFolder(state.ids, null);
+      }
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   const renderFolder = (folder: ProjectFolder, depth: number) => {
     const kids = folderChildren(folder.id);
     const gs = graphsIn(folder.id);
@@ -306,7 +393,7 @@ export default function Sidebar() {
     return (
       <div key={folder.id} className="graph-folder">
         <div
-          className={`graph-folder-head${open ? ' open' : ''}${folder.id === selFolder ? ' sel' : ''}`}
+          className={`graph-folder-head${open ? ' open' : ''}${folder.id === selFolder ? ' sel' : ''}${dropFolder === folder.id ? ' drop-target' : ''}`}
           data-fid={folder.id}
           style={{ paddingLeft: 8 + depth * 16 }}
           onClick={() => {
@@ -353,20 +440,12 @@ export default function Sidebar() {
             {gs.map((pg) => (
               <button
                 key={pg.id}
-                className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
-                  e.dataTransfer.effectAllowed = 'copy';
-                  setGraphDragImage(e, pg.name, pg.graph.nodes.length);
-                }}
+                className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}${picked.has(pg.id) && picked.size > 1 ? ' multi' : ''}`}
+                data-gid={pg.id}
+                onPointerDown={(e) => startGraphPointerDrag(pg, e)}
                 style={{ paddingLeft: 22 + (depth + 1) * 16 }}
                 title={pg.name}
-                onClick={() => {
-                  treeRef.current?.focus();
-                  switchGraph(pg.id);
-                  setSelFolder(pg.folderId ?? null);
-                }}
+                onClick={(e) => handleGraphClick(pg, e)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -519,20 +598,12 @@ export default function Sidebar() {
             .map((pg) => (
               <button
                 key={pg.id}
-                className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}`}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('application/x-nodeworks-graph', pg.id);
-                  e.dataTransfer.effectAllowed = 'copy';
-                  setGraphDragImage(e, pg.name, pg.graph.nodes.length);
-                }}
+                className={`graph-tree-item${pg.id === activeGraphId ? ' on' : ''}${picked.has(pg.id) && picked.size > 1 ? ' multi' : ''}`}
+                data-gid={pg.id}
+                onPointerDown={(e) => startGraphPointerDrag(pg, e)}
                 style={{ paddingLeft: 22 }}
                 title={pg.name}
-                onClick={() => {
-                  treeRef.current?.focus();
-                  switchGraph(pg.id);
-                  setSelFolder(null);
-                }}
+                onClick={(e) => handleGraphClick(pg, e)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -703,6 +774,9 @@ export default function Sidebar() {
         >
           {ctxMenu.graphId ? (
             <>
+              <button onClick={() => { cutGraphs([ctxMenu.graphId!]); setCtxMenu(null); }}>剪切</button>
+              <button onClick={() => { copyGraphs([ctxMenu.graphId!]); setCtxMenu(null); }}>复制</button>
+              <div className="tree-menu-sep" />
               <button onClick={() => renameGraphById(ctxMenu.graphId!)}>重命名图</button>
               <button className="danger" onClick={() => deleteGraphById(ctxMenu.graphId!)}>删除图</button>
             </>
@@ -710,6 +784,11 @@ export default function Sidebar() {
             <>
               <button onClick={() => createGraphIn(ctxMenu.folderId)}>新建图</button>
               <button onClick={() => createFolderIn(ctxMenu.folderId)}>新建分组</button>
+              {graphClipboard && (
+                <button onClick={() => { pasteGraphs(ctxMenu.folderId); setCtxMenu(null); }}>
+                  粘贴 {graphClipboard.ids.length} 张图
+                </button>
+              )}
               {!ctxMenu.folderId && (
                 <button onClick={() => useGraph.getState().rebuildLevelFolders()}>按层级重建分组</button>
               )}

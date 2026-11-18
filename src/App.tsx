@@ -446,12 +446,22 @@ function Canvas() {
       if (useGraph.getState().preview) return;
       const pos = screenToFlowPosition({ x: detail.clientX, y: detail.clientY });
       // 文件树拖进来的是完整子图卡片：输入口 + 输出口都带，方向由用户连线决定。
-      useGraph.getState().addGraphRef(detail.graphId, pos, 'both');
+      useGraph.getState().addGraphRef(detail.graphId, pos, 'both', undefined, false);
     };
     window.addEventListener('nodeworks:create-graph', onGraph);
+    const onGraphMany = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { graphIds: string[]; clientX: number; clientY: number };
+      if (useGraph.getState().preview) return;
+      const pos = screenToFlowPosition({ x: detail.clientX, y: detail.clientY });
+      detail.graphIds.forEach((id, i) => {
+        useGraph.getState().addGraphRef(id, { x: pos.x + i * 380, y: pos.y }, 'both', undefined, false);
+      });
+    };
+    window.addEventListener('nodeworks:create-graph-many', onGraphMany);
     return () => {
       window.removeEventListener('nodeworks:create-node', onCreate);
       window.removeEventListener('nodeworks:create-graph', onGraph);
+      window.removeEventListener('nodeworks:create-graph-many', onGraphMany);
     };
   }, [screenToFlowPosition]);
 

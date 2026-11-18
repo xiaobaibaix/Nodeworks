@@ -1924,3 +1924,26 @@ button.danger:hover:not(:disabled) { background: #2a1518; border-color: #7f3a3a;
 .style-preset-bar button.on { color: var(--accent); border-color: var(--accent); }
 .style-preset-bar button:disabled { opacity: 0.45; cursor: default; }
 .style-stats { font-size: 11px; color: #8b98a8; margin: 2px 0 8px; }
+
+.graph-tree-item.multi {
+  background: #172333;
+  box-shadow: inset 2px 0 0 #4c8dff;
+}
+.graph-folder-head.drop-target {
+  background: #12304a;
+  box-shadow: inset 0 0 0 1px #4c8dff;
+}
+.graph-root-drop {
+  margin: 4px 8px;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: #9fb3c8;
+  border: 1px dashed #3d4b5f;
+  border-radius: 5px;
+  text-align: center;
+}
+.graph-root-drop.over {
+  color: #e6edf3;
+  border-color: #4c8dff;
+  background: #12304a;
+}

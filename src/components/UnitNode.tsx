@@ -59,13 +59,16 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
   const ins = node.ports.filter((p) => p.dir === 'in');
   const outs = node.ports.filter((p) => p.dir === 'out');
   const props = Object.entries(node.props);
-  const subgraph = node.subgraph;
+  const linkedGraph = useGraph((s) =>
+    node.linkGraph ? s.projectGraphs.find((p) => p.id === node.linkGraph)?.graph : undefined,
+  );
+  const subgraph = node.subgraph ?? linkedGraph ?? null;
   const preview = useMemo(() => (subgraph ? miniPreview(subgraph) : null), [subgraph]);
   // 子图对外只承诺“单位时间产率”：优先取显式属性，其次按内部机器的周期/批量估算。
   const rate = useMemo(() => {
     const explicit = node.props['速率']?.value;
     if (typeof explicit === 'number' && Number.isFinite(explicit)) return explicit;
-    const sub = node.subgraph;
+    const sub = subgraph;
     if (!sub) return null;
     for (const n of sub.nodes) {
       const c = Number(n.props['周期']?.value);
@@ -76,7 +79,7 @@ export default function UnitNode({ id, data, selected }: NodeProps) {
       }
     }
     return null;
-  }, [node]);
+  }, [node, subgraph]);
   const icon = useMemo(() => iconOf(node), [node.resources]);
   const iconUrl = useIconUrl(id, icon);
   const enterSubgraph = useGraph((s) => s.enterSubgraph);
